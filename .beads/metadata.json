@@ -2,7 +2,6 @@
   "database": "dolt",
   "backend": "dolt",
   "dolt_mode": "server",
-  "dolt_server_port": 13753,
   "dolt_database": "artlab",
   "project_id": "b8a775c5-299d-448e-995a-f746568e66d0"
 }
