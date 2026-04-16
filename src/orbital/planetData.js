@@ -1,0 +1,193 @@
+import { AU_SCALE, PLANET_SCALE, TIME_YEAR_SECS } from '../utils/constants.js'
+
+/**
+ * Planetary data.
+ * radius: Earth radii (Earth = 1.0)
+ * semiMajorAxis: AU
+ * eccentricity: 0..1
+ * inclination: degrees (from ecliptic)
+ * orbitalPeriod: Earth years
+ * rotationPeriod: Earth days (negative = retrograde)
+ * axialTilt: degrees
+ * toneNote: Tone.js note string for ambient pad
+ * color: fallback procedural color (hex)
+ */
+export const PLANET_DATA = {
+  mercury: {
+    name: 'Mercury',
+    radius: 0.383,
+    semiMajorAxis: 0.387,
+    eccentricity: 0.206,
+    inclination: 7.0,
+    orbitalPeriod: 0.2408,
+    rotationPeriod: 58.6,
+    axialTilt: 0.03,
+    atmosphereScale: 0,
+    color: 0x9E9E9E,
+    roughness: 0.95,
+    metalness: 0.05,
+    toneNote: 'B5',
+    toneOctave: 5,
+    textures: {
+      map: '/textures/mercury/mercury_map.jpg',
+    },
+  },
+  venus: {
+    name: 'Venus',
+    radius: 0.949,
+    semiMajorAxis: 0.723,
+    eccentricity: 0.007,
+    inclination: 3.4,
+    orbitalPeriod: 0.6152,
+    rotationPeriod: -243,
+    axialTilt: 177.4,
+    atmosphereScale: 1.04,
+    atmosphereColor: [1.0, 0.85, 0.5],
+    color: 0xE8C870,
+    roughness: 0.85,
+    metalness: 0.0,
+    toneNote: 'G4',
+    toneOctave: 4,
+    textures: {
+      map: '/textures/venus/venus_atmosphere.jpg',
+    },
+  },
+  earth: {
+    name: 'Earth',
+    radius: 1.0,
+    semiMajorAxis: 1.0,
+    eccentricity: 0.017,
+    inclination: 0.0,
+    orbitalPeriod: 1.0,
+    rotationPeriod: 1.0,
+    axialTilt: 23.44,
+    atmosphereScale: 1.028,
+    atmosphereColor: [0.3, 0.6, 1.0],
+    color: 0x2255AA,
+    roughness: 0.75,
+    metalness: 0.0,
+    toneNote: 'C4',
+    toneOctave: 4,
+    textures: {
+      map:       '/textures/earth/earth_daymap.jpg',
+      night:     '/textures/earth/earth_nightmap.jpg',
+      clouds:    '/textures/earth/earth_clouds.jpg',
+      specular:  '/textures/earth/earth_specular.jpg',
+      normal:    '/textures/earth/earth_normal.jpg',
+    },
+  },
+  mars: {
+    name: 'Mars',
+    radius: 0.532,
+    semiMajorAxis: 1.524,
+    eccentricity: 0.093,
+    inclination: 1.85,
+    orbitalPeriod: 1.8809,
+    rotationPeriod: 1.026,
+    axialTilt: 25.19,
+    atmosphereScale: 1.015,
+    atmosphereColor: [0.9, 0.4, 0.2],
+    color: 0xC1440E,
+    roughness: 0.9,
+    metalness: 0.0,
+    toneNote: 'F3',
+    toneOctave: 3,
+    textures: {
+      map: '/textures/mars/mars_map.jpg',
+    },
+  },
+  jupiter: {
+    name: 'Jupiter',
+    radius: 11.209,
+    semiMajorAxis: 5.204,
+    eccentricity: 0.049,
+    inclination: 1.3,
+    orbitalPeriod: 11.862,
+    rotationPeriod: 0.413,
+    axialTilt: 3.13,
+    atmosphereScale: 1.01,
+    color: 0xC88B3A,
+    roughness: 0.8,
+    metalness: 0.0,
+    toneNote: 'A2',
+    toneOctave: 2,
+    textures: {
+      map: '/textures/jupiter/jupiter_map.jpg',
+    },
+  },
+  saturn: {
+    name: 'Saturn',
+    radius: 9.449,
+    semiMajorAxis: 9.537,
+    eccentricity: 0.057,
+    inclination: 2.49,
+    orbitalPeriod: 29.457,
+    rotationPeriod: 0.444,
+    axialTilt: 26.73,
+    hasRings: true,
+    ringInner: 1.11,   // relative to Saturn radius
+    ringOuter: 2.27,
+    color: 0xEAD6A5,
+    roughness: 0.85,
+    metalness: 0.0,
+    toneNote: 'E2',
+    toneOctave: 2,
+    textures: {
+      map:  '/textures/saturn/saturn_map.jpg',
+      ring: '/textures/saturn/saturn_rings.png',
+    },
+  },
+  uranus: {
+    name: 'Uranus',
+    radius: 4.007,
+    semiMajorAxis: 19.191,
+    eccentricity: 0.046,
+    inclination: 0.77,
+    orbitalPeriod: 84.011,
+    rotationPeriod: -0.718,
+    axialTilt: 97.77,
+    atmosphereScale: 1.01,
+    atmosphereColor: [0.5, 0.9, 0.9],
+    color: 0x7DE8E8,
+    roughness: 0.8,
+    metalness: 0.0,
+    toneNote: 'D2',
+    toneOctave: 2,
+    textures: {
+      map: '/textures/uranus/uranus_map.jpg',
+    },
+  },
+  neptune: {
+    name: 'Neptune',
+    radius: 3.883,
+    semiMajorAxis: 30.069,
+    eccentricity: 0.010,
+    inclination: 1.77,
+    orbitalPeriod: 164.8,
+    rotationPeriod: 0.671,
+    axialTilt: 28.32,
+    atmosphereScale: 1.01,
+    atmosphereColor: [0.2, 0.4, 1.0],
+    color: 0x3F54BA,
+    roughness: 0.8,
+    metalness: 0.0,
+    toneNote: 'A1',
+    toneOctave: 1,
+    textures: {
+      map: '/textures/neptune/neptune_map.jpg',
+    },
+  },
+}
+
+/** Ordered for rendering (inner to outer) */
+export const PLANET_ORDER = ['mercury', 'venus', 'earth', 'mars', 'jupiter', 'saturn', 'uranus', 'neptune']
+
+/** Moon data */
+export const MOON_DATA = {
+  radius: 0.273,           // Earth radii
+  semiMajorAxis: 0.00257,  // AU (= 384,400 km)
+  orbitalPeriod: 0.0748,   // Earth years (= 27.3 days)
+  color: 0xAAAAAA,
+  roughness: 0.95,
+  textures: { map: '/textures/moon/moon_map.jpg' },
+}

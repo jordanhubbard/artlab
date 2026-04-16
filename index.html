@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Solar System — ArtLab</title>
+  <style>
+    *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+    html, body { width: 100%; height: 100%; overflow: hidden; background: #000005; }
+    canvas { display: block; width: 100% !important; height: 100% !important; }
+
+    #loading {
+      position: fixed; inset: 0; background: #000005;
+      display: flex; flex-direction: column; align-items: center; justify-content: center;
+      color: #fff; font-family: 'Courier New', monospace; z-index: 100; gap: 24px;
+    }
+    #loading-title {
+      font-size: 22px; letter-spacing: 0.4em; color: #aaddff;
+      text-transform: uppercase;
+    }
+    #loading-bar-outer { width: 280px; height: 1px; background: #1a2030; }
+    #loading-bar { width: 0%; height: 100%; background: linear-gradient(90deg, #336699, #aaddff); transition: width 0.4s ease; }
+    #loading-text { font-size: 11px; color: #445566; letter-spacing: 0.2em; text-transform: uppercase; }
+
+    #start-btn {
+      display: none;
+      position: fixed; bottom: 48px; left: 50%; transform: translateX(-50%);
+      background: transparent;
+      border: 1px solid rgba(100, 170, 255, 0.4);
+      color: #aaddff; padding: 14px 44px; cursor: pointer; font-size: 12px;
+      border-radius: 2px; z-index: 50; font-family: 'Courier New', monospace;
+      letter-spacing: 0.3em; text-transform: uppercase;
+      transition: border-color 0.3s, color 0.3s, background 0.3s;
+    }
+    #start-btn:hover {
+      border-color: #aaddff; color: #fff;
+      background: rgba(100, 170, 255, 0.08);
+    }
+
+    #hud {
+      position: fixed; top: 20px; left: 24px;
+      color: rgba(150, 200, 240, 0.5); font-family: 'Courier New', monospace;
+      font-size: 10px; pointer-events: none; z-index: 50;
+      letter-spacing: 0.12em; line-height: 1.8;
+    }
+
+    #planet-label {
+      position: fixed; bottom: 24px; right: 24px;
+      color: rgba(170, 220, 255, 0.85); font-family: 'Courier New', monospace;
+      font-size: 13px; pointer-events: none; z-index: 50;
+      letter-spacing: 0.25em; text-transform: uppercase;
+      text-shadow: 0 0 20px rgba(100, 170, 255, 0.5);
+      transition: opacity 0.5s;
+    }
+
+    #webgpu-badge {
+      position: fixed; top: 20px; right: 24px;
+      font-family: 'Courier New', monospace; font-size: 9px;
+      letter-spacing: 0.15em; text-transform: uppercase;
+      color: rgba(100, 255, 150, 0.4);
+      pointer-events: none; z-index: 50;
+    }
+  </style>
+</head>
+<body>
+  <div id="loading">
+    <div id="loading-title">Solar System</div>
+    <div id="loading-bar-outer"><div id="loading-bar"></div></div>
+    <div id="loading-text">Initializing renderer...</div>
+  </div>
+  <button id="start-btn">Begin Journey</button>
+  <div id="hud"></div>
+  <div id="planet-label"></div>
+  <div id="webgpu-badge"></div>
+  <canvas id="canvas"></canvas>
+  <script type="module" src="/src/main.js"></script>
+</body>
+</html>
