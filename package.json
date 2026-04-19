@@ -13,6 +13,7 @@
     "test:watch": "vitest"
   },
   "dependencies": {
+    "@dimforge/rapier3d-compat": "^0.19.3",
     "gsap": "^3.12.5",
     "howler": "^2.2.4",
     "lil-gui": "^0.21.0",
