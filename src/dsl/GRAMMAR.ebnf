@@ -1,0 +1,188 @@
+(* Artlab DSL — Formal Grammar Specification (EBNF)               *)
+(* Version 1.0 — 2026-04-16                                        *)
+(*                                                                  *)
+(* Notation:                                                        *)
+(*   ::=   definition                                               *)
+(*   |     alternation                                              *)
+(*   [ ]   optional                                                 *)
+(*   { }   zero or more repetitions                                 *)
+(*   ( )   grouping                                                 *)
+(*   ' '   terminal literal                                         *)
+(*   (* *) comment                                                  *)
+
+(* ─────────────────────────────────────────────────────────────── *)
+(* Top level                                                        *)
+(* ─────────────────────────────────────────────────────────────── *)
+
+program     ::= { stmt } EOF
+
+stmt        ::= use_stmt
+              | fn_def
+              | var_decl
+              | assign_stmt
+              | if_stmt
+              | loop_stmt
+              | every_stmt
+              | return_stmt
+              | expr_stmt
+
+(* ─────────────────────────────────────────────────────────────── *)
+(* Import / dependency declarations                                 *)
+(* ─────────────────────────────────────────────────────────────── *)
+
+use_stmt    ::= 'use' use_source [ 'as' IDENT ] newline
+use_source  ::= STRING                          (* stdlib: "artlab/math" *)
+              | 'url' ':' STRING               (* remote:   url:"https://…" *)
+              | 'embedded' ':' STRING          (* in-zip:   embedded:"libs/…" *)
+
+(* ─────────────────────────────────────────────────────────────── *)
+(* Function definitions                                             *)
+(* ─────────────────────────────────────────────────────────────── *)
+
+fn_def      ::= 'fn' IDENT '(' [ param_list ] ')' [ ':' TYPE ] block
+
+param_list  ::= param { ',' param }
+param       ::= IDENT [ ':' TYPE ]
+
+(* ─────────────────────────────────────────────────────────────── *)
+(* Variable declarations and assignment                             *)
+(* ─────────────────────────────────────────────────────────────── *)
+
+var_decl    ::= 'let' IDENT [ ':' TYPE ] '=' expr newline
+
+assign_stmt ::= lvalue '=' expr newline
+lvalue      ::= IDENT { '.' IDENT }             (* e.g. planet.position.x *)
+
+(* ─────────────────────────────────────────────────────────────── *)
+(* Control flow                                                     *)
+(* ─────────────────────────────────────────────────────────────── *)
+
+if_stmt     ::= 'if' expr block [ 'else' ( if_stmt | block ) ]
+
+loop_stmt   ::= 'loop' IDENT 'from' expr 'to' expr [ 'by' expr ] block
+                (* Compiles to:  for (let IDENT = from; IDENT < to; IDENT += by) *)
+
+every_stmt  ::= 'every' expr block
+                (* expr is interval in seconds. Compiles to setInterval *)
+
+return_stmt ::= 'return' [ expr ] newline
+
+expr_stmt   ::= expr newline
+
+block       ::= '{' { stmt } '}'
+
+(* ─────────────────────────────────────────────────────────────── *)
+(* Expressions — precedence lowest → highest                        *)
+(* ─────────────────────────────────────────────────────────────── *)
+
+expr        ::= logic_or
+
+logic_or    ::= logic_and { '||' logic_and }
+logic_and   ::= equality  { '&&' equality  }
+equality    ::= relational { ( '==' | '!=' ) relational }
+relational  ::= additive   { ( '<' | '>' | '<=' | '>=' ) additive }
+additive    ::= multiplicative { ( '+' | '-' ) multiplicative }
+multiplicative ::= unary    { ( '*' | '/' | '%' ) unary }
+unary       ::= ( '-' | '!' ) unary | exponent
+exponent    ::= postfix [ '**' unary ]           (* right-associative *)
+postfix     ::= primary { call_suffix | member_suffix | index_suffix }
+call_suffix   ::= '(' [ arg_list ] ')'
+member_suffix ::= '.' IDENT
+index_suffix  ::= '[' expr ']'
+
+arg_list    ::= expr { ',' expr }
+
+primary     ::= NUMBER
+              | STRING
+              | 'true' | 'false' | 'null'
+              | IDENT
+              | constructor_expr
+              | array_literal
+              | object_literal
+              | '(' expr ')'
+
+(* ─────────────────────────────────────────────────────────────── *)
+(* Built-in constructors (compile to Three.js types)                *)
+(* ─────────────────────────────────────────────────────────────── *)
+
+constructor_expr ::= 'vec2'  '(' expr ',' expr ')'
+                   | 'vec3'  '(' expr ',' expr ',' expr ')'
+                   | 'vec4'  '(' expr ',' expr ',' expr ',' expr ')'
+                   | 'color' '(' expr ',' expr ',' expr ')'
+                   | 'quat'  '(' expr ',' expr ',' expr ',' expr ')'
+
+(* ─────────────────────────────────────────────────────────────── *)
+(* Literals                                                         *)
+(* ─────────────────────────────────────────────────────────────── *)
+
+array_literal  ::= '[' [ expr { ',' expr } ] ']'
+object_literal ::= '{' [ field { ',' field } ] '}'
+field          ::= ( IDENT | STRING ) ':' expr
+
+(* ─────────────────────────────────────────────────────────────── *)
+(* Types                                                            *)
+(* ─────────────────────────────────────────────────────────────── *)
+
+TYPE        ::= 'num'   (* 64-bit float, maps to JS number      *)
+              | 'bool'  (* boolean                               *)
+              | 'str'   (* JS string                             *)
+              | 'vec2'  (* THREE.Vector2                         *)
+              | 'vec3'  (* THREE.Vector3                         *)
+              | 'vec4'  (* THREE.Vector4                         *)
+              | 'color' (* THREE.Color                           *)
+              | 'quat'  (* THREE.Quaternion                      *)
+              | 'mesh'  (* THREE.Mesh                            *)
+              | 'scene' (* THREE.Scene or SceneNode              *)
+              | IDENT   (* user-defined type from stdlib         *)
+
+(* ─────────────────────────────────────────────────────────────── *)
+(* Terminals                                                        *)
+(* ─────────────────────────────────────────────────────────────── *)
+
+NUMBER      ::= DIGIT+ [ '.' DIGIT+ ] [ ( 'e' | 'E' ) [ '+' | '-' ] DIGIT+ ]
+STRING      ::= '"' { CHAR | escape_seq } '"'
+escape_seq  ::= '\' ( '"' | '\' | 'n' | 't' | 'r' | 'u' HEX HEX HEX HEX )
+IDENT       ::= ALPHA { ALPHA | DIGIT | '_' }
+
+ALPHA       ::= [a-zA-Z_]
+DIGIT       ::= [0-9]
+HEX         ::= [0-9a-fA-F]
+CHAR        ::= (* any Unicode code point except '"' and '\' *)
+
+newline     ::= ';' | NEWLINE      (* semicolons optional; newlines sufficient *)
+
+(* ─────────────────────────────────────────────────────────────── *)
+(* Keywords (reserved — cannot be used as identifiers)              *)
+(* ─────────────────────────────────────────────────────────────── *)
+
+(* use fn let if else loop from to by every return true false null  *)
+(* num bool str vec2 vec3 vec4 color quat mesh scene                *)
+
+(* ─────────────────────────────────────────────────────────────── *)
+(* Whitespace and comments                                          *)
+(* ─────────────────────────────────────────────────────────────── *)
+
+(* Line comments: # comment to end of line                          *)
+(* Block comments: not supported in v1                              *)
+(* Whitespace (space, tab) is insignificant except within strings   *)
+(* Newlines are significant as statement terminators                *)
+
+(* ─────────────────────────────────────────────────────────────── *)
+(* Codegen mapping summary                                          *)
+(* ─────────────────────────────────────────────────────────────── *)
+
+(*
+  DSL construct                   →  Generated JavaScript
+  ─────────────────────────────────────────────────────────────────
+  use "artlab/math"               →  import * as _m0 from '/artlab/stdlib/math.js'
+  use url:"https://ex.com/a.js"   →  import * as _u0 from "https://ex.com/a.js"
+  use embedded:"libs/foo.art"     →  import * as _e0 from new URL("libs/foo.art", import.meta.url)
+  fn setup() { … }               →  export function setup() { … }
+  fn helper(x: num) { … }        →  function helper(x) { … }
+  let r: num = 3.14               →  let r = 3.14
+  loop i from 0 to n { … }       →  for (let i = 0; i < n; i++) { … }
+  loop i from 0 to n by 2 { … }  →  for (let i = 0; i < n; i += 2) { … }
+  every 0.5 { … }                →  setInterval(() => { … }, 500)
+  vec3(1, 2, 3)                   →  new THREE.Vector3(1, 2, 3)
+  color(1, 0, 0)                  →  new THREE.Color(1, 0, 0)
+*)

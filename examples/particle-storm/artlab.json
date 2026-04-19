@@ -1,0 +1,6 @@
+{
+  "name": "particle-storm",
+  "version": "1.0.0",
+  "entry": "particle-storm.js",
+  "description": "500 glowing embers spiral outward from the origin, resetting on escape — a storm of living fire."
+}

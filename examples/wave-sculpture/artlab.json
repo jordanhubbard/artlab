@@ -1,0 +1,6 @@
+{
+  "name": "wave-sculpture",
+  "version": "1.0.0",
+  "entry": "wave-sculpture.js",
+  "description": "A 15x15 grid of spheres animated into a flowing wave landscape with deep blue to cyan coloring."
+}

@@ -1,0 +1,6 @@
+{
+  "name": "color-fields",
+  "version": "1.0.0",
+  "entry": "color-fields.js",
+  "description": "A 20x20 animated grid of emissive color planes creating a flowing generative color wave."
+}

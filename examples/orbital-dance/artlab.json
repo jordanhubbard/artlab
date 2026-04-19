@@ -1,0 +1,6 @@
+{
+  "name": "orbital-dance",
+  "version": "1.0.0",
+  "entry": "orbital-dance.js",
+  "description": "Five colored spheres orbit a luminous sun, trailing ghost paths — a choreography of light."
+}

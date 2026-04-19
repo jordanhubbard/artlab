@@ -7,3 +7,13 @@ public/textures/
 # Dolt database files (added by bd init)
 .dolt/
 *.db
+
+# User workspace — packages live outside the source tree
+/packages/
+
+# Exported ZIP artifacts
+*.zip
+
+# Beads tool credentials and transient state
+.beads/.beads-credential-key
+.beads/export-state.json

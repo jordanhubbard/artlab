@@ -1,0 +1,6 @@
+{
+  "name": "solar-system",
+  "version": "1.0.0",
+  "entry": "solar-system.js",
+  "description": "Audio-reactive 3D solar system — the Artlab reference demo"
+}
