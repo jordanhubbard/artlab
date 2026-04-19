@@ -103,9 +103,12 @@ export function updateAudio(ctx, dt) {
   const midAmp  = midSum  / ((midEnd - bassEnd) * 255);
   const highAmp = highSum / ((binCount - midEnd) * 255);
 
-  // Drive bloom via bassAmp (stored for renderer to pick up)
+  // Drive bloom directly via ctx.setBloom() when available (StandaloneRunner),
+  // or store in ctx._bloomStrength as a fallback for other runtimes.
   if (bassAmp > 0) {
-    ctx._bloomStrength = BLOOM_BASE + bassAmp * BLOOM_RANGE;
+    const strength = BLOOM_BASE + bassAmp * BLOOM_RANGE;
+    ctx._bloomStrength = strength;
+    if (ctx.setBloom) ctx.setBloom(strength);
   }
 
   // Sun emissive intensity reacts to mid
