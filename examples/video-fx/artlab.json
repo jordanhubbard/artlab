@@ -1,0 +1,6 @@
+{
+  "name": "video-fx",
+  "version": "1.0.0",
+  "entry": "video-fx.js",
+  "description": "Live webcam feed with real-time shader effects — pixelate, glitch, chroma key, and canvas recording"
+}

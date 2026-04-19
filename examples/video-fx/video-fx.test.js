@@ -1,0 +1,84 @@
+// @vitest-environment jsdom
+import { describe, it, expect, vi, beforeEach } from 'vitest'
+import * as THREE from 'three'
+
+// ── Browser API stubs ────────────────────────────────────────────────────────
+
+const mockStream = {
+  getTracks: () => [{ stop: vi.fn() }],
+}
+vi.stubGlobal('navigator', {
+  mediaDevices: {
+    getUserMedia:   vi.fn().mockResolvedValue(mockStream),
+    getDisplayMedia: vi.fn().mockResolvedValue(mockStream),
+  },
+})
+
+// MediaRecorder stub
+class FakeMediaRecorder {
+  constructor() { this.state = 'inactive'; this.ondataavailable = null }
+  start()  { this.state = 'recording' }
+  stop()   { this.state = 'inactive' }
+}
+vi.stubGlobal('MediaRecorder', FakeMediaRecorder)
+
+// HTMLVideoElement play() stub
+Object.defineProperty(window.HTMLVideoElement.prototype, 'play', {
+  configurable: true,
+  value: vi.fn().mockResolvedValue(undefined),
+})
+
+// ── Mock ctx ─────────────────────────────────────────────────────────────────
+
+function makeMockCtx() {
+  const scene = { add: vi.fn(), remove: vi.fn(), children: [] }
+  return {
+    THREE,
+    scene,
+    camera:        { position: new THREE.Vector3(0, 0, 11), fov: 60, aspect: 1, updateProjectionMatrix: vi.fn() },
+    renderer:      { domElement: document.createElement('canvas'), shadowMap: { enabled: false }, setSize: vi.fn() },
+    controls:      { update: vi.fn(), target: new THREE.Vector3(), enableDamping: true },
+    labelRenderer: { render: vi.fn(), setSize: vi.fn(), domElement: document.createElement('div') },
+    add:           vi.fn(obj => { scene.add(obj); return obj }),
+    remove:        vi.fn(),
+    setBloom:      vi.fn(),
+    elapsed:       0,
+  }
+}
+
+// ── Tests ────────────────────────────────────────────────────────────────────
+
+describe('video-fx', () => {
+  let ctx, mod
+
+  beforeEach(async () => {
+    ctx = makeMockCtx()
+
+    // Auto-resolve the start-btn click so setup() doesn't hang
+    vi.spyOn(document, 'getElementById').mockReturnValue({
+      style:       { display: '' },
+      textContent: '',
+      addEventListener: (_ev, cb, _opts) => cb(),
+    })
+
+    mod = await import('./video-fx.js')
+  })
+
+  it('setup() completes and adds objects to scene', async () => {
+    await mod.setup(ctx)
+    expect(ctx.add).toHaveBeenCalled()
+    expect(ctx.setBloom).toHaveBeenCalledWith(0.35)
+  })
+
+  it('update() runs 3 frames without throwing', async () => {
+    await mod.setup(ctx)
+    expect(() => { ctx.elapsed = 0;     mod.update(ctx, 0.016) }).not.toThrow()
+    expect(() => { ctx.elapsed = 0.016; mod.update(ctx, 0.016) }).not.toThrow()
+    expect(() => { ctx.elapsed = 0.032; mod.update(ctx, 0.016) }).not.toThrow()
+  })
+
+  it('teardown() runs without throwing', async () => {
+    await mod.setup(ctx)
+    expect(() => mod.teardown(ctx)).not.toThrow()
+  })
+})
