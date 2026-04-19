@@ -1,0 +1,41 @@
+{
+  "title": "Tutorial 03 — Animation",
+  "pages": [
+    {
+      "id": "intro",
+      "title": "Animation Patterns",
+      "body": "# Animation Patterns\n\nThe preview shows three meshes using different motion patterns:\n\n- Red sphere: sine wave (smooth oscillation)\n- Green box: sawtooth via modulo (linear repeat)\n- Yellow torus: easeInOut (smooth start and end)\n\nAll animation in Artlab happens in the update() function, called every frame before rendering. It receives `ctx.elapsed` (total seconds) and `dt` (seconds since last frame).\n\nUse → to explore each pattern.",
+      "children": ["elapsed", "sine", "sawtooth", "easing", "lerp"]
+    },
+    {
+      "id": "elapsed",
+      "title": "ctx.elapsed and dt",
+      "parent": "intro",
+      "body": "# ctx.elapsed and dt\n\nTwo time values are available in update():\n\n```\nexport function update(ctx, dt) {\n  // ctx.elapsed — seconds since setup() was called\n  // dt          — seconds since last frame (~0.016 at 60fps)\n}\n```\n\nUse `ctx.elapsed` for position-based animations that need a consistent reference regardless of framerate:\n\n```\nmesh.position.y = Math.sin(ctx.elapsed) * 1.5;\n```\n\nUse `dt` to scale velocity-based changes so motion stays consistent at any frame rate:\n\n```\nmesh.rotation.y += 1.0 * dt;  // always 1 radian/sec\n```"
+    },
+    {
+      "id": "sine",
+      "title": "Sine Wave Motion",
+      "parent": "intro",
+      "body": "# Sine Wave Motion\n\nMath.sin() produces smooth oscillation between −1 and 1:\n\n```\n// Simple Y bounce\nmesh.position.y = Math.sin(ctx.elapsed) * amplitude;\n\n// Phase-shift multiple objects\nfor (let i = 0; i < meshes.length; i++) {\n  meshes[i].position.y =\n    Math.sin(ctx.elapsed + i * 0.8) * 1.5;\n}\n```\n\nScale the frequency by multiplying elapsed:\n\n```\nMath.sin(ctx.elapsed * 2.0)  // 2x faster\nMath.sin(ctx.elapsed * 0.5)  // half speed\n```\n\nCombine two sines at different frequencies for organic, non-repeating motion:\n\n```\nconst x = Math.sin(t * 1.3) * 2;\nconst z = Math.sin(t * 0.7 + 1.2) * 2;\n```"
+    },
+    {
+      "id": "sawtooth",
+      "title": "Sawtooth / Modulo",
+      "parent": "intro",
+      "body": "# Sawtooth Motion\n\nThe % operator creates a ramp that resets every N seconds:\n\n```\n// t cycles 0→1 every 2 seconds\nconst t = (ctx.elapsed % 2) / 2;\n\n// Map to -1..1\nmesh.position.x = t * 2 - 1;\n```\n\nThis produces a linear sawtooth — useful for conveyor belts, ticking animations, or counters.\n\n## Triangle Wave (Ping-Pong)\n\nFor a back-and-forth motion without the hard reset:\n\n```\nconst t = (ctx.elapsed % 2) / 2;\n// 0→1 in first half, 1→0 in second half\nconst ping = t < 0.5 ? t * 2 : (1 - t) * 2;\nmesh.position.x = ping * 4 - 2;\n```"
+    },
+    {
+      "id": "easing",
+      "title": "Easing Functions",
+      "parent": "intro",
+      "body": "# Easing Functions\n\nEasing functions remap a 0→1 input to produce non-linear motion:\n\n```\nfunction easeInOut(t) {\n  return t < 0.5\n    ? 2 * t * t\n    : -1 + (4 - 2 * t) * t;\n}\n\n// Drive with a sawtooth input\nconst t = (ctx.elapsed % 2) / 2;\nmesh.position.y = easeInOut(t) * 3 - 1.5;\n```\n\n## Common Easing Types\n\n```\n// Ease In (slow start)\nt * t\n\n// Ease Out (slow end)\n1 - (1 - t) * (1 - t)\n\n// Cubic Ease In-Out\nt < 0.5\n  ? 4*t*t*t\n  : 1 - Math.pow(-2*t+2, 3) / 2\n```"
+    },
+    {
+      "id": "lerp",
+      "title": "Lerp — Smooth Follow",
+      "parent": "intro",
+      "body": "# Lerp — Smooth Follow\n\nLinear interpolation moves a value a fraction of the way toward a target each frame:\n\n```\n// current creeps toward target\ncurrent += (target - current) * 0.08;\n```\n\nThe factor (0.08) controls speed — larger = snappier, smaller = smoother. Note: this is framerate-dependent; for consistent behavior use:\n\n```\nconst k = 1 - Math.pow(0.01, dt);\ncurrent += (target - current) * k;\n```\n\nThree.js provides lerp on Vector3 and Color directly:\n\n```\nmesh.position.lerp(targetPos, 0.08);\nmesh.material.color.lerp(targetColor, 0.05);\n```"
+    }
+  ]
+}

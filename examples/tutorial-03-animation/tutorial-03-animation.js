@@ -1,41 +1,8 @@
 // Tutorial 03 — Animation patterns: sine oscillation, linear sawtooth, and easeInOut, live.
 import * as THREE from 'three';
 
-const GRAPH_W = 220, GRAPH_H = 70, HISTORY = 220;
-
 function easeInOut(t) {
   return t < 0.5 ? 2 * t * t : -1 + (4 - 2 * t) * t;
-}
-
-function makeOverlay() {
-  const wrap = document.createElement('div');
-  wrap.style.cssText = [
-    'position:fixed', 'top:16px', 'left:16px', 'z-index:99',
-    'pointer-events:none', 'width:320px',
-    'background:rgba(0,0,0,0.75)', 'color:#cde', 'font-family:monospace',
-    'font-size:12px', 'line-height:1.6', 'padding:14px 16px',
-    'border:1px solid rgba(100,140,255,0.3)', 'border-radius:4px',
-  ].join(';');
-
-  wrap.innerHTML = [
-    `<b style="color:#88aaff">TUTORIAL 03 \u2014 ANIMATION</b><br>`,
-    `<span style="color:#445">${'\u2500'.repeat(27)}</span><br>`,
-    `<span style="color:#ff8877">&#9632;</span> <b>sin(elapsed)</b> &mdash; smooth oscillation<br>`,
-    `<span style="color:#aaa">  y = Math.sin(elapsed) * amp</span><br><br>`,
-    `<span style="color:#88ff88">&#9632;</span> <b>elapsed % 1</b> &mdash; sawtooth / linear<br>`,
-    `<span style="color:#aaa">  y = (elapsed % 1) * 2 - 1</span><br><br>`,
-    `<span style="color:#ffcc44">&#9632;</span> <b>easeInOut</b> &mdash; smooth start &amp; end<br>`,
-    `<span style="color:#aaa">  t = (elapsed%2)/2<br>  y = easeInOut(t)*2-1</span><br><br>`,
-    `<span style="color:#556">Live graph \u2193</span><br>`,
-  ].join('');
-
-  const canvas = document.createElement('canvas');
-  canvas.width = GRAPH_W;
-  canvas.height = GRAPH_H;
-  canvas.style.cssText = 'display:block;margin-top:6px;border:1px solid #334;border-radius:2px;';
-  wrap.appendChild(canvas);
-  document.body.appendChild(wrap);
-  return { wrap, canvas, ctx2d: canvas.getContext('2d') };
 }
 
 function makeLabelEl(text, color) {
@@ -86,20 +53,17 @@ export function setup(ctx) {
     m.position.set(d.x, 0, 0);
     ctx.add(m);
     const lel = makeLabelEl(d.label, '#' + d.color.toString(16).padStart(6, '0'));
-    ctx._objs.push({ mesh: m, lel, x: d.x, label: d.label });
+    ctx._objs.push({ mesh: m, lel, x: d.x });
   }
-
-  ctx._ov = makeOverlay();
-  ctx._hist = { sin: [], lin: [], ease: [] };
 }
 
 export function update(ctx, dt) {
   const t = ctx.elapsed;
 
-  const sv  = Math.sin(t);
-  const lv  = (t % 1) * 2 - 1;
-  const et  = (t % 2) / 2;
-  const ev  = easeInOut(et) * 2 - 1;
+  const sv = Math.sin(t);
+  const lv = (t % 1) * 2 - 1;
+  const et = (t % 2) / 2;
+  const ev = easeInOut(et) * 2 - 1;
 
   ctx._objs[0].mesh.position.y = sv * 1.4;
   ctx._objs[1].mesh.position.y = lv * 1.4;
@@ -110,38 +74,8 @@ export function update(ctx, dt) {
 
   for (const { mesh, lel } of ctx._objs)
     placeLabel(lel, mesh, ctx.camera, ctx.renderer.domElement);
-
-  const h = ctx._hist;
-  h.sin.push(sv);  if (h.sin.length  > HISTORY) h.sin.shift();
-  h.lin.push(lv);  if (h.lin.length  > HISTORY) h.lin.shift();
-  h.ease.push(ev); if (h.ease.length > HISTORY) h.ease.shift();
-
-  const c = ctx._ov.ctx2d;
-  c.clearRect(0, 0, GRAPH_W, GRAPH_H);
-  c.fillStyle = '#0a0c14';
-  c.fillRect(0, 0, GRAPH_W, GRAPH_H);
-
-  const drawCurve = (data, color) => {
-    c.beginPath();
-    c.strokeStyle = color;
-    c.lineWidth = 1.5;
-    for (let i = 0; i < data.length; i++) {
-      const x = (i / HISTORY) * GRAPH_W;
-      const y = GRAPH_H / 2 - (data[i] / 2) * (GRAPH_H / 2 - 4);
-      i === 0 ? c.moveTo(x, y) : c.lineTo(x, y);
-    }
-    c.stroke();
-  };
-
-  c.strokeStyle = '#223'; c.lineWidth = 1;
-  c.beginPath(); c.moveTo(0, GRAPH_H / 2); c.lineTo(GRAPH_W, GRAPH_H / 2); c.stroke();
-
-  drawCurve(h.sin,  '#ff8877');
-  drawCurve(h.lin,  '#44ff88');
-  drawCurve(h.ease, '#ffcc44');
 }
 
 export function teardown(ctx) {
-  ctx._ov.wrap.remove();
   for (const { lel } of ctx._objs) lel.remove();
 }

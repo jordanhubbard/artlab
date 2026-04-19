@@ -1,69 +1,15 @@
-// Tutorial 02 — Lighting: five modes cycle every 4 seconds, each documented live on-screen.
+// Tutorial 02 — Lighting: five modes cycle every 4 seconds.
 import * as THREE from 'three';
 
 const CYCLE_DURATION = 4.0;
 
 const MODES = [
-  {
-    name: 'Ambient Only',
-    ctor: 'AmbientLight',
-    params: 'color: 0x888888\nintensity: 1.0',
-    desc: 'Uniform light from all directions.\nNo shadows, no directionality.',
-  },
-  {
-    name: 'Directional + Ambient',
-    ctor: 'DirectionalLight',
-    params: 'color: 0xffffff\nintensity: 1.4\nposition: (5, 8, 4)',
-    desc: 'Simulates distant sunlight.\nOne-sided shading, hard terminator.',
-  },
-  {
-    name: 'Orbiting Point Light',
-    ctor: 'PointLight',
-    params: 'color: 0xff8844\nintensity: 2.0\ndistance: 12',
-    desc: 'Emits in all directions from a point.\nDramatic falloff; great for flames.',
-  },
-  {
-    name: 'Three-Point Studio',
-    ctor: 'DirectionalLight \xd7 3',
-    params: 'key: 0xfff0cc 1.4\nfill: 0x4488ff 0.5\nrim: 0xff4488 0.7',
-    desc: 'Classic photography rig.\nKey + fill + rim separation.',
-  },
-  {
-    name: 'Hemisphere',
-    ctor: 'HemisphereLight',
-    params: 'sky: 0x8888ff\nground: 0x664422\nintensity: 1.2',
-    desc: 'Sky color from above, ground\ncolor from below. Soft, natural.',
-  },
+  { name: 'Ambient Only' },
+  { name: 'Directional + Ambient' },
+  { name: 'Orbiting Point Light' },
+  { name: 'Three-Point Studio' },
+  { name: 'Hemisphere' },
 ];
-
-function makeOverlay() {
-  const div = document.createElement('div');
-  div.style.cssText = [
-    'position:fixed', 'top:16px', 'left:16px', 'z-index:99',
-    'pointer-events:none', 'width:310px',
-    'background:rgba(0,0,0,0.75)', 'color:#dde', 'font-family:monospace',
-    'font-size:12px', 'line-height:1.65', 'padding:14px 16px',
-    'border:1px solid rgba(100,140,255,0.3)', 'border-radius:4px',
-    'transition:opacity 0.3s',
-  ].join(';');
-  document.body.appendChild(div);
-  return div;
-}
-
-function updateOverlay(div, mode, idx, total) {
-  div.innerHTML = [
-    `<b style="color:#88aaff">TUTORIAL 02 \u2014 LIGHTING</b>`,
-    `<span style="color:#556">${'\u2500'.repeat(27)}</span>`,
-    `<b style="color:#ffcc66">Mode ${idx + 1}/${total}: ${mode.name}</b>`,
-    '',
-    `<span style="color:#88ff88">${mode.ctor}</span>`,
-    `<span style="color:#aaa">${mode.params.replace(/\n/g, '\n')}</span>`,
-    '',
-    `<span style="color:#ccd">${mode.desc}</span>`,
-    '',
-    `<span style="color:#556">Next mode in ${CYCLE_DURATION}s\u2026</span>`,
-  ].join('\n').replace(/\n/g, '<br>');
-}
 
 function clearLights(ctx) {
   for (const l of (ctx._lights || [])) {
@@ -74,7 +20,6 @@ function clearLights(ctx) {
 }
 
 function applyMode(ctx, idx) {
-  const { THREE: T } = ctx;
   clearLights(ctx);
   const add = (l) => { ctx._lights.push(l); ctx.add(l); };
 
@@ -115,13 +60,10 @@ export function setup(ctx) {
   ctx.add(ctx._sphere);
 
   ctx._lights = [];
-  ctx._modeIdx = -1;
+  ctx._modeIdx = 0;
   ctx._lastSwitch = -CYCLE_DURATION;
 
-  ctx._overlay = makeOverlay();
-  updateOverlay(ctx._overlay, MODES[0], 0, MODES.length);
   applyMode(ctx, 0);
-  ctx._modeIdx = 0;
 }
 
 export function update(ctx, dt) {
@@ -130,7 +72,6 @@ export function update(ctx, dt) {
   if (t - ctx._lastSwitch >= CYCLE_DURATION) {
     ctx._modeIdx = (ctx._modeIdx + 1) % MODES.length;
     applyMode(ctx, ctx._modeIdx);
-    updateOverlay(ctx._overlay, MODES[ctx._modeIdx], ctx._modeIdx, MODES.length);
     ctx._lastSwitch = t;
   }
 
@@ -141,5 +82,4 @@ export function update(ctx, dt) {
 
 export function teardown(ctx) {
   clearLights(ctx);
-  ctx._overlay.remove();
 }

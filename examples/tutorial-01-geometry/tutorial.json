@@ -1,0 +1,29 @@
+{
+  "title": "Tutorial 01 — Geometry & Materials",
+  "pages": [
+    {
+      "id": "intro",
+      "title": "Geometry & Materials",
+      "body": "# Geometry & Materials\n\nArtlab wraps Three.js geometry into simple factory functions. Five primitives are visible in the preview — a sphere, box, torus, cylinder, and cone.\n\nEach shape is created from a geometry + material pair and added to the scene with ctx.add().\n\nUse → to explore each concept in detail, ↑ to go back to a parent topic, and ← to go to the previous page.",
+      "children": ["primitives", "materials", "mesh-factory"]
+    },
+    {
+      "id": "primitives",
+      "title": "Primitive Shapes",
+      "parent": "intro",
+      "body": "# Primitive Shapes\n\nSix common primitives are available as factory functions on ctx:\n\n```\nsphere(radius)             → SphereGeometry\nbox(width, height, depth)  → BoxGeometry\ntorus(R, r)                → TorusGeometry\ncylinder(radius, height)   → CylinderGeometry\ncone(radius, height)       → ConeGeometry\nplane(width, height)       → PlaneGeometry\n```\n\nEach returns a THREE.BufferGeometry you pass to mesh().\n\nUnder the hood these are standard Three.js geometries — you can also construct them directly via ctx.THREE if you need custom segment counts."
+    },
+    {
+      "id": "materials",
+      "title": "Materials",
+      "parent": "intro",
+      "body": "# Materials\n\nArtlab uses MeshStandardMaterial by default — a physically-based material that responds to lights realistically.\n\nKey parameters:\n\n```\nmesh(geo, {\n  color:     0x4466ff,  // base albedo hex\n  roughness: 0.35,      // 0 = mirror, 1 = matte\n  metalness: 0.15,      // 0 = plastic, 1 = metal\n  emissive:  0x112244,  // self-illumination color\n})\n```\n\n## Roughness vs Metalness\n\n- Rough metal → brushed aluminium look\n- Smooth metal → chrome mirror\n- Rough non-metal → chalk, stone, matte paint\n- Smooth non-metal → polished plastic, lacquer"
+    },
+    {
+      "id": "mesh-factory",
+      "title": "The mesh() Factory",
+      "parent": "intro",
+      "body": "# The mesh() Factory\n\nmesh() combines geometry and material into a THREE.Mesh in one call:\n\n```\nconst { mesh, sphere } = ctx;\n\nconst ball = mesh(\n  sphere(0.6),\n  { color: 0x4466ff, roughness: 0.4 }\n);\nball.position.set(0, 1, 0);\nctx.add(ball);\n```\n\nThe returned object is a standard THREE.Mesh — set position, rotation, scale, and userData just as you would in plain Three.js.\n\nAnimate it in update():\n\n```\nexport function update(ctx, dt) {\n  ball.rotation.y += dt;\n  ball.position.y = Math.sin(ctx.elapsed) * 0.5;\n}\n```"
+    }
+  ]
+}

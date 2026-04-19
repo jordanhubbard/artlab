@@ -1,0 +1,41 @@
+{
+  "title": "Tutorial 02 — Lighting",
+  "pages": [
+    {
+      "id": "intro",
+      "title": "Lighting in Three.js",
+      "body": "# Lighting in Three.js\n\nThe preview cycles through five lighting modes. Each mode uses different light types to demonstrate a distinct look.\n\nArtlab exposes light factories on ctx:\n\n```\nambient(color, intensity)\npoint(color, intensity, distance, decay)\ndirectional(color, intensity)\nspot(color, intensity, distance, angle)\nhemi(skyColor, groundColor, intensity)\n```\n\nLights added with ctx.add() affect every MeshStandardMaterial object in the scene. MeshBasicMaterial ignores lights entirely.",
+      "children": ["ambient", "directional", "point", "studio", "hemisphere"]
+    },
+    {
+      "id": "ambient",
+      "title": "Ambient Light",
+      "parent": "intro",
+      "body": "# Ambient Light\n\nAmbient light fills the entire scene uniformly — no direction, no shadows.\n\n```\nconst fill = ctx.ambient(0x888888, 0.4);\nctx.add(fill);\n```\n\nAlone it produces flat, directionless shading. Use it as a minimum floor so objects never go completely black in shadow.\n\n## Good Practice\n\nKeep ambient intensity low (0.1–0.4) and use directional or point lights for the primary illumination. High ambient destroys depth cues and makes scenes look washed out."
+    },
+    {
+      "id": "directional",
+      "title": "Directional Light",
+      "parent": "intro",
+      "body": "# Directional Light\n\nDirectional light simulates distant sunlight — parallel rays with no distance falloff.\n\n```\nconst sun = new THREE.DirectionalLight(0xffffff, 1.4);\nsun.position.set(5, 8, 4);\nctx.add(sun);\n```\n\nThe position sets direction only — distance from the origin has no effect. Only the angle matters.\n\n## Shadow Maps\n\nEnable shadows with:\n\n```\nctx.renderer.shadowMap.enabled = true;\nsun.castShadow = true;\nmesh.castShadow = true;\nmesh.receiveShadow = true;\n```"
+    },
+    {
+      "id": "point",
+      "title": "Point Light",
+      "parent": "intro",
+      "body": "# Point Light\n\nPoint lights emit in all directions from a single position, with realistic falloff.\n\n```\nconst lamp = ctx.point(\n  0xff8844,  // warm orange\n  2.0,       // intensity\n  12,        // max distance (0 = infinite)\n  2          // decay exponent\n);\nlamp.position.set(0, 3, 0);\nctx.add(lamp);\n```\n\nDecay of 2 gives physically accurate inverse-square falloff.\n\nAnimate the position in update() to create orbiting flames, moving lamps, or flickering effects:\n\n```\nexport function update(ctx, dt) {\n  const t = ctx.elapsed;\n  lamp.position.x = Math.sin(t) * 5;\n  lamp.position.z = Math.cos(t) * 5;\n}\n```"
+    },
+    {
+      "id": "studio",
+      "title": "Three-Point Studio",
+      "parent": "intro",
+      "body": "# Three-Point Studio Lighting\n\nClassic photography lighting with three directional lights:\n\n```\n// Key — primary illumination\nconst key = new THREE.DirectionalLight(0xfff0cc, 1.4);\nkey.position.set(5, 8, 4);\n\n// Fill — softens key-side shadows\nconst fill = new THREE.DirectionalLight(0x4488ff, 0.5);\nfill.position.set(-5, 3, 2);\n\n// Rim — separates subject from background\nconst rim = new THREE.DirectionalLight(0xff4488, 0.7);\nrim.position.set(0, -2, -8);\n```\n\nThis rig produces a well-defined professional look used in product renders and character animation. The colored fill and rim add depth without requiring HDR environment maps."
+    },
+    {
+      "id": "hemisphere",
+      "title": "Hemisphere Light",
+      "parent": "intro",
+      "body": "# Hemisphere Light\n\nHemisphere light simulates outdoor sky/ground bounce — sky color from above, ground color reflected from below.\n\n```\nconst hemi = ctx.hemi(\n  0x8888ff,  // sky color (blue)\n  0x664422,  // ground color (warm brown)\n  1.2        // intensity\n);\nctx.add(hemi);\n```\n\nIdeal for outdoor scenes. It produces soft, natural illumination without the harshness of directional lights, and is cheap to compute — no shadow maps required.\n\nCombine with a single low-intensity directional light to add just enough directionality for material PBR to read clearly."
+    }
+  ]
+}

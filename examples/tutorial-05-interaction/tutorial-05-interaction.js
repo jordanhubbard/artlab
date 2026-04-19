@@ -6,53 +6,6 @@ const COL_BASE   = 0x2244aa;
 const COL_HOVER  = 0xffdd44;
 const COL_CLICK  = 0xff4422;
 
-function makeOverlay() {
-  const div = document.createElement('div');
-  div.style.cssText = [
-    'position:fixed', 'top:16px', 'left:16px', 'z-index:99',
-    'pointer-events:none', 'width:330px',
-    'background:rgba(0,0,0,0.78)', 'color:#cde', 'font-family:monospace',
-    'font-size:11.5px', 'line-height:1.6', 'padding:14px 16px',
-    'border:1px solid rgba(100,140,255,0.3)', 'border-radius:4px',
-  ].join(';');
-
-  const pre = (code) =>
-    `<pre style="margin:4px 0 8px;padding:7px 10px;background:#0a0d18;border-radius:3px;` +
-    `border-left:2px solid #4466ff;font-size:10.5px;overflow:hidden">${code}</pre>`;
-
-  const kw  = (s) => `<span style="color:#88aaff">${s}</span>`;
-  const fn  = (s) => `<span style="color:#ffcc66">${s}</span>`;
-  const str = (s) => `<span style="color:#88ff88">${s}</span>`;
-  const cm  = (s) => `<span style="color:#556677">${s}</span>`;
-
-  div.innerHTML = [
-    `<b style="color:#88aaff">TUTORIAL 05 \u2014 INTERACTION</b><br>`,
-    `<span style="color:#334">${'\u2500'.repeat(28)}</span><br>`,
-    `<b style="color:#ffcc66">Raycasting (hover/click)</b><br>`,
-    pre(
-      `${kw('const')} raycaster = ${kw('new')} ${fn('Raycaster')}();\n` +
-      `${kw('const')} mouse = ${kw('new')} ${fn('Vector2')}();\n\n` +
-      `${cm('// in mousemove handler:')}\n` +
-      `mouse.x = (e.clientX / innerWidth) * ${str('2')} - ${str('1')};\n` +
-      `mouse.y = -(e.clientY / innerHeight) * ${str('2')} + ${str('1')};\n` +
-      `raycaster.${fn('setFromCamera')}(mouse, camera);\n` +
-      `${kw('const')} hits = raycaster.${fn('intersectObjects')}(cubes);`
-    ),
-    `<b style="color:#ffcc66">Keyboard handler</b><br>`,
-    pre(
-      `window.${fn('addEventListener')}(${str("'keydown'")}, onKey);\n` +
-      `${cm('// teardown:')}\n` +
-      `window.${fn('removeEventListener')}(${str("'keydown'")}, onKey);`
-    ),
-    `<span style="color:#aaa">Hover: cube glows yellow<br>`,
-    `Click: cube flies up &amp; resets<br>`,
-    `<b style="color:#88ff88">R</b> = reset all &nbsp; <b style="color:#88ff88">G</b> = grid helper</span>`,
-  ].join('');
-
-  document.body.appendChild(div);
-  return div;
-}
-
 export function setup(ctx) {
   const { THREE: T, scene } = ctx;
 
@@ -139,8 +92,6 @@ export function setup(ctx) {
   window.addEventListener('mousemove', ctx._onMouseMove);
   window.addEventListener('click',     ctx._onClick);
   window.addEventListener('keydown',   ctx._onKey);
-
-  ctx._overlay = makeOverlay();
 }
 
 export function update(ctx, dt) {
@@ -185,6 +136,5 @@ export function teardown(ctx) {
   window.removeEventListener('mousemove', ctx._onMouseMove);
   window.removeEventListener('click',     ctx._onClick);
   window.removeEventListener('keydown',   ctx._onKey);
-  ctx._overlay.remove();
   if (ctx._gridHelper) ctx.scene.remove(ctx._gridHelper);
 }

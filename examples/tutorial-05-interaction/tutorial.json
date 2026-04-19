@@ -1,0 +1,35 @@
+{
+  "title": "Tutorial 05 — Interaction",
+  "pages": [
+    {
+      "id": "intro",
+      "title": "Mouse & Keyboard Interaction",
+      "body": "# Mouse & Keyboard Interaction\n\nThe preview shows a 5×5 grid of cubes. Hover to highlight, click to launch, press R to reset all, G to toggle the grid.\n\nArtlab examples handle input directly via standard browser events. Key patterns:\n\n- Raycasting for hover and click on 3D objects\n- Mouse coordinate normalization\n- Keyboard event registration and cleanup\n\nAlways remove event listeners in teardown() to prevent leaks when switching examples.",
+      "children": ["raycasting", "mouse-coords", "keyboard", "teardown"]
+    },
+    {
+      "id": "raycasting",
+      "title": "Raycasting",
+      "parent": "intro",
+      "body": "# Raycasting\n\nRaycasting shoots an invisible ray from the camera through a screen point into the 3D scene and returns any objects it hits.\n\n```\nconst raycaster = new THREE.Raycaster();\nconst mouse = new THREE.Vector2();\n\n// Set normalized device coordinates (-1..1)\nmouse.x =  (e.clientX / innerWidth)  * 2 - 1;\nmouse.y = -(e.clientY / innerHeight) * 2 + 1;\n\n// Configure ray from camera through mouse point\nraycaster.setFromCamera(mouse, camera);\n\n// Test against an array of meshes\nconst hits = raycaster.intersectObjects(meshArray);\nif (hits.length > 0) {\n  const first = hits[0].object; // closest hit\n  const point = hits[0].point;  // 3D world position\n}\n```"
+    },
+    {
+      "id": "mouse-coords",
+      "title": "Mouse Coordinate Normalization",
+      "parent": "intro",
+      "body": "# Mouse Coordinate Normalization\n\nThe raycaster expects Normalized Device Coordinates (NDC) in the range −1 to +1. Screen pixels must be converted:\n\n```\n// For full-window mouse:\nmouse.x =  (e.clientX / window.innerWidth)  * 2 - 1;\nmouse.y = -(e.clientY / window.innerHeight) * 2 + 1;\n```\n\nWhen the canvas doesn't fill the whole window (common in the IDE preview pane), use the canvas bounding rect:\n\n```\nconst rect = ctx.renderer.domElement.getBoundingClientRect();\nmouse.x =  ((e.clientX - rect.left) / rect.width)  * 2 - 1;\nmouse.y = -((e.clientY - rect.top)  / rect.height) * 2 + 1;\n```\n\nThis is the correct approach in Artlab — always use the canvas rect."
+    },
+    {
+      "id": "keyboard",
+      "title": "Keyboard Events",
+      "parent": "intro",
+      "body": "# Keyboard Events\n\nListen on window for keyboard events and store the handler so it can be removed in teardown():\n\n```\nlet _onKey;\n\nexport function setup(ctx) {\n  _onKey = (e) => {\n    if (e.key === 'r') resetAll();\n    if (e.key === 'g') toggleGrid(ctx);\n  };\n  window.addEventListener('keydown', _onKey);\n}\n\nexport function teardown(ctx) {\n  window.removeEventListener('keydown', _onKey);\n}\n```\n\nUse `e.key` for printable characters and named keys (`'ArrowLeft'`, `'Escape'`, `'Enter'`, `' '` for space). Use `e.code` for physical key positions (layout-independent).\n\nPrefix keys with modifiers: `e.shiftKey`, `e.ctrlKey`, `e.altKey`."
+    },
+    {
+      "id": "teardown",
+      "title": "Clean Teardown",
+      "parent": "intro",
+      "body": "# Clean Teardown\n\nArtlab calls teardown() when switching to a new example. Failing to clean up causes event listener leaks that accumulate across every example load.\n\nThe teardown() checklist:\n\n```\nexport function teardown(ctx) {\n  // Remove DOM event listeners\n  window.removeEventListener('mousemove', _onMouseMove);\n  window.removeEventListener('click',     _onClick);\n  window.removeEventListener('keydown',   _onKey);\n\n  // Remove DOM elements this example created\n  _hudElement?.remove();\n\n  // Stop audio / video streams\n  _cam?.stop();\n\n  // Dispose Three.js resources (optional but good practice)\n  mesh.geometry.dispose();\n  mesh.material.dispose();\n}\n```\n\nThree.js objects added with ctx.add() are automatically removed from the scene by PreviewPane when teardown is called. You only need to manually dispose geometries and materials if you created many unique ones."
+    }
+  ]
+}

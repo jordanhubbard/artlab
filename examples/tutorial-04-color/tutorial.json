@@ -1,0 +1,41 @@
+{
+  "title": "Tutorial 04 — Color & Material",
+  "pages": [
+    {
+      "id": "intro",
+      "title": "Color & PBR Materials",
+      "body": "# Color & PBR Materials\n\nThe preview shows a 4×4 grid of spheres demonstrating color spaces and PBR material parameters:\n\n- Row 1: Hue rotation (H in HSL)\n- Row 2: Saturation ramp (S in HSL)\n- Row 3: Emissive intensity ramp\n- Row 4: Metalness × roughness combinations\n\nThree.js uses MeshStandardMaterial for physically-based rendering (PBR). Getting these parameters right is the difference between plastic-looking and photo-realistic materials.",
+      "children": ["color-basics", "hsl", "pbr", "emissive", "env-maps"]
+    },
+    {
+      "id": "color-basics",
+      "title": "Color Basics",
+      "parent": "intro",
+      "body": "# Color in Three.js\n\nColors can be set several ways:\n\n```\n// Hex literal (most common)\nmesh.material.color.setHex(0x4466ff);\n\n// From CSS string\nconst c = new THREE.Color('hsl(220, 70%, 55%)');\n\n// RGB components 0..1\nconst c = new THREE.Color(0.27, 0.4, 1.0);\n\n// In material constructor\nnew THREE.MeshStandardMaterial({ color: 0x4466ff })\n```\n\nThree.js Color stores values as linear RGB (0..1 per channel). When you pass a hex value it automatically converts from sRGB gamma space to linear."
+    },
+    {
+      "id": "hsl",
+      "title": "HSL Color Space",
+      "parent": "intro",
+      "body": "# HSL Color Space\n\nHSL (Hue, Saturation, Lightness) is often more intuitive than RGB for generating color palettes:\n\n```\nconst c = new THREE.Color();\n\n// setHSL(h, s, l) — all values 0..1\nc.setHSL(0.6, 0.7, 0.55);  // blue\nc.setHSL(0.0, 0.7, 0.55);  // red\nc.setHSL(0.3, 0.7, 0.55);  // green\n```\n\nGenerate a color wheel by sweeping hue:\n\n```\nfor (let i = 0; i < N; i++) {\n  const h = i / N;          // 0..1\n  c.setHSL(h, 0.7, 0.55);\n  meshes[i].material.color.copy(c);\n}\n```\n\nFor palettes, fix S and L and vary H. For mood shifts, vary S or L while keeping H constant."
+    },
+    {
+      "id": "pbr",
+      "title": "PBR — Roughness & Metalness",
+      "parent": "intro",
+      "body": "# Physically-Based Rendering\n\nMeshStandardMaterial has two key PBR parameters:\n\n```\nnew THREE.MeshStandardMaterial({\n  roughness: 0.0,  // 0 = mirror-smooth, 1 = fully matte\n  metalness: 0.0,  // 0 = dielectric, 1 = conductor\n})\n```\n\n## The Four Archetypes\n\n```\n// Rough dielectric — chalk, concrete, matte paint\n{ roughness: 0.9, metalness: 0.0 }\n\n// Rough conductor — brushed steel, cast iron\n{ roughness: 0.9, metalness: 1.0 }\n\n// Smooth dielectric — polished plastic, lacquer\n{ roughness: 0.05, metalness: 0.0 }\n\n// Smooth conductor — chrome, mirror-polished metal\n{ roughness: 0.05, metalness: 1.0 }\n```\n\nIn between gives you every material in between — anodized aluminium, satin finish, worn metal, etc."
+    },
+    {
+      "id": "emissive",
+      "title": "Emissive Materials",
+      "parent": "intro",
+      "body": "# Emissive Materials\n\nEmissive color makes a surface appear to glow — it adds light to the final pixel regardless of scene lighting.\n\n```\nnew THREE.MeshStandardMaterial({\n  color:              0x224499,\n  emissive:           0x0011ff,\n  emissiveIntensity:  0.6,\n})\n```\n\nEmissive does not actually emit light into the scene (use a PointLight for that). It only affects the surface's own color.\n\nAnimate emissiveIntensity in update() for pulsing or power indicators:\n\n```\nexport function update(ctx, dt) {\n  const pulse = 0.4 + 0.6 * Math.sin(ctx.elapsed * 3);\n  mesh.material.emissiveIntensity = pulse;\n}\n```"
+    },
+    {
+      "id": "env-maps",
+      "title": "Environment Maps",
+      "parent": "intro",
+      "body": "# Environment Maps\n\nFor the most realistic look, smooth metals and plastics need an environment map — an HDR panorama that provides realistic reflections.\n\n```\nimport { RGBELoader } from\n  'three/addons/loaders/RGBELoader.js';\n\nconst loader = new RGBELoader();\nconst texture = await loader.loadAsync('/env/studio.hdr');\ntexture.mapping = THREE.EquirectangularReflectionMapping;\nctx.scene.environment = texture;\n```\n\nOnce set on `scene.environment`, all MeshStandardMaterial objects automatically pick up the environment for reflections and IBL (image-based lighting).\n\nCombined with low roughness and metalness = 1.0, this produces mirror-quality chrome reflections."
+    }
+  ]
+}

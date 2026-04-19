@@ -245,6 +245,7 @@ export class IDE {
     }
 
     this._buildExamplesNav()
+    this._initTutorial()
   }
 
   // ── Monaco bootstrap ────────────────────────────────────────────────────────
@@ -1305,6 +1306,7 @@ export class IDE {
     }
 
     toast(`Loaded example: ${ex.name}`)
+    this._tut?.tryLoad(ex.name)
   }
 
   // ── Project Navigator ────────────────────────────────────────────────────────
@@ -1405,6 +1407,12 @@ export class IDE {
     })
   }
 
+  // ── Tutorial pane ────────────────────────────────────────────────────────────
+
+  _initTutorial() {
+    this._tut = new TutorialMgr()
+  }
+
   // ── FPS counter ─────────────────────────────────────────────────────────────
 
   _fpsLoop() {
@@ -1425,4 +1433,140 @@ export class IDE {
       el.className = fps >= 50 ? 'ok' : fps >= 30 ? 'warn' : 'bad'
     }
   }
+}
+
+// ── Tutorial pane manager ─────────────────────────────────────────────────────
+
+class TutorialMgr {
+  constructor() {
+    this._data    = null
+    this._pageIdx = 0
+    this._pane    = document.getElementById('tutorial-pane')
+    this._crumb   = document.getElementById('tut-breadcrumb')
+    this._body    = document.getElementById('tut-body')
+    this._btnUp   = document.getElementById('tut-up')
+    this._btnPrev = document.getElementById('tut-prev')
+    this._btnNext = document.getElementById('tut-next')
+    this._btnClose = document.getElementById('tut-close')
+
+    this._btnUp.addEventListener('click',    () => this._goUp())
+    this._btnPrev.addEventListener('click',  () => this._goPrev())
+    this._btnNext.addEventListener('click',  () => this._goNext())
+    this._btnClose.addEventListener('click', () => this.close())
+
+    document.addEventListener('keydown', e => {
+      if (!this._pane?.classList.contains('open')) return
+      if (e.key === 'ArrowRight' && !e.ctrlKey && !e.metaKey) { e.preventDefault(); this._goNext() }
+      if (e.key === 'ArrowLeft'  && !e.ctrlKey && !e.metaKey) { e.preventDefault(); this._goPrev() }
+      if (e.key === 'u' || e.key === 'U') this._goUp()
+      if (e.key === 'Escape') this.close()
+    })
+  }
+
+  async tryLoad(exampleName) {
+    this._data = null
+    this._pageIdx = 0
+    try {
+      const res = await fetch(`/examples/${exampleName}/tutorial.json`)
+      if (!res.ok) { this.close(); return }
+      this._data = await res.json()
+      this._render()
+      this._pane.classList.add('open')
+    } catch {
+      this.close()
+    }
+  }
+
+  close() {
+    this._pane?.classList.remove('open')
+    this._data = null
+  }
+
+  _goNext() {
+    if (!this._data || this._pageIdx >= this._data.pages.length - 1) return
+    this._pageIdx++
+    this._render()
+  }
+
+  _goPrev() {
+    if (!this._data || this._pageIdx <= 0) return
+    this._pageIdx--
+    this._render()
+  }
+
+  _goUp() {
+    if (!this._data) return
+    const cur = this._data.pages[this._pageIdx]
+    if (!cur.parent) return
+    const idx = this._data.pages.findIndex(p => p.id === cur.parent)
+    if (idx >= 0) { this._pageIdx = idx; this._render() }
+  }
+
+  _render() {
+    if (!this._data) return
+    const pages = this._data.pages
+    const page  = pages[this._pageIdx]
+
+    // Breadcrumb: build full ancestry path
+    const crumbParts = []
+    let cur = page
+    while (cur) {
+      crumbParts.unshift(cur.title)
+      cur = cur.parent ? pages.find(p => p.id === cur.parent) : null
+    }
+    this._crumb.textContent = [this._data.title, ...crumbParts].join(' › ')
+
+    // Body content
+    this._body.innerHTML = _renderTutBody(page.body || '')
+
+    // Nav button state
+    this._btnPrev.disabled = this._pageIdx <= 0
+    this._btnNext.disabled = this._pageIdx >= pages.length - 1
+    this._btnUp.disabled   = !page.parent
+  }
+}
+
+function _renderTutBody(text) {
+  const lines = text.split('\n')
+  let html = ''
+  let inCode = false
+  let codeBuf = []
+
+  for (const raw of lines) {
+    if (raw.startsWith('```')) {
+      if (inCode) {
+        html += `<pre class="tut-code">${_tutEsc(codeBuf.join('\n'))}</pre>`
+        codeBuf = []
+        inCode = false
+      } else {
+        inCode = true
+      }
+      continue
+    }
+    if (inCode) { codeBuf.push(raw); continue }
+
+    if (raw.startsWith('# ')) {
+      html += `<div class="tut-h1">${_tutEsc(raw.slice(2))}</div>`
+    } else if (raw.startsWith('## ')) {
+      html += `<div class="tut-h2">${_tutEsc(raw.slice(3))}</div>`
+    } else if (raw.startsWith('- ')) {
+      html += `<div class="tut-li">· ${_tutEsc(raw.slice(2))}</div>`
+    } else if (raw === '') {
+      html += '<div class="tut-gap"></div>'
+    } else {
+      const line = _tutEsc(raw).replace(/`([^`]+)`/g, (_, c) =>
+        `<span class="tut-inline">${c}</span>`)
+      html += `<div class="tut-p">${line}</div>`
+    }
+  }
+
+  if (inCode && codeBuf.length) {
+    html += `<pre class="tut-code">${_tutEsc(codeBuf.join('\n'))}</pre>`
+  }
+
+  return html
+}
+
+function _tutEsc(s) {
+  return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
 }

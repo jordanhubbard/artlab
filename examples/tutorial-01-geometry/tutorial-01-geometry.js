@@ -1,4 +1,4 @@
-// Tutorial 01 — Geometry & Materials: five primitives, slowly rotating, with an on-screen manual.
+// Tutorial 01 — Geometry & Materials: five primitives, slowly rotating.
 import * as THREE from 'three';
 
 const SHAPES = [
@@ -8,40 +8,6 @@ const SHAPES = [
   { label: 'cylinder', geo: () => new THREE.CylinderGeometry(0.4, 0.4, 1.1, 32), color: 0xffcc22, pos:  2 },
   { label: 'cone',     geo: () => new THREE.ConeGeometry(0.5, 1.1, 32),          color: 0xcc44ff, pos:  4 },
 ];
-
-function makeOverlay() {
-  const div = document.createElement('div');
-  div.style.cssText = [
-    'position:fixed', 'top:16px', 'left:16px', 'z-index:99',
-    'pointer-events:none', 'width:320px',
-    'background:rgba(0,0,0,0.72)', 'color:#cde', 'font-family:monospace',
-    'font-size:12px', 'line-height:1.6', 'padding:14px 16px',
-    'border:1px solid rgba(100,140,255,0.3)', 'border-radius:4px',
-    'white-space:pre',
-  ].join(';');
-  div.textContent = [
-    'TUTORIAL 01 \u2014 GEOMETRY',
-    '\u2500'.repeat(23),
-    'Artlab provides geometry factories',
-    'for common 3D primitives.',
-    '',
-    '  sphere(r)      \u2192 SphereGeometry',
-    '  box(w, h, d)   \u2192 BoxGeometry',
-    '  torus(R, r)    \u2192 TorusGeometry',
-    '  cylinder(r, h) \u2192 CylinderGeometry',
-    '  cone(r, h)     \u2192 ConeGeometry',
-    '',
-    'Each wraps a THREE.BufferGeometry.',
-    'Pass to mesh() with material options.',
-    '',
-    'mesh(geom, {',
-    '  color: 0x4466ff,',
-    '  roughness: 0.4,',
-    '  emissive: 0x112244,',
-    '})',
-  ].join('\n');
-  return div;
-}
 
 function makeLabelEl(text) {
   const el = document.createElement('div');
@@ -91,8 +57,6 @@ export function setup(ctx) {
     ctx._labels.push({ el: lel, mesh: m });
   }
 
-  ctx._overlay = makeOverlay();
-  document.body.appendChild(ctx._overlay);
   ctx._renderer = renderer;
 }
 
@@ -117,6 +81,5 @@ export function update(ctx, dt) {
 }
 
 export function teardown(ctx) {
-  ctx._overlay.remove();
   for (const { el } of ctx._labels) el.remove();
 }

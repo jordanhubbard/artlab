@@ -27,30 +27,6 @@ function rowColor(row, col) {
   return c;
 }
 
-function makeOverlay() {
-  const div = document.createElement('div');
-  div.style.cssText = [
-    'position:fixed', 'top:16px', 'left:16px', 'z-index:99',
-    'pointer-events:none', 'width:310px',
-    'background:rgba(0,0,0,0.76)', 'color:#cde', 'font-family:monospace',
-    'font-size:12px', 'line-height:1.65', 'padding:14px 16px',
-    'border:1px solid rgba(100,140,255,0.3)', 'border-radius:4px',
-  ].join(';');
-
-  let html = `<b style="color:#88aaff">TUTORIAL 04 \u2014 COLOR &amp; MATERIAL</b><br>`;
-  html += `<span style="color:#334">${'\u2500'.repeat(27)}</span><br><br>`;
-  for (let r = 0; r < ROW_DEFS.length; r++) {
-    const d = ROW_DEFS[r];
-    html += `<b style="color:#ffcc66">Row ${r + 1}: ${d.label}</b><br>`;
-    html += `<span style="color:#88ff88">  ${d.prop}</span><br>`;
-    html += `<span style="color:#aaa">  ${d.detail}</span><br><br>`;
-  }
-  html += `<span style="color:#aaa">THREE.Color.setHSL(h, s, l)<br>MeshStandardMaterial {<br>  metalness, roughness,<br>  emissive, emissiveIntensity<br>}</span>`;
-  div.innerHTML = html;
-  document.body.appendChild(div);
-  return div;
-}
-
 export function setup(ctx) {
   const { THREE: T } = ctx;
 
@@ -96,7 +72,6 @@ export function setup(ctx) {
     }
   }
 
-  ctx._overlay = makeOverlay();
 }
 
 export function update(ctx, dt) {
@@ -116,6 +91,4 @@ export function update(ctx, dt) {
   }
 }
 
-export function teardown(ctx) {
-  ctx._overlay.remove();
-}
+export function teardown(_ctx) {}
