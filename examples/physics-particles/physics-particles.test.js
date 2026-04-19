@@ -4,54 +4,33 @@ import * as Three from 'three'
 
 vi.mock('three', async () => await vi.importActual('three'))
 
-vi.mock('../../src/stdlib/physics/particles.js', () => ({
-  createParticleWorld: vi.fn(() => ({})),
-  emitter: vi.fn(() => ({
-    points: { position: new Three.Vector3() },
-    emitterId: 'e1',
-    update: vi.fn(),
-    dispose: vi.fn(),
-  })),
-  forceField: vi.fn(),
-}))
-
 function makeMockCtx(overrides = {}) {
   const container = document.createElement('div')
-  const canvas = document.createElement('canvas')
+  const canvas    = document.createElement('canvas')
   canvas.getBoundingClientRect = () => ({ left:0, top:0, width:800, height:600 })
   container.appendChild(canvas)
   const scene = { add: vi.fn(), remove: vi.fn(), children: [] }
   const camera = {
     position: new Three.Vector3(0,2,6), lookAt: vi.fn(),
-    fov: 60, aspect: 1, updateProjectionMatrix: vi.fn(),
-    projectionMatrix: new Three.Matrix4(), matrixWorldInverse: new Three.Matrix4(),
+    fov: 60, aspect: 1, near: 0.1, far: 100000,
+    updateProjectionMatrix: vi.fn(),
+    projectionMatrix: new Three.Matrix4(),
+    matrixWorldInverse: new Three.Matrix4(),
   }
   return {
     Three, scene, camera,
     renderer: { domElement: canvas, shadowMap:{enabled:false}, setSize: vi.fn(), render: vi.fn() },
-    controls: { update: vi.fn(), target: new Three.Vector3(), enabled: true, enableDamping: true },
-    labelRenderer: { render: vi.fn(), setSize: vi.fn(), domElement: document.createElement('div') },
+    controls: { update: vi.fn(), target: new Three.Vector3(), enabled: true },
     add: vi.fn(obj => { scene.children.push(obj); return obj }),
     remove: vi.fn(),
     setBloom: vi.fn(),
     elapsed: 0,
-    sphere: (r=1,s=32) => new Three.SphereGeometry(r,s,s),
-    box: (w=1,h=1,d=1) => new Three.BoxGeometry(w,h,d),
-    cylinder: (rt=1,rb=1,h=1,s=32) => new Three.CylinderGeometry(rt,rb,h,s),
-    torus: (r=1,t=0.4,rs=8,ts=32) => new Three.TorusGeometry(r,t,rs,ts),
-    plane: (w=1,h=1) => new Three.PlaneGeometry(w,h),
-    cone: (r=1,h=1,s=32) => new Three.ConeGeometry(r,h,s),
-    mesh: (geo,opts={}) => new Three.Mesh(geo, new Three.MeshStandardMaterial(opts)),
-    ambient: (c=0x404040,i=1) => new Three.AmbientLight(c,i),
-    point: (c=0xffffff,i=1,d=0,dc=2) => new Three.PointLight(c,i,d,dc),
-    directional: (c=0xffffff,i=1) => new Three.DirectionalLight(c,i),
     ...overrides,
   }
 }
 
 describe('physics-particles', () => {
-  let ctx
-  let mod
+  let ctx, mod
 
   beforeEach(async () => {
     vi.clearAllMocks()
@@ -68,24 +47,22 @@ describe('physics-particles', () => {
     expect(ctx.setBloom).toHaveBeenCalledWith(1.2)
   })
 
-  it('setup() creates ctx._world via createParticleWorld', async () => {
-    const { createParticleWorld } = await import('../../src/stdlib/physics/particles.js')
+  it('setup() creates Physics body pool in ctx._particles', () => {
     mod.setup(ctx)
-    expect(createParticleWorld).toHaveBeenCalled()
-    expect(ctx._world).toBeDefined()
-  })
-
-  it('setup() creates ctx._emitter via emitter()', async () => {
-    const { emitter } = await import('../../src/stdlib/physics/particles.js')
-    mod.setup(ctx)
-    expect(emitter).toHaveBeenCalled()
-    expect(ctx._emitter).toBeDefined()
-    expect(ctx._emitter.emitterId).toBe('e1')
+    expect(Array.isArray(ctx._particles)).toBe(true)
+    expect(ctx._particles.length).toBeGreaterThan(0)
+    expect(ctx._particles[0]).toHaveProperty('position')
+    expect(ctx._particles[0]).toHaveProperty('velocity')
   })
 
   it('setup() creates ctx._ground mesh', () => {
     mod.setup(ctx)
     expect(ctx._ground).toBeInstanceOf(Three.Mesh)
+  })
+
+  it('setup() creates ctx._instanced InstancedMesh', () => {
+    mod.setup(ctx)
+    expect(ctx._instanced).toBeInstanceOf(Three.InstancedMesh)
   })
 
   it('update() runs 3 frames without throwing', () => {
@@ -99,30 +76,16 @@ describe('physics-particles', () => {
     }).not.toThrow()
   })
 
-  it('update() calls emitter.update each frame', () => {
-    mod.setup(ctx)
-    mod.update(ctx, 0.016)
-    mod.update(ctx, 0.016)
-    expect(ctx._emitter.update).toHaveBeenCalledTimes(2)
-  })
-
-  it('click on window does not throw (NDC computation)', () => {
+  it('click does not throw', () => {
     mod.setup(ctx)
     expect(() => {
-      const event = new MouseEvent('click', { clientX: 400, clientY: 300, bubbles: true })
-      window.dispatchEvent(event)
+      window.dispatchEvent(new MouseEvent('click', { clientX:400, clientY:300, bubbles:true }))
     }).not.toThrow()
   })
 
   it('teardown() does not throw', () => {
     mod.setup(ctx)
     expect(() => mod.teardown(ctx)).not.toThrow()
-  })
-
-  it('teardown() calls emitter.dispose', () => {
-    mod.setup(ctx)
-    mod.teardown(ctx)
-    expect(ctx._emitter.dispose).toHaveBeenCalled()
   })
 
   it('teardown() removes ground from scene', () => {

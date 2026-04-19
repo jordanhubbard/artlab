@@ -7,6 +7,7 @@
 
 import { setupJourney, startJourney, updateJourney, journeyDone } from './camera-journey.js'
 import { setupAudio, updateAudio, teardownAudio } from './audio.js'
+import { meanAnomaly, keplerPosition } from '../../src/physics/Physics.js'
 
 // ── Constants ──────────────────────────────────────────────────────────────────
 const AU   = 100          // 1 AU → Three.js units
@@ -19,14 +20,14 @@ const MOON_ORBIT_R = 8    // scaled-up moon orbit (0.00257 AU is sub-visual)
 
 // ── Planet catalogue ───────────────────────────────────────────────────────────
 const PLANETS = {
-  mercury: { a: 0.387, T: 0.241,  r: 0.383,  tilt:   0.03, rot:   58.6,  color: 0x9e9e9e, tex: 'mercury/2k_mercury.jpg' },
-  venus:   { a: 0.723, T: 0.615,  r: 0.949,  tilt: 177.4,  rot: -243,    color: 0xe8c870, tex: 'venus/2k_venus_atmosphere.jpg',   atm: [1.0, 0.85, 0.50] },
-  earth:   { a: 1.000, T: 1.000,  r: 1.000,  tilt:  23.44, rot:    1.0,  color: 0x2255aa, tex: 'earth/2k_earth_daymap.jpg',       atm: [0.3, 0.6,  1.0 ], clouds: 'earth/2k_earth_clouds.jpg' },
-  mars:    { a: 1.524, T: 1.881,  r: 0.532,  tilt:  25.19, rot:    1.026,color: 0xc1440e, tex: 'mars/2k_mars.jpg',                atm: [0.9, 0.4,  0.2 ] },
-  jupiter: { a: 5.204, T: 11.86,  r: 11.209, tilt:   3.13, rot:    0.413,color: 0xc88b3a, tex: 'jupiter/2k_jupiter.jpg' },
-  saturn:  { a: 9.537, T: 29.46,  r: 9.449,  tilt:  26.73, rot:    0.444,color: 0xead6a5, tex: 'saturn/2k_saturn.jpg',            rings: true },
-  uranus:  { a: 19.19, T: 84.01,  r: 4.007,  tilt:  97.77, rot:   -0.718,color: 0x7de8e8, tex: 'uranus/2k_uranus.jpg',            atm: [0.5, 0.9,  0.9 ] },
-  neptune: { a: 30.07, T: 164.8,  r: 3.883,  tilt:  28.32, rot:    0.671,color: 0x3f54ba, tex: 'neptune/2k_neptune.jpg',          atm: [0.2, 0.4,  1.0 ] },
+  mercury: { a: 0.387, T: 0.241,  e: 0.206, r: 0.383,  tilt:   0.03, rot:   58.6,  color: 0x9e9e9e, tex: 'mercury/2k_mercury.jpg' },
+  venus:   { a: 0.723, T: 0.615,  e: 0.007, r: 0.949,  tilt: 177.4,  rot: -243,    color: 0xe8c870, tex: 'venus/2k_venus_atmosphere.jpg',   atm: [1.0, 0.85, 0.50] },
+  earth:   { a: 1.000, T: 1.000,  e: 0.017, r: 1.000,  tilt:  23.44, rot:    1.0,  color: 0x2255aa, tex: 'earth/2k_earth_daymap.jpg',       atm: [0.3, 0.6,  1.0 ], clouds: 'earth/2k_earth_clouds.jpg' },
+  mars:    { a: 1.524, T: 1.881,  e: 0.093, r: 0.532,  tilt:  25.19, rot:    1.026,color: 0xc1440e, tex: 'mars/2k_mars.jpg',                atm: [0.9, 0.4,  0.2 ] },
+  jupiter: { a: 5.204, T: 11.86,  e: 0.049, r: 11.209, tilt:   3.13, rot:    0.413,color: 0xc88b3a, tex: 'jupiter/2k_jupiter.jpg' },
+  saturn:  { a: 9.537, T: 29.46,  e: 0.057, r: 9.449,  tilt:  26.73, rot:    0.444,color: 0xead6a5, tex: 'saturn/2k_saturn.jpg',            rings: true },
+  uranus:  { a: 19.19, T: 84.01,  e: 0.046, r: 4.007,  tilt:  97.77, rot:   -0.718,color: 0x7de8e8, tex: 'uranus/2k_uranus.jpg',            atm: [0.5, 0.9,  0.9 ] },
+  neptune: { a: 30.07, T: 164.8,  e: 0.010, r: 3.883,  tilt:  28.32, rot:    0.671,color: 0x3f54ba, tex: 'neptune/2k_neptune.jpg',          atm: [0.2, 0.4,  1.0 ] },
 }
 const PLANET_ORDER = ['mercury','venus','earth','mars','jupiter','saturn','uranus','neptune']
 
@@ -229,11 +230,12 @@ export async function setup(ctx) {
       tilted.add(ring)
     }
 
-    // Orbit path
+    // Orbit path — Keplerian ellipse
     const pts = []
     for (let i = 0; i <= 256; i++) {
-      const a = (i / 256) * Math.PI * 2
-      pts.push(new Three.Vector3(d.a * AU * Math.cos(a), 0, d.a * AU * Math.sin(a)))
+      const M  = (i / 256) * Math.PI * 2
+      const { x, z } = keplerPosition(d.a * AU, d.e, M)
+      pts.push(new Three.Vector3(x, 0, z))
     }
     ctx._orbitLines.push(ctx.add(new Three.Line(
       new Three.BufferGeometry().setFromPoints(pts),
@@ -355,11 +357,12 @@ export function update(ctx, dt) {
   const { Three } = ctx
   const t = ctx.elapsed
 
-  // Orbital positions + self-rotation
+  // Orbital positions + self-rotation (Keplerian ellipses with real eccentricities)
   for (const name of PLANET_ORDER) {
-    const d     = PLANETS[name]
-    const angle = (t / (d.T * YEAR)) * Math.PI * 2
-    ctx._planets[name].position.set(d.a * AU * Math.cos(angle), 0, d.a * AU * Math.sin(angle))
+    const d        = PLANETS[name]
+    const M        = meanAnomaly(t, d.T * YEAR)
+    const { x, z } = keplerPosition(d.a * AU, d.e, M)
+    ctx._planets[name].position.set(x, 0, z)
 
     const rotDir    = d.rot < 0 ? -1 : 1
     const rotPeriod = Math.abs(d.rot) * DAY
@@ -371,11 +374,11 @@ export function update(ctx, dt) {
     ctx._earthClouds.rotation.y = (t / (0.95 * DAY)) * Math.PI * 2
   }
 
-  // Moon orbit
-  const moonAngle = (t / (0.0748 * YEAR)) * Math.PI * 2
-  const ep = ctx._planets.earth.position
+  // Moon orbit (circular — sub-visual eccentricity at this scale)
+  const moonM = meanAnomaly(t, 0.0748 * YEAR)
+  const ep    = ctx._planets.earth.position
   ctx._moonGroup.position.set(
-    ep.x + MOON_ORBIT_R * Math.cos(moonAngle), 0, ep.z + MOON_ORBIT_R * Math.sin(moonAngle)
+    ep.x + MOON_ORBIT_R * Math.cos(moonM), 0, ep.z + MOON_ORBIT_R * Math.sin(moonM)
   )
 
   // Asteroid belt

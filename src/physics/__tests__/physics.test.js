@@ -1,353 +1,311 @@
-/**
- * Physics engine test suite for Artlab.
- *
- * OrbitalWorld uses TIME_YEAR_SECS = 120 (one Earth year = 120 scene-seconds)
- * and AU_SCALE = 100 (1 AU = 100 scene units).
- */
+import { describe, it, expect } from 'vitest'
+import * as Three from 'three'
+import * as P from '../Physics.js'
 
-import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { OrbitalWorld } from '../OrbitalWorld.js'
-import { ParticleWorld } from '../ParticleWorld.js'
-import { RigidWorld } from '../RigidWorld.js'
-import { PhysicsComposer } from '../PhysicsComposer.js'
-import { AU_SCALE, TIME_YEAR_SECS } from '../../utils/constants.js'
+const approx = (a, b, eps = 1e-6) => Math.abs(a - b) < eps
+const v3near = (v, x, y, z, eps = 1e-6) =>
+  approx(v.x, x, eps) && approx(v.y, y, eps) && approx(v.z, z, eps)
 
-// ---------------------------------------------------------------------------
-// Helpers
-// ---------------------------------------------------------------------------
-
-function vec3Length({ x, y, z }) {
-  return Math.sqrt(x * x + y * y + z * z)
-}
-
-/** Earth orbital descriptor (IRL: e=0.0167, i=0°, period=1yr) */
-const EARTH_DESC = {
-  type: 'orbital',
-  semiMajorAxis: 1.0,
-  eccentricity: 0.0167,
-  inclination: 0,
-  period: 1.0,
-}
-
-/** Mercury orbital descriptor (a=0.387 AU, period≈0.241 yr) */
-const MERCURY_DESC = {
-  type: 'orbital',
-  semiMajorAxis: 0.387,
-  eccentricity: 0.2056,
-  inclination: 7.0,
-  period: 0.2408,
-}
-
-// ---------------------------------------------------------------------------
-// OrbitalWorld
-// ---------------------------------------------------------------------------
-
-describe('OrbitalWorld', () => {
-  let world
-
-  beforeEach(() => {
-    world = new OrbitalWorld()
+// ── 1. body() ─────────────────────────────────────────────────────────────────
+describe('body()', () => {
+  it('creates defaults', () => {
+    const b = P.body()
+    expect(b.mass).toBe(1); expect(b.charge).toBe(0); expect(b.restitution).toBe(1)
+    expect(b.position.lengthSq()).toBe(0); expect(b.force.lengthSq()).toBe(0)
   })
-
-  it('addBody stores an orbital body and getTransform returns null before step', () => {
-    world.addBody('earth', EARTH_DESC)
-    // Before any step the stored position is the zero-init value; getTransform
-    // should still return an object (not null) because the body exists.
-    const t = world.getTransform('earth')
-    expect(t).not.toBeNull()
-    expect(t).toHaveProperty('position')
-    expect(t).toHaveProperty('rotation')
+  it('clones position so mutations are isolated', () => {
+    const pos = new Three.Vector3(1,2,3); const b = P.body({ position: pos })
+    pos.set(9,9,9); expect(b.position.x).toBe(1)
   })
-
-  it('addBody throws for non-orbital desc type', () => {
-    expect(() =>
-      world.addBody('bad', { type: 'rigid', bodyType: 'dynamic' })
-    ).toThrow("expected type 'orbital'")
-  })
-
-  it('step updates Earth position — length ≈ 100 ± 5 scene units (1 AU)', () => {
-    world.addBody('earth', EARTH_DESC)
-    world.step(1, 1)  // small elapsed, Earth should be near perihelion ≈ 1 AU
-    const { position } = world.getTransform('earth')
-    const len = vec3Length(position)
-    expect(len).toBeGreaterThan(95)
-    expect(len).toBeLessThan(105)
-  })
-
-  it('step updates Mercury position — length is within Mercury orbital range (perihelion≈30.7, aphelion≈46.7 scene units)', () => {
-    world.addBody('mercury', MERCURY_DESC)
-    world.step(1, 1)
-    const { position } = world.getTransform('mercury')
-    const len = vec3Length(position)
-    // Mercury's perihelion: a*(1-e)*AU_SCALE = 0.387*0.7944*100 ≈ 30.7
-    // Mercury's aphelion:   a*(1+e)*AU_SCALE = 0.387*1.2056*100 ≈ 46.7
-    // Allow 2 units of tolerance around that range.
-    expect(len).toBeGreaterThan(28.7)
-    expect(len).toBeLessThan(48.7)
-  })
-
-  it('getTransform returns { position, rotation } after a step', () => {
-    world.addBody('earth', EARTH_DESC)
-    world.step(10, 1)
-    const t = world.getTransform('earth')
-    expect(t).not.toBeNull()
-    expect(t.position).toHaveProperty('x')
-    expect(t.position).toHaveProperty('y')
-    expect(t.position).toHaveProperty('z')
-    expect(t.rotation).toMatchObject({ x: 0, y: 0, z: 0, w: 1 })
-  })
-
-  it('removeBody causes getTransform to return null', () => {
-    world.addBody('earth', EARTH_DESC)
-    world.step(5, 1)
-    world.removeBody('earth')
-    expect(world.getTransform('earth')).toBeNull()
-  })
-
-  it('Earth completes ~one orbit in TIME_YEAR_SECS scene-seconds (closed orbit, ≤5 units apart)', () => {
-    world.addBody('earth', EARTH_DESC)
-
-    // Position at t=0 (perihelion, near +x axis)
-    world.step(0, 0)
-    const p0 = { ...world.getTransform('earth').position }
-
-    // Position after one full orbital period
-    world.step(TIME_YEAR_SECS, TIME_YEAR_SECS)
-    const p1 = { ...world.getTransform('earth').position }
-
-    const dx = p1.x - p0.x
-    const dy = p1.y - p0.y
-    const dz = p1.z - p0.z
-    const separation = Math.sqrt(dx * dx + dy * dy + dz * dz)
-
-    // A perfect Kepler orbit is deterministic from elapsed, so t=0 and t=1yr
-    // should give the same position (within floating-point tolerance).
-    expect(separation).toBeLessThan(5)
+  it('accepts mass, charge, restitution', () => {
+    const b = P.body({ mass:5, charge:-2, restitution:0.7 })
+    expect(b.mass).toBe(5); expect(b.restitution).toBe(0.7)
   })
 })
 
-// ---------------------------------------------------------------------------
-// ParticleWorld
-// ---------------------------------------------------------------------------
-
-describe('ParticleWorld', () => {
-  let world
-
-  beforeEach(() => {
-    world = new ParticleWorld()
+// ── 2. Force accumulation ─────────────────────────────────────────────────────
+describe('applyForce()', () => {
+  it('accumulates multiple forces', () => {
+    const b = P.body()
+    P.applyForce(b, new Three.Vector3(1,0,0)); P.applyForce(b, new Three.Vector3(0,2,0))
+    expect(v3near(b.force,1,2,0)).toBe(true)
   })
-
-  it('addBody with ParticleEmitterDesc creates the emitter', () => {
-    world.addBody('fire', { type: 'particle', rate: 20, lifetime: 1.5 })
-    // getParticles should return an array (possibly empty before any step)
-    expect(Array.isArray(world.getParticles('fire'))).toBe(true)
+})
+describe('applyImpulse()', () => {
+  it('Δv = impulse / mass', () => {
+    const b = P.body({ mass:2 }); P.applyImpulse(b, new Three.Vector3(4,0,0))
+    expect(v3near(b.velocity,2,0,0)).toBe(true)
   })
-
-  it('addBody throws for non-particle desc type', () => {
-    expect(() =>
-      world.addBody('bad', { type: 'orbital', semiMajorAxis: 1 })
-    ).toThrow("expected type 'particle'")
+})
+describe('clearForces()', () => {
+  it('zeroes the accumulator', () => {
+    const b = P.body(); b.force.set(1,2,3); P.clearForces(b)
+    expect(b.force.lengthSq()).toBe(0)
   })
+})
 
-  it('step spawns particles — getParticles returns non-empty array after enough steps', () => {
-    world.addBody('smoke', { type: 'particle', rate: 50, lifetime: 5.0, speed: 3 })
-    // step with dt large enough to accumulate several particles
-    world.step(0.1, 0.1)
-    world.step(0.2, 0.1)
-    const particles = world.getParticles('smoke')
-    expect(particles.length).toBeGreaterThan(0)
+// ── 3. Force functions ────────────────────────────────────────────────────────
+describe('gravityForce()', () => {
+  it('F = m·g downward', () => { expect(v3near(P.gravityForce(2,10),0,-20,0)).toBe(true) })
+  it('uses SI default g', () => { expect(approx(P.gravityForce(1).y,-P.g_SI)).toBe(true) })
+})
+
+describe('gravitationForce()', () => {
+  it('directed A→B', () => {
+    const f = P.gravitationForce(new Three.Vector3(),1e10,new Three.Vector3(1,0,0),1e10)
+    expect(f.x).toBeGreaterThan(0); expect(approx(f.y,0)).toBe(true)
   })
-
-  it('particles have position, velocity, and life-tracking properties', () => {
-    world.addBody('spark', { type: 'particle', rate: 100, lifetime: 2.0 })
-    world.step(0.1, 0.1)
-    const particles = world.getParticles('spark')
-    expect(particles.length).toBeGreaterThan(0)
-    const p = particles[0]
-    expect(p).toHaveProperty('position')
-    expect(p.position).toHaveProperty('x')
-    expect(p.position).toHaveProperty('y')
-    expect(p.position).toHaveProperty('z')
-    expect(p).toHaveProperty('velocity')
-    // ParticleWorld tracks age + lifetime (life = lifetime - age effectively)
-    expect(p).toHaveProperty('age')
-    expect(p).toHaveProperty('lifetime')
+  it('inverse-square: double r → ¼ force', () => {
+    const p = new Three.Vector3()
+    const f1 = P.gravitationForce(p,1,new Three.Vector3(1,0,0),1,1)
+    const f2 = P.gravitationForce(p,1,new Three.Vector3(2,0,0),1,1)
+    expect(approx(f1.x/f2.x,4,1e-9)).toBe(true)
   })
-
-  it('particles age: age increases with each step', () => {
-    world.addBody('jet', { type: 'particle', rate: 200, lifetime: 10.0 })
-    world.step(0.05, 0.05)
-    const before = world.getParticles('jet').map(p => p.age)
-    world.step(0.15, 0.10)
-    const after = world.getParticles('jet').map(p => p.age)
-    // All particles that survived should have aged by ~0.10
-    // (some may have been spawned in the second step, so just check that at
-    //  least one particle has a larger age)
-    const anyAged = after.some((a, i) => before[i] !== undefined && a > before[i])
-    expect(anyAged).toBe(true)
+  it('zero for coincident positions', () => {
+    const p = new Three.Vector3(1,1,1)
+    expect(P.gravitationForce(p,1e12,p.clone(),1e12).lengthSq()).toBe(0)
   })
+})
 
-  it('particles are removed when age >= lifetime', () => {
-    // Very short lifetime, moderate rate
-    world.addBody('flash', { type: 'particle', rate: 100, lifetime: 0.05 })
-    // First step spawns particles
-    world.step(0.02, 0.02)
-    const countAfterSpawn = world.getParticles('flash').length
-    expect(countAfterSpawn).toBeGreaterThan(0)
+describe('dragForce()', () => {
+  it('opposes velocity', () => { expect(v3near(P.dragForce(new Three.Vector3(3,0,0),2),-6,0,0)).toBe(true) })
+  it('does not mutate input', () => { const v=new Three.Vector3(2,0,0); P.dragForce(v,5); expect(v.x).toBe(2) })
+})
 
-    // Step well past lifetime — all original particles should be culled
-    // Use a large dt so every old particle exceeds its lifetime
-    world.step(1.0, 0.98)
-    const surviving = world.getParticles('flash')
-    // Any surviving particles must have been spawned in this last step
-    // and must be younger than 0.1 s (2× the lifetime cap with random jitter)
-    for (const p of surviving) {
-      expect(p.age).toBeLessThan(0.1)
+describe('quadraticDragForce()', () => {
+  it('magnitude ∝ v²', () => {
+    const d2=P.quadraticDragForce(new Three.Vector3(2,0,0),1)
+    const d4=P.quadraticDragForce(new Three.Vector3(4,0,0),1)
+    expect(approx(d4.x/d2.x,4)).toBe(true); expect(d2.x).toBeLessThan(0)
+  })
+})
+
+describe('springForce()', () => {
+  it('zero at rest length', () => {
+    expect(P.springForce(new Three.Vector3(),new Three.Vector3(1,0,0),1,10).lengthSq()).toBeLessThan(1e-20)
+  })
+  it('pulls toward B when stretched', () => {
+    expect(approx(P.springForce(new Three.Vector3(),new Three.Vector3(2,0,0),1,10).x,10)).toBe(true)
+  })
+  it('pushes away when compressed', () => {
+    expect(P.springForce(new Three.Vector3(),new Three.Vector3(0.5,0,0),1,10).x).toBeLessThan(0)
+  })
+  it('damping reduces force on approach', () => {
+    const pA=new Three.Vector3(), pB=new Three.Vector3(2,0,0)
+    const f0=P.springForce(pA,pB,1,10,new Three.Vector3(),new Three.Vector3(),0)
+    const f1=P.springForce(pA,pB,1,10,new Three.Vector3(1,0,0),new Three.Vector3(),5)
+    expect(f1.x).toBeLessThan(f0.x)
+  })
+})
+
+describe('lorentzForce()', () => {
+  it('F=q·E when B=0', () => {
+    expect(v3near(P.lorentzForce(2,new Three.Vector3(),new Three.Vector3(3,0,0),new Three.Vector3()),6,0,0)).toBe(true)
+  })
+  it('v×B deflects perpendicular', () => {
+    // v=(1,0,0) B=(0,1,0) → v×B=(0,0,+1) → F=2*(0,0,+1)
+    expect(approx(P.lorentzForce(2,new Three.Vector3(1,0,0),new Three.Vector3(),new Three.Vector3(0,1,0)).z,2)).toBe(true)
+  })
+})
+
+describe('buoyancyForce()', () => {
+  it('upward with correct magnitude', () => { expect(approx(P.buoyancyForce(1000,0.001,10).y,10)).toBe(true) })
+})
+
+// ── 4. Integration ────────────────────────────────────────────────────────────
+describe('integrate()', () => {
+  it('moves position by v·dt', () => {
+    const b=P.body({velocity:new Three.Vector3(1,0,0)}); P.integrate(b,2)
+    expect(v3near(b.position,2,0,0)).toBe(true)
+  })
+  it('accelerates by F/m·dt', () => {
+    const b=P.body({mass:2}); b.force.set(4,0,0); P.integrate(b,1)
+    expect(v3near(b.velocity,2,0,0)).toBe(true)
+  })
+  it('clears force accumulator', () => {
+    const b=P.body(); b.force.set(5,5,5); P.integrate(b,1); expect(b.force.lengthSq()).toBe(0)
+  })
+  it('free-fall matches ½g t² within 1%', () => {
+    const b=P.body({mass:1}); const g=10,dt=0.01
+    for(let i=0;i<100;i++){P.applyForce(b,P.gravityForce(1,g));P.integrate(b,dt)}
+    expect(approx(b.position.y,-0.5*g,0.1)).toBe(true)
+  })
+})
+
+describe('integrateVerlet()', () => {
+  it('advances position', () => {
+    const b=P.body({velocity:new Three.Vector3(1,0,0)})
+    P.integrateVerlet(b,new Three.Vector3(),1); expect(b.position.x).toBeGreaterThan(0)
+  })
+  it('returns current force for chaining', () => {
+    const b=P.body(); b.force.set(2,0,0)
+    expect(P.integrateVerlet(b,new Three.Vector3(),1).x).toBe(2)
+  })
+})
+
+// ── 5. Orbital mechanics ──────────────────────────────────────────────────────
+describe('orbitalSpeed()', () => {
+  it('ISS-like ≈7700 m/s', () => {
+    const v=P.orbitalSpeed(5.972e24,6.371e6+400e3)
+    expect(v).toBeGreaterThan(7500); expect(v).toBeLessThan(8000)
+  })
+  it('∝ 1/√r: quadruple r → half speed', () => {
+    expect(approx(P.orbitalSpeed(1e15,100,1)/P.orbitalSpeed(1e15,400,1),2,0.01)).toBe(true)
+  })
+})
+
+describe('orbitalPeriod()', () => {
+  it('Earth ≈ 365 days', () => {
+    const d=P.orbitalPeriod(1.496e11,1.989e30)/86400
+    expect(d).toBeGreaterThan(364); expect(d).toBeLessThan(367)
+  })
+  it('Kepler T²∝a³', () => {
+    const T1=P.orbitalPeriod(1,1e12,1),T2=P.orbitalPeriod(2,1e12,1)
+    expect(approx(T2/T1,Math.pow(2,1.5),0.001)).toBe(true)
+  })
+})
+
+describe('escapeSpeed()', () => {
+  it('= √2 × orbitalSpeed', () => {
+    expect(approx(P.escapeSpeed(1e24,1e7,1)/P.orbitalSpeed(1e24,1e7,1),Math.SQRT2)).toBe(true)
+  })
+})
+
+describe('meanAnomaly()', () => {
+  it('0 at t=0', () => { expect(P.meanAnomaly(0,100)).toBe(0) })
+  it('π at t=T/2', () => { expect(approx(P.meanAnomaly(50,100),Math.PI)).toBe(true) })
+})
+
+describe('solveKepler()', () => {
+  it('E=M for e=0', () => { expect(approx(P.solveKepler(1.2,0),1.2)).toBe(true) })
+  it('satisfies M=E-e·sin(E)', () => {
+    const M=0.8,e=0.5,E=P.solveKepler(M,e)
+    expect(approx(M,E-e*Math.sin(E))).toBe(true)
+  })
+})
+
+describe('keplerPosition()', () => {
+  it('periapsis: x=a(1-e), z=0', () => {
+    const {x,z}=P.keplerPosition(10,0.3,0)
+    expect(approx(x,7,1e-5)).toBe(true); expect(approx(z,0,1e-5)).toBe(true)
+  })
+  it('apoapsis: x≈-a(1+e), z≈0', () => {
+    const {x,z}=P.keplerPosition(10,0.3,Math.PI)
+    expect(approx(x,-13,1e-4)).toBe(true); expect(approx(z,0,1e-4)).toBe(true)
+  })
+  it('circle: constant radius', () => {
+    for(const f of[0,0.25,0.5,0.75]){
+      const {x,z}=P.keplerPosition(5,0,f*2*Math.PI)
+      expect(approx(Math.hypot(x,z),5,1e-4)).toBe(true)
     }
   })
+})
 
-  it('removeBody stops particle spawning', () => {
-    world.addBody('burst', { type: 'particle', rate: 50, lifetime: 5.0 })
-    world.step(0.2, 0.2)  // produce some particles
-
-    world.removeBody('burst')
-
-    // After removal, getParticles returns empty default (emitter gone)
-    const particles = world.getParticles('burst')
-    expect(particles).toHaveLength(0)
+describe('visViva()', () => {
+  it('r=a → orbitalSpeed', () => {
+    expect(approx(P.visViva(1e10,100,100,1),P.orbitalSpeed(1e10,100,1))).toBe(true)
+  })
+  it('periapsis speed > circular', () => {
+    const G=1,M=1e10,a=100,e=0.5,r=a*(1-e)
+    expect(P.visViva(M,r,a,G)).toBeGreaterThan(P.orbitalSpeed(M,r,G))
   })
 })
 
-// ---------------------------------------------------------------------------
-// PhysicsComposer
-// ---------------------------------------------------------------------------
-
-describe('PhysicsComposer', () => {
-  it('adding an OrbitalWorld and stepping fans out to it', () => {
-    const composer = new PhysicsComposer()
-    const orbital = new OrbitalWorld()
-    orbital.addBody('earth', EARTH_DESC)
-    composer.add(orbital)
-
-    composer.step(10, 1)
-
-    // Confirm orbital world received the step — Earth should have moved
-    const t = orbital.getTransform('earth')
-    expect(t).not.toBeNull()
-    expect(vec3Length(t.position)).toBeGreaterThan(90)
+// ── 6. Collision ──────────────────────────────────────────────────────────────
+describe('sphereOverlap()', () => {
+  it('0 when separated', () => {
+    expect(P.sphereOverlap(new Three.Vector3(),1,new Three.Vector3(3,0,0),1)).toBe(0)
   })
-
-  it('getTransform finds body in whichever world contains it', () => {
-    const composer = new PhysicsComposer()
-    const orbital = new OrbitalWorld()
-    const particles = new ParticleWorld()
-
-    orbital.addBody('earth', EARTH_DESC)
-    particles.addBody('smoke', { type: 'particle', rate: 10, lifetime: 2 })
-
-    composer.add(orbital).add(particles)
-    composer.step(5, 1)
-
-    // Earth is in the orbital world
-    expect(composer.getTransform('earth')).not.toBeNull()
-
-    // Smoke emitter is in the particle world
-    expect(composer.getTransform('smoke')).not.toBeNull()
-  })
-
-  it('getTransform returns null for a body not in any world (OrbitalWorld-only composer)', () => {
-    // OrbitalWorld.getTransform returns null for unknown ids, making this
-    // safe to test without a ParticleWorld (which always returns a transform).
-    const composer = new PhysicsComposer()
-    const orbital = new OrbitalWorld()
-    orbital.addBody('earth', EARTH_DESC)
-    composer.add(orbital)
-    composer.step(5, 1)
-
-    expect(composer.getTransform('nonexistent')).toBeNull()
-  })
-
-  it('multiple worlds coexist and all receive step calls', () => {
-    const composer = new PhysicsComposer()
-    const o1 = new OrbitalWorld()
-    const o2 = new OrbitalWorld()
-
-    o1.addBody('earth', EARTH_DESC)
-    o2.addBody('mercury', MERCURY_DESC)
-
-    composer.add(o1).add(o2)
-    composer.step(15, 1)
-
-    const earthT = composer.getTransform('earth')
-    const mercuryT = composer.getTransform('mercury')
-
-    expect(earthT).not.toBeNull()
-    expect(mercuryT).not.toBeNull()
-
-    // Earth should be farther from origin than Mercury
-    expect(vec3Length(earthT.position)).toBeGreaterThan(
-      vec3Length(mercuryT.position)
-    )
+  it('positive depth when overlapping', () => {
+    expect(P.sphereOverlap(new Three.Vector3(),1,new Three.Vector3(1,0,0),1)).toBe(1)
   })
 })
 
-// ---------------------------------------------------------------------------
-// RigidWorld (stub — Rapier not installed)
-// ---------------------------------------------------------------------------
-
-describe('RigidWorld (stub, Rapier not installed)', () => {
-  let world
-
-  beforeEach(() => {
-    // Suppress the expected console.warn from the constructor and addBody
-    vi.spyOn(console, 'warn').mockImplementation(() => {})
+describe('resolveCollision()', () => {
+  it('elastic equal-mass: velocities swap', () => {
+    const a=P.body({position:new Three.Vector3(-1,0,0),velocity:new Three.Vector3(2,0,0)})
+    const b=P.body({position:new Three.Vector3(1,0,0),velocity:new Three.Vector3(0,0,0)})
+    P.resolveCollision(a,b,1)
+    expect(approx(a.velocity.x,0,1e-9)).toBe(true); expect(approx(b.velocity.x,2,1e-9)).toBe(true)
   })
-
-  it('constructor does not throw', () => {
-    expect(() => { world = new RigidWorld() }).not.toThrow()
+  it('conserves momentum', () => {
+    const a=P.body({position:new Three.Vector3(-1,0,0),mass:2,velocity:new Three.Vector3(3,0,0)})
+    const b=P.body({position:new Three.Vector3(1,0,0),mass:3,velocity:new Three.Vector3(-1,0,0)})
+    const p0=a.mass*a.velocity.x+b.mass*b.velocity.x
+    P.resolveCollision(a,b,0.8)
+    expect(approx(p0,a.mass*a.velocity.x+b.mass*b.velocity.x,1e-9)).toBe(true)
   })
-
-  it('addBody does not throw and stores the body', () => {
-    world = new RigidWorld()
-    expect(() =>
-      world.addBody('box1', {
-        type: 'rigid',
-        bodyType: 'dynamic',
-        shape: { type: 'box' },
-        initialPosition: { x: 1, y: 2, z: 3 },
-        initialRotation: { x: 0, y: 0, z: 0, w: 1 },
-      })
-    ).not.toThrow()
+  it('no impulse when separating', () => {
+    const a=P.body({position:new Three.Vector3(-1,0,0),velocity:new Three.Vector3(-1,0,0)})
+    const b=P.body({position:new Three.Vector3(1,0,0),velocity:new Three.Vector3(1,0,0)})
+    const vx=a.velocity.x; P.resolveCollision(a,b,1); expect(a.velocity.x).toBe(vx)
   })
+})
 
-  it('step does not throw (no-op without Rapier)', () => {
-    world = new RigidWorld()
-    world.addBody('box1', {
-      type: 'rigid',
-      bodyType: 'dynamic',
-      shape: { type: 'sphere', radius: 1 },
-    })
-    expect(() => world.step(1, 0.016)).not.toThrow()
+describe('separateSpheres()', () => {
+  it('eliminates overlap', () => {
+    const a=P.body({position:new Three.Vector3(0,0,0),mass:1})
+    const b=P.body({position:new Three.Vector3(1,0,0),mass:1})
+    P.separateSpheres(a,1,b,1)
+    expect(P.sphereOverlap(a.position,1,b.position,1)).toBeLessThan(1e-9)
   })
-
-  it('getTransform returns a transform object for a known body (graceful stub behaviour)', () => {
-    world = new RigidWorld()
-    world.addBody('box1', {
-      type: 'rigid',
-      bodyType: 'dynamic',
-      shape: { type: 'box' },
-      initialPosition: { x: 5, y: 0, z: 0 },
-    })
-    world.step(1, 0.016)
-    const t = world.getTransform('box1')
-    // Stub stores the initialPosition and returns it; should not be null
-    expect(t).not.toBeNull()
-    expect(t).toHaveProperty('position')
-    expect(t).toHaveProperty('rotation')
+  it('heavier body moves less', () => {
+    const a=P.body({position:new Three.Vector3(0,0,0),mass:1})
+    const b=P.body({position:new Three.Vector3(1,0,0),mass:100})
+    P.separateSpheres(a,1,b,1)
+    expect(Math.abs(a.position.x)).toBeGreaterThan(Math.abs(b.position.x-1))
   })
+})
 
-  it('getTransform returns null for an unknown body', () => {
-    world = new RigidWorld()
-    expect(world.getTransform('ghost')).toBeNull()
+// ── 7. Energy & momentum ──────────────────────────────────────────────────────
+describe('kineticEnergy()', () => {
+  it('½mv²', () => {
+    expect(approx(P.kineticEnergy(P.body({velocity:new Three.Vector3(3,4,0),mass:2})),25)).toBe(true)
+  })
+})
+describe('gravitationalPotentialEnergy()', () => {
+  it('is negative', () => { expect(P.gravitationalPotentialEnergy(1e10,1,1e6)).toBeLessThan(0) })
+})
+describe('springPotentialEnergy()', () => {
+  it('½kx²', () => { expect(approx(P.springPotentialEnergy(10,2),20)).toBe(true) })
+})
+describe('momentum()', () => {
+  it('p=mv', () => {
+    expect(v3near(P.momentum(P.body({velocity:new Three.Vector3(2,0,0),mass:3})),6,0,0)).toBe(true)
+  })
+})
+describe('angularMomentum()', () => {
+  it('r×mv perpendicular to both', () => {
+    const b=P.body({velocity:new Three.Vector3(0,1,0),mass:1})
+    const L=P.angularMomentum(new Three.Vector3(1,0,0),b)
+    expect(approx(L.z,1)).toBe(true); expect(approx(L.x,0)).toBe(true)
+  })
+})
+
+// ── 8. Fields ─────────────────────────────────────────────────────────────────
+describe('uniformField()', () => {
+  it('has requested magnitude', () => {
+    expect(approx(P.uniformField(new Three.Vector3(1,0,0),5).length(),5)).toBe(true)
+  })
+  it('normalises direction', () => {
+    expect(approx(P.uniformField(new Three.Vector3(3,4,0),10).length(),10,1e-5)).toBe(true)
+  })
+})
+describe('radialField()', () => {
+  it('positive → attracts', () => {
+    expect(P.radialField(new Three.Vector3(),new Three.Vector3(5,0,0),1).x).toBeLessThan(0)
+  })
+  it('negative → repels', () => {
+    expect(P.radialField(new Three.Vector3(),new Three.Vector3(5,0,0),-1).x).toBeGreaterThan(0)
+  })
+  it('zero at coincident point', () => {
+    const p=new Three.Vector3(1,1,1)
+    expect(P.radialField(p,p.clone(),100).lengthSq()).toBe(0)
+  })
+})
+describe('vortexField()', () => {
+  it('tangential — no radial/axial component', () => {
+    const f=P.vortexField(new Three.Vector3(),new Three.Vector3(0,1,0),new Three.Vector3(1,0,0),1)
+    expect(approx(f.y,0,1e-9)).toBe(true); expect(approx(f.x,0,1e-9)).toBe(true)
   })
 })

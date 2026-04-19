@@ -1,9 +1,30 @@
-// Physics Particles — click to move the fountain; particles stream up, arc under gravity, and glow.
+// Physics Particles — fountain of particles that arc under real physics. Click to move it.
 
 import * as Three from 'three'
-import { createParticleWorld, emitter, forceField } from '../../src/stdlib/physics/particles.js'
+import { body, integrate, gravityForce, dragForce } from '../../src/physics/Physics.js'
 
-const GROUND_Y = -3
+const GROUND_Y   = -3
+const PARTICLE_N = 300
+const EMIT_RATE  = 80    // particles per second
+const LIFETIME   = 3     // seconds
+const UP_SPEED   = 12
+const SPREAD     = 0.4   // cone half-angle (rad)
+const GRAVITY    = 4     // artistic scale, m/s²
+const DRAG_K     = 0.08
+
+function spawnParticle(p, origin) {
+  const theta = Math.random() * SPREAD
+  const phi   = Math.random() * Math.PI * 2
+  const sinT  = Math.sin(theta)
+  p.velocity.set(
+    Math.cos(phi) * sinT * UP_SPEED,
+    Math.cos(theta)      * UP_SPEED,
+    Math.sin(phi) * sinT * UP_SPEED,
+  )
+  p.position.copy(origin)
+  p._age   = 0
+  p._alive = true
+}
 
 export function setup(ctx) {
   ctx.camera.position.set(0, 4, 18)
@@ -19,16 +40,29 @@ export function setup(ctx) {
   ctx._ground.position.y = GROUND_Y
   ctx.add(ctx._ground)
 
-  ctx._world   = createParticleWorld()
-  ctx._emitter = emitter(ctx._world, ctx.scene, {
-    rate: 80, speed: 12, spread: 0.4 * (180 / Math.PI),
-    lifetime: 3, color: 0x66aaff, size: 0.15, gravity: 4,
-  })
-  ctx._origin = new Three.Vector3(0, GROUND_Y, 0)
-  ctx._emitter.points.position.copy(ctx._origin)
+  ctx._origin    = new Three.Vector3(0, GROUND_Y, 0)
+  ctx._emitAcc   = 0
 
-  const raycaster  = new Three.Raycaster()
-  const mouse      = new Three.Vector2()
+  ctx._particles = Array.from({ length: PARTICLE_N }, () => {
+    const p = body({ mass: 1 })
+    p._alive = false
+    p._age   = 0
+    return p
+  })
+
+  ctx._instanced = new Three.InstancedMesh(
+    new Three.SphereGeometry(0.12, 6, 4),
+    new Three.MeshStandardMaterial({
+      color: 0x66aaff, emissive: new Three.Color(0x224488),
+      roughness: 0.6, metalness: 0.2,
+    }),
+    PARTICLE_N
+  )
+  ctx.add(ctx._instanced)
+  ctx._dummy = new Three.Object3D()
+
+  const raycaster   = new Three.Raycaster()
+  const mouse       = new Three.Vector2()
   const groundPlane = new Three.Plane(new Three.Vector3(0, 1, 0), -GROUND_Y)
 
   ctx._onClick = (e) => {
@@ -39,22 +73,58 @@ export function setup(ctx) {
     const hit = new Three.Vector3()
     if (raycaster.ray.intersectPlane(groundPlane, hit)) {
       ctx._origin.set(hit.x, GROUND_Y, hit.z)
-      ctx._emitter.points.position.copy(ctx._origin)
     }
   }
   window.addEventListener('click', ctx._onClick)
 }
 
 export function update(ctx, dt) {
-  const center = { x: ctx._origin.x, y: ctx._origin.y + 2, z: ctx._origin.z }
-  forceField(ctx._world, ctx._emitter.emitterId, center, 3, { x: 0, y: 1.5 * dt, z: 0 })
-  ctx._emitter.update(ctx.elapsed, dt)
+  ctx._emitAcc += EMIT_RATE * dt
+  let toEmit = Math.floor(ctx._emitAcc)
+  ctx._emitAcc -= toEmit
+
+  const grav = gravityForce(1, GRAVITY)
+
+  for (let i = 0; i < PARTICLE_N; i++) {
+    const p = ctx._particles[i]
+
+    if (!p._alive) {
+      if (toEmit > 0) { spawnParticle(p, ctx._origin); toEmit-- }
+      else {
+        ctx._dummy.scale.setScalar(0)
+        ctx._dummy.position.set(0, -1000, 0)
+        ctx._dummy.updateMatrix()
+        ctx._instanced.setMatrixAt(i, ctx._dummy.matrix)
+        continue
+      }
+    }
+
+    p._age += dt
+    p.force.copy(grav).add(dragForce(p.velocity, DRAG_K))
+    integrate(p, dt)
+
+    if (p.position.y < GROUND_Y || p._age > LIFETIME) {
+      p._alive = false
+      ctx._dummy.scale.setScalar(0)
+      ctx._dummy.position.set(0, -1000, 0)
+    } else {
+      const fade = 1 - p._age / LIFETIME
+      ctx._dummy.scale.setScalar(0.4 + fade * 0.6)
+      ctx._dummy.position.copy(p.position)
+    }
+    ctx._dummy.updateMatrix()
+    ctx._instanced.setMatrixAt(i, ctx._dummy.matrix)
+  }
+
+  ctx._instanced.instanceMatrix.needsUpdate = true
 }
 
 export function teardown(ctx) {
   window.removeEventListener('click', ctx._onClick)
-  ctx._emitter.dispose()
   ctx._ground.geometry.dispose()
   ctx._ground.material.dispose()
   ctx.remove(ctx._ground)
+  ctx._instanced.geometry.dispose()
+  ctx._instanced.material.dispose()
+  ctx.remove(ctx._instanced)
 }
