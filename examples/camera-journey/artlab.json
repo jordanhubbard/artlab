@@ -1,0 +1,6 @@
+{
+  "name": "camera-journey",
+  "version": "1.0.0",
+  "entry": "camera-journey.js",
+  "description": "Cinematic path camera touring a pillar grid — cameras stdlib demo"
+}

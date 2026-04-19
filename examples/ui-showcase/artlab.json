@@ -1,0 +1,6 @@
+{
+  "name": "ui-showcase",
+  "version": "1.0.0",
+  "entry": "ui-showcase.js",
+  "description": "HUD panels, 3D labels, progress bars, and tooltips — ui stdlib demo"
+}

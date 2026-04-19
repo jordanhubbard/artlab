@@ -1,0 +1,6 @@
+{
+  "name": "tutorial-04-color",
+  "version": "1.0.0",
+  "entry": "tutorial-04-color.js",
+  "description": "Tutorial 04 — Color spaces, emissive, and PBR material parameters"
+}

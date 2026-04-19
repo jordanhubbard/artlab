@@ -1,0 +1,6 @@
+{
+  "name": "audio-pulse",
+  "version": "1.0.0",
+  "entry": "audio-pulse.js",
+  "description": "A microphone-reactive sphere and satellite ring — the basic audio example"
+}

@@ -1,0 +1,6 @@
+{
+  "name": "tutorial-03-animation",
+  "version": "1.0.0",
+  "entry": "tutorial-03-animation.js",
+  "description": "Tutorial 03 — Time-based animation patterns: sine, linear, easing"
+}

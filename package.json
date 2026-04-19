@@ -20,6 +20,7 @@
     "tone": "^14.9.0"
   },
   "devDependencies": {
+    "jsdom": "^29.0.2",
     "vite": "^6.0.0",
     "vitest": "^2.1.9"
   }
