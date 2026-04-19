@@ -1,0 +1,6 @@
+{
+  "name": "music-synth",
+  "version": "1.0.0",
+  "entry": "music-synth.js",
+  "description": "Generative music synthesis — scales, chords, sequencer, reverb, and 3D reactive visuals"
+}

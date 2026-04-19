@@ -1,85 +1,243 @@
-// UI Showcase — 5 labeled floating spheres with HUD overlay, progress bar, and hover tooltip.
+// UI Showcase — interactive HTML controls overlaid on a 3D scene.
+// Demonstrates: canvas-relative panels, buttons, sliders, hover tooltips,
+// live stat readout — all positioned within the canvas container.
 
 import * as THREE from 'three'
-import { label, hud, progressBar, tooltip } from '../../src/stdlib/ui.js'
 
-const NAMES  = ['Alpha', 'Beta', 'Gamma', 'Delta', 'Epsilon']
-const COLORS = [0xff4466, 0xffaa00, 0x44ff88, 0x44aaff, 0xcc44ff]
+const OBJECTS = [
+  { name: 'Sphere',   color: 0x4466ff },
+  { name: 'Box',      color: 0xff6644 },
+  { name: 'Torus',    color: 0x44dd88 },
+  { name: 'Cylinder', color: 0xffcc22 },
+  { name: 'Octahedron', color: 0xcc44ff },
+  { name: 'Cone',     color: 0xff4499 },
+]
+
+let _meshes, _panel, _statEl, _tooltip, _onMove, _onOut, _raycaster, _mouse
+let _speed = 0.6, _wireframe = false, _shape = 'sphere', _bloom = false
+
+// ── Build the HTML control panel ────────────────────────────────────────────
+
+function buildUI(container, ctx) {
+  // The container is the canvas parent — position relative to it
+  container.style.position = 'relative'
+
+  // ── Control panel (right side) ────────────────────────────────────────
+  _panel = document.createElement('div')
+  Object.assign(_panel.style, {
+    position: 'absolute', top: '10px', right: '10px',
+    width: '170px',
+    background: 'rgba(8,10,22,0.88)',
+    border: '1px solid rgba(80,120,255,0.3)',
+    borderRadius: '4px',
+    fontFamily: 'monospace', fontSize: '11px', color: '#889aaa',
+    padding: '12px',
+    display: 'flex', flexDirection: 'column', gap: '10px',
+    userSelect: 'none',
+    zIndex: '10',
+  })
+
+  _panel.innerHTML = `
+    <div style="color:#5a8cff;letter-spacing:.15em;font-size:10px;border-bottom:1px solid rgba(80,120,255,.2);padding-bottom:6px">
+      UI SHOWCASE
+    </div>
+
+    <div>
+      <div style="margin-bottom:4px">Geometry</div>
+      <div id="ui-shape-btns" style="display:flex;flex-direction:column;gap:3px"></div>
+    </div>
+
+    <div>
+      <div style="margin-bottom:4px">Speed: <span id="ui-speed-val">${_speed.toFixed(1)}</span>×</div>
+      <input id="ui-speed" type="range" min="0" max="2" step="0.1" value="${_speed}"
+        style="width:100%;accent-color:#4466ff;cursor:pointer">
+    </div>
+
+    <div style="display:flex;flex-direction:column;gap:4px">
+      <label id="ui-wire-lbl" style="cursor:pointer;display:flex;align-items:center;gap:6px">
+        <input type="checkbox" id="ui-wire" style="accent-color:#4466ff;cursor:pointer">
+        Wireframe
+      </label>
+      <label id="ui-bloom-lbl" style="cursor:pointer;display:flex;align-items:center;gap:6px">
+        <input type="checkbox" id="ui-bloom" style="accent-color:#4466ff;cursor:pointer">
+        Bloom
+      </label>
+    </div>
+
+    <div id="ui-stats" style="border-top:1px solid rgba(80,120,255,.2);padding-top:6px;
+      font-size:10px;color:#556677;line-height:1.8">
+      —
+    </div>
+  `
+  container.appendChild(_panel)
+  _statEl = _panel.querySelector('#ui-stats')
+
+  // Shape buttons
+  const shapeBtns = _panel.querySelector('#ui-shape-btns')
+  const shapes = ['sphere', 'box', 'torus', 'cylinder', 'cone']
+  for (const s of shapes) {
+    const btn = document.createElement('button')
+    btn.textContent = s
+    btn.dataset.shape = s
+    Object.assign(btn.style, {
+      background: s === _shape ? 'rgba(60,100,220,0.3)' : 'rgba(20,25,45,0.6)',
+      border: `1px solid ${s === _shape ? 'rgba(80,140,255,0.6)' : 'rgba(80,100,180,0.2)'}`,
+      color: s === _shape ? '#aaccff' : '#556677',
+      fontFamily: 'monospace', fontSize: '11px',
+      padding: '3px 8px', cursor: 'pointer', borderRadius: '3px',
+      textAlign: 'left',
+    })
+    btn.addEventListener('click', () => {
+      _shape = s
+      _rebuildMeshes(ctx)
+      // Update button styles
+      shapeBtns.querySelectorAll('button').forEach(b => {
+        const active = b.dataset.shape === _shape
+        b.style.background = active ? 'rgba(60,100,220,0.3)' : 'rgba(20,25,45,0.6)'
+        b.style.borderColor = active ? 'rgba(80,140,255,0.6)' : 'rgba(80,100,180,0.2)'
+        b.style.color = active ? '#aaccff' : '#556677'
+      })
+    })
+    shapeBtns.appendChild(btn)
+  }
+
+  // Speed slider
+  _panel.querySelector('#ui-speed').addEventListener('input', e => {
+    _speed = parseFloat(e.target.value)
+    _panel.querySelector('#ui-speed-val').textContent = _speed.toFixed(1)
+  })
+
+  // Wireframe toggle
+  _panel.querySelector('#ui-wire').addEventListener('change', e => {
+    _wireframe = e.target.checked
+    for (const m of _meshes) m.material.wireframe = _wireframe
+  })
+
+  // Bloom toggle
+  _panel.querySelector('#ui-bloom').addEventListener('change', e => {
+    _bloom = e.target.checked
+    ctx.setBloom(_bloom ? 0.8 : 0)
+  })
+
+  // ── Hover tooltip ──────────────────────────────────────────────────────
+  _tooltip = document.createElement('div')
+  Object.assign(_tooltip.style, {
+    position: 'absolute', pointerEvents: 'none',
+    background: 'rgba(8,10,22,0.92)',
+    border: '1px solid rgba(80,140,255,0.4)',
+    borderRadius: '3px', padding: '5px 10px',
+    fontFamily: 'monospace', fontSize: '11px', color: '#aaccff',
+    display: 'none', zIndex: '20',
+  })
+  container.appendChild(_tooltip)
+}
+
+// ── Rebuild meshes when shape changes ────────────────────────────────────────
+
+function _makeGeo(shape) {
+  switch (shape) {
+    case 'box':      return new THREE.BoxGeometry(1, 1, 1)
+    case 'torus':    return new THREE.TorusGeometry(0.5, 0.2, 16, 40)
+    case 'cylinder': return new THREE.CylinderGeometry(0.4, 0.4, 1, 32)
+    case 'cone':     return new THREE.ConeGeometry(0.5, 1, 32)
+    default:         return new THREE.SphereGeometry(0.6, 28, 16)
+  }
+}
+
+function _rebuildMeshes(ctx) {
+  // Remove old meshes from scene
+  for (const m of (_meshes || [])) ctx.remove(m)
+  _meshes = []
+  const geo = _makeGeo(_shape)
+  for (let i = 0; i < OBJECTS.length; i++) {
+    const { name, color } = OBJECTS[i]
+    const mat = new THREE.MeshStandardMaterial({
+      color, roughness: 0.35, metalness: 0.2,
+      emissive: new THREE.Color(color).multiplyScalar(0.12),
+      wireframe: _wireframe,
+    })
+    const m = new THREE.Mesh(geo, mat)
+    m.userData.label = name
+    m.userData.hex = '#' + color.toString(16).padStart(6, '0')
+    const angle = (i / OBJECTS.length) * Math.PI * 2
+    m.position.set(Math.cos(angle) * 3, 0, Math.sin(angle) * 3)
+    ctx.add(m)
+    _meshes.push(m)
+  }
+}
+
+// ── Lifecycle ─────────────────────────────────────────────────────────────────
 
 export function setup(ctx) {
-  ctx.camera.position.set(0, 2, 14)
-  ctx.camera.lookAt(0, 2, 0)
-  ctx.add(new THREE.AmbientLight(0x222233, 1.0))
-  const ptLight = new THREE.PointLight(0xffffff, 1.5, 40)
-  ptLight.position.set(0, 8, 6)
-  ctx.add(ptLight)
+  ctx.camera.position.set(0, 4, 10)
+  ctx.camera.lookAt(0, 0, 0)
 
-  ctx._spheres = []
-  ctx._labels  = []
-  ctx._geo = new THREE.SphereGeometry(0.6, 24, 16)
+  ctx.add(new THREE.AmbientLight(0x223355, 0.7))
+  const sun = new THREE.DirectionalLight(0xffffff, 1.3)
+  sun.position.set(5, 8, 6)
+  ctx.add(sun)
+  const rim = new THREE.PointLight(0x4466ff, 1.0, 30)
+  rim.position.set(-6, 4, -5)
+  ctx.add(rim)
 
-  for (let i = 0; i < NAMES.length; i++) {
-    const mat  = new THREE.MeshStandardMaterial({ color: COLORS[i], emissive: new THREE.Color(COLORS[i]), emissiveIntensity: 0.3, roughness: 0.4, metalness: 0.5 })
-    const mesh = new THREE.Mesh(ctx._geo, mat)
-    mesh.position.set((i - 2) * 2.6, 1.5 + i * 0.8, 0)
-    mesh.userData.name = NAMES[i]
-    ctx.add(mesh)
-    ctx._spheres.push(mesh)
+  _rebuildMeshes(ctx)
 
-    const lbl = label(mesh, NAMES[i], { color: '#aaddff', fontSize: '13px', offsetY: 1.0 })
-    ctx._labels.push(lbl)
-  }
+  const container = ctx.renderer.domElement.parentElement
+  buildUI(container, ctx)
 
-  ctx._hudTitle   = hud({ position: 'top-left' })
-  ctx._hudTitle.setText('UI SHOWCASE — artlab/ui')
+  // Raycasting for tooltip
+  _raycaster = new THREE.Raycaster()
+  _mouse = new THREE.Vector2(-9, -9)
 
-  ctx._hudTimer   = hud({ position: 'bottom-right' })
+  _onMove = (e) => {
+    const rect = ctx.renderer.domElement.getBoundingClientRect()
+    _mouse.x =  ((e.clientX - rect.left) / rect.width)  * 2 - 1
+    _mouse.y = -((e.clientY - rect.top)  / rect.height) * 2 + 1
 
-  ctx._bar = progressBar({ position: 'bottom-left', label: 'CYCLE', width: 200, color: '#44aaff' })
-
-  ctx._tip = tooltip()
-
-  const raycaster = new THREE.Raycaster()
-  const mouse     = new THREE.Vector2()
-
-  ctx._onMove = (e) => {
-    mouse.x = (e.clientX / window.innerWidth)  * 2 - 1
-    mouse.y = -(e.clientY / window.innerHeight) * 2 + 1
-    raycaster.setFromCamera(mouse, ctx.camera)
-    const hits = raycaster.intersectObjects(ctx._spheres)
+    _raycaster.setFromCamera(_mouse, ctx.camera)
+    const hits = _raycaster.intersectObjects(_meshes)
     if (hits.length > 0) {
       const obj = hits[0].object
-      const hex = '#' + obj.material.color.getHexString()
-      ctx._tip.show(`${obj.userData.name}  ${hex}`, e.clientX, e.clientY)
+      _tooltip.textContent = `${obj.userData.label}  ${obj.userData.hex}`
+      _tooltip.style.display = 'block'
+      // Position relative to container
+      const cRect = container.getBoundingClientRect()
+      _tooltip.style.left = (e.clientX - cRect.left + 12) + 'px'
+      _tooltip.style.top  = (e.clientY - cRect.top  - 14) + 'px'
     } else {
-      ctx._tip.hide()
+      _tooltip.style.display = 'none'
     }
   }
-  window.addEventListener('mousemove', ctx._onMove)
+  _onOut = () => { _tooltip.style.display = 'none' }
+
+  window.addEventListener('mousemove', _onMove)
+  ctx.renderer.domElement.addEventListener('mouseleave', _onOut)
 }
 
 export function update(ctx, dt) {
   const t = ctx.elapsed
-
-  for (let i = 0; i < ctx._spheres.length; i++) {
-    const hue  = ((t * 0.08 + i * 0.2) % 1)
-    const col  = new THREE.Color().setHSL(hue, 0.8, 0.55)
-    ctx._spheres[i].material.color.copy(col)
-    ctx._spheres[i].material.emissive.copy(col)
-    ctx._spheres[i].position.y = 1.5 + i * 0.8 + Math.sin(t * 0.6 + i) * 0.3
+  for (let i = 0; i < _meshes.length; i++) {
+    const m = _meshes[i]
+    const angle = (i / _meshes.length) * Math.PI * 2 + t * _speed * 0.3
+    m.position.set(Math.cos(angle) * 3, Math.sin(t * _speed * 0.5 + i * 0.8) * 0.8, Math.sin(angle) * 3)
+    m.rotation.y += _speed * 0.6 * dt
+    m.rotation.x += _speed * 0.2 * dt
   }
 
-  ctx._hudTimer.setText(t.toFixed(1) + 's')
-  ctx._bar.setValue((t % 10) / 10)
+  // Update stat panel
+  if (_statEl) {
+    _statEl.innerHTML =
+      `elapsed: ${t.toFixed(1)}s<br>` +
+      `objects: ${_meshes.length}<br>` +
+      `shape: ${_shape}<br>` +
+      `speed: ${_speed.toFixed(1)}×`
+  }
 }
 
 export function teardown(ctx) {
-  window.removeEventListener('mousemove', ctx._onMove)
-  for (const l of ctx._labels)  l.detach()
-  for (const s of ctx._spheres) { s.material.dispose(); ctx.remove(s) }
-  ctx._geo.dispose()
-  ctx._hudTitle.dispose()
-  ctx._hudTimer.dispose()
-  ctx._bar.dispose()
-  ctx._tip.dispose()
+  window.removeEventListener('mousemove', _onMove)
+  ctx.renderer.domElement?.removeEventListener('mouseleave', _onOut)
+  _panel?.remove()
+  _tooltip?.remove()
+  for (const m of (_meshes || [])) ctx.remove(m)
 }
