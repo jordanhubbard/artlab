@@ -228,6 +228,39 @@
     .tree-drop-zone:hover { border-color: var(--border-hi); color: var(--text-dim); }
     #sidebar.drag-over .tree-drop-zone { border-color: var(--text-accent); color: var(--text-accent); }
 
+    /* ── Project Navigator ───────────────────────────────────────────────── */
+    .nav-section { flex-shrink: 0; }
+    .nav-section-hdr {
+      display: flex; align-items: center; gap: 5px;
+      padding: 5px 10px; cursor: pointer;
+      user-select: none;
+      font-family: var(--mono); font-size: 10px;
+      letter-spacing: .14em; text-transform: uppercase;
+      color: var(--text-muted);
+      transition: color var(--trans);
+    }
+    .nav-section-hdr:hover { color: var(--text-dim); }
+    .nav-chevron { font-size: 9px; transition: transform .15s; }
+    .nav-section-hdr.collapsed .nav-chevron { transform: rotate(-90deg); }
+    .nav-section-body { overflow: hidden; }
+    .nav-section-body.collapsed { display: none; }
+    .nav-empty { padding: 6px 14px; font-family: var(--mono); font-size: var(--sz-sm); color: var(--text-muted); }
+
+    /* Example tree rows */
+    .ex-row {
+      display: flex; align-items: center; gap: 5px;
+      padding: 3px 10px 3px 14px;
+      cursor: pointer; font-family: var(--mono); font-size: var(--sz-sm);
+      color: var(--text-dim);
+      transition: background var(--trans), color var(--trans);
+      white-space: nowrap; overflow: hidden;
+      border-left: 2px solid transparent;
+    }
+    .ex-row:hover { background: var(--bg-hover); color: var(--text); }
+    .ex-row.active { color: var(--text-accent); background: var(--bg-active); border-left-color: var(--text-accent); }
+    .ex-icon { font-size: 10px; flex-shrink: 0; opacity: .5; }
+    .ex-name { flex: 1; overflow: hidden; text-overflow: ellipsis; }
+
     .tree-section-label {
       padding: 8px 12px 2px;
       font-size: 10px;
@@ -267,16 +300,6 @@
     .tree-action-btn:hover { color: var(--text); }
     .tree-action-btn.del:hover { color: var(--text-err); }
 
-    /* Sidebar bottom strip */
-    #sidebar-actions {
-      display: flex;
-      gap: 4px;
-      padding: 6px 8px;
-      border-top: 1px solid var(--border);
-      flex-shrink: 0;
-    }
-    #sidebar-actions .tb-btn { flex: 1; justify-content: center; font-size: 11px; padding: 4px 6px; }
-
     /* ── Editor zone ─────────────────────────────────────────────────────── */
     #editor-zone {
       flex: 1;
@@ -287,35 +310,46 @@
       overflow: hidden;
     }
 
-    /* Tab strip */
+    /* Tab strip — browser-style */
     #tab-strip {
       display: flex;
-      align-items: stretch;
-      height: var(--tab-h);
-      background: var(--bg-surface);
+      align-items: flex-end;
+      height: 34px;
+      background: var(--bg);
       border-bottom: 1px solid var(--border);
       overflow-x: auto;
       flex-shrink: 0;
-      gap: 0;
+      padding: 0 4px;
+      gap: 2px;
     }
     #tab-strip::-webkit-scrollbar { height: 2px; }
     #tab-strip::-webkit-scrollbar-thumb { background: var(--border); }
 
     .tab {
-      display: flex; align-items: center; gap: 6px;
-      padding: 0 12px 0 14px;
+      display: flex; align-items: center; gap: 5px;
+      padding: 0 10px 0 12px;
+      height: 26px;
       cursor: pointer;
       font-family: var(--mono);
       font-size: var(--sz-sm);
       color: var(--text-muted);
-      border-right: 1px solid var(--border);
+      background: var(--bg-surface);
+      border: 1px solid var(--border);
+      border-bottom: none;
+      border-radius: 5px 5px 0 0;
       white-space: nowrap;
-      transition: color var(--trans), background var(--trans);
-      min-width: 0;
+      transition: color var(--trans), background var(--trans), border-color var(--trans);
+      min-width: 80px; max-width: 180px;
       position: relative;
     }
-    .tab:hover { color: var(--text-dim); background: var(--bg-hover); }
-    .tab.active { color: var(--text); background: var(--bg); border-bottom: 1px solid var(--bg); }
+    .tab:hover { color: var(--text-dim); background: var(--bg-elevated); border-color: var(--border); }
+    .tab.active {
+      color: var(--text);
+      background: var(--bg);
+      border-color: var(--border-hi);
+      border-bottom-color: var(--bg);
+      z-index: 1;
+    }
     .tab.dirty .tab-name::after { content: '●'; font-size: 7px; color: var(--text-accent); vertical-align: super; margin-left: 3px; }
     .tab-close {
       background: transparent; border: none;
@@ -323,17 +357,20 @@
       font-size: 13px; line-height: 1; padding: 0 2px;
       border-radius: 2px; opacity: 0;
       transition: color var(--trans), opacity var(--trans);
+      margin-left: auto;
     }
-    .tab:hover .tab-close { opacity: 1; }
-    .tab-close:hover { color: var(--text-err); opacity: 1; }
+    .tab:hover .tab-close, .tab.active .tab-close { opacity: 0.6; }
+    .tab-close:hover { color: var(--text-err) !important; opacity: 1 !important; }
 
     #tab-new {
       display: flex; align-items: center;
-      padding: 0 12px;
+      padding: 0 10px;
+      height: 26px;
       cursor: pointer;
       color: var(--text-muted);
       font-size: 16px; line-height: 1;
       flex-shrink: 0;
+      border-radius: 5px 5px 0 0;
       transition: color var(--trans), background var(--trans);
     }
     #tab-new:hover { color: var(--text); background: var(--bg-hover); }
@@ -659,15 +696,24 @@
         <button class="icon-btn" id="btn-new-file" title="New file" disabled>+</button>
       </div>
       <div id="file-tree">
-        <div class="tree-drop-zone" id="drop-zone">
-          Drop .zip here<br>or Open .zip / Open Folder
+        <div class="nav-section" id="nav-examples">
+          <div class="nav-section-hdr" id="nav-examples-hdr">
+            <span class="nav-chevron" id="nav-examples-chevron">▾</span>
+            <span class="nav-section-label">Examples</span>
+          </div>
+          <div class="nav-section-body" id="nav-examples-body">
+            <!-- populated by JS -->
+          </div>
         </div>
-      </div>
-      <div id="sidebar-actions">
-        <button class="tb-btn" id="btn-sa-open">Open .zip</button>
-        <button class="tb-btn" id="btn-sa-open-dir">Open Folder</button>
-        <button class="tb-btn" id="btn-sa-new">New pkg</button>
-        <button class="tb-btn" id="btn-sa-export" disabled>Export</button>
+        <div class="nav-section" id="nav-projects">
+          <div class="nav-section-hdr">
+            <span class="nav-chevron" id="nav-projects-chevron">▾</span>
+            <span class="nav-section-label">Projects</span>
+          </div>
+          <div class="nav-section-body" id="nav-projects-body">
+            <div class="nav-empty">Open .zip or folder</div>
+          </div>
+        </div>
       </div>
     </div>
 

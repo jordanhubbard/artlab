@@ -243,6 +243,8 @@ export class IDE {
       document.getElementById('monaco-loading').textContent =
         'Monaco failed — check network. ' + err.message
     }
+
+    this._buildExamplesNav()
   }
 
   // ── Monaco bootstrap ────────────────────────────────────────────────────────
@@ -408,6 +410,7 @@ export class IDE {
     const entryName = manifest.entry ?? [...this.artFiles.keys()].find(k => k.endsWith('.js'))
     if (entryName && this.artFiles.has(entryName)) this.openFile(entryName)
 
+    this._addProjectToNav(manifest.name)
     toast(`Opened ${manifest.name} (directory)`)
     await this.compile()
   }
@@ -474,6 +477,7 @@ export class IDE {
     const entryName = manifest.entry ?? [...this.artFiles.keys()].find(k => k.endsWith('.js'))
     if (entryName && this.artFiles.has(entryName)) this.openFile(entryName)
 
+    this._addProjectToNav(manifest.name)
     toast(`Opened ${manifest.name} v${manifest.version}`)
     await this.compile()
   }
@@ -859,12 +863,17 @@ export class IDE {
     if (!tree) return
 
     if (!this.manifest) {
-      tree.innerHTML = '<div class="tree-drop-zone" id="drop-zone">Drop .zip here<br>or click Open</div>'
-      this._bindDropZone()
+      // No package loaded — ensure nav sections remain intact (don't replace with drop zone)
+      // Remove any stale pkg-file-list if it exists
+      tree.querySelector('#pkg-file-list')?.remove()
       return
     }
 
-    tree.innerHTML = ''
+    // Remove any existing pkg-file-list section and rebuild it
+    tree.querySelector('#pkg-file-list')?.remove()
+
+    const list = document.createElement('div')
+    list.id = 'pkg-file-list'
 
     const files = [...this.artFiles.keys()].sort((a, b) => {
       if (a === 'artlab.json') return -1
@@ -943,7 +952,7 @@ export class IDE {
         showCtxMenu(e.clientX, e.clientY, items)
       })
 
-      tree.appendChild(row)
+      list.appendChild(row)
     }
 
     // Assets section
@@ -951,7 +960,7 @@ export class IDE {
       const label = document.createElement('div')
       label.className = 'tree-section-label'
       label.textContent = 'Assets'
-      tree.appendChild(label)
+      list.appendChild(label)
 
       for (const filename of [...this.assetFiles.keys()].sort()) {
         const row = document.createElement('div')
@@ -966,9 +975,11 @@ export class IDE {
         name.className = 'tree-name'
         name.textContent = filename
         row.appendChild(icon); row.appendChild(name)
-        tree.appendChild(row)
+        list.appendChild(row)
       }
     }
+
+    tree.appendChild(list)
   }
 
   // ── Status + build ──────────────────────────────────────────────────────────
@@ -992,7 +1003,7 @@ export class IDE {
   }
 
   _enablePkgButtons(on) {
-    const ids = ['btn-save', 'btn-run', 'btn-export', 'btn-new-file', 'btn-sa-export']
+    const ids = ['btn-save', 'btn-run', 'btn-export', 'btn-new-file']
     for (const id of ids) {
       const el = document.getElementById(id)
       if (el) el.disabled = !on
@@ -1180,17 +1191,13 @@ export class IDE {
   _bindToolbar() {
     const wire = (id, fn) => document.getElementById(id)?.addEventListener('click', fn)
 
-    wire('btn-open',        () => document.getElementById('file-input')?.click())
-    wire('btn-open-dir',    () => this.loadDirectory())
-    wire('btn-sa-open',     () => document.getElementById('file-input')?.click())
-    wire('btn-sa-open-dir', () => this.loadDirectory())
+    wire('btn-open',     () => document.getElementById('file-input')?.click())
+    wire('btn-open-dir', () => this.loadDirectory())
     wire('btn-new-pkg',  () => this.newPackage())
-    wire('btn-sa-new',   () => this.newPackage())
     wire('btn-examples', () => this._openExamplesGallery())
     wire('btn-save',     () => this.saveActive())
     wire('btn-run',      () => this.compile())
     wire('btn-export',   () => this.exportPackage())
-    wire('btn-sa-export',() => this.exportPackage())
     wire('btn-new-file', () => this.newFile())
     wire('tab-new',      () => this.newFile())
 
@@ -1261,29 +1268,89 @@ export class IDE {
   }
 
   async _loadExample(ex) {
+    // Highlight in tree
+    document.querySelectorAll('.ex-row').forEach(r => r.classList.remove('active'))
+    const row = document.querySelector(`.ex-row[data-name="${ex.name}"]`)
+    row?.classList.add('active')
+
+    // Update sidebar label
+    const pkgName = document.getElementById('pkg-name')
+    if (pkgName) { pkgName.textContent = ex.name; pkgName.classList.add('loaded') }
+
+    // Load into preview via real URL (supports relative imports)
     const url = `/examples/${ex.name}/${ex.entry}`
     let mod
-    try {
-      mod = await import(/* @vite-ignore */ url)
-    } catch (err) {
-      console.error('[IDE] Failed to load example:', err)
+    try { mod = await import(/* @vite-ignore */ url) } catch (err) {
+      console.error('[IDE] Example load failed:', err)
       toast(`Failed to load example: ${ex.name}`, 4000)
       return
     }
+    this.preview?.runFromModule(mod)
 
-    // Update sidebar UI to show the example name
-    const pkgNameEl = document.getElementById('pkg-name')
-    if (pkgNameEl) {
-      pkgNameEl.textContent = ex.name
-      pkgNameEl.classList.add('loaded')
-    }
-
-    // Run via PreviewPane (skips blob URL — real URL preserves relative imports)
-    if (this.preview) {
-      this.preview.runFromModule(mod)
+    // Fetch source and show in Monaco
+    try {
+      const src = await fetch(url).then(r => r.text())
+      // Store in artFiles so openFile() can find it
+      this.artFiles.set(ex.entry, src)
+      // Open in editor
+      if (this.editor && this._monaco) {
+        // Dispose old model for this file if it exists
+        const old = this._models.get(ex.entry)
+        if (old) { old.dispose(); this._models.delete(ex.entry) }
+        this.openFile(ex.entry)
+      }
+    } catch (err) {
+      console.warn('[IDE] Could not fetch example source:', err)
     }
 
     toast(`Loaded example: ${ex.name}`)
+  }
+
+  // ── Project Navigator ────────────────────────────────────────────────────────
+
+  _buildExamplesNav() {
+    // Collapse toggle for EXAMPLES section
+    const hdr = document.getElementById('nav-examples-hdr')
+    const body = document.getElementById('nav-examples-body')
+    hdr?.addEventListener('click', () => {
+      const collapsed = body.classList.toggle('collapsed')
+      hdr.classList.toggle('collapsed', collapsed)
+    })
+
+    // Same for PROJECTS section
+    const phdr = document.querySelector('#nav-projects .nav-section-hdr')
+    const pbody = document.getElementById('nav-projects-body')
+    phdr?.addEventListener('click', () => {
+      const collapsed = pbody.classList.toggle('collapsed')
+      phdr.classList.toggle('collapsed', collapsed)
+    })
+
+    // Populate examples
+    const container = document.getElementById('nav-examples-body')
+    if (!container) return
+    container.innerHTML = ''
+    for (const ex of EXAMPLES) {
+      const row = document.createElement('div')
+      row.className = 'ex-row'
+      row.dataset.name = ex.name
+      row.innerHTML = `<span class="ex-icon">◈</span><span class="ex-name" title="${ex.description}">${ex.name}</span>`
+      row.addEventListener('click', () => this._loadExample(ex))
+      container.appendChild(row)
+    }
+  }
+
+  _addProjectToNav(name) {
+    const body = document.getElementById('nav-projects-body')
+    if (!body) return
+    // Remove empty hint
+    body.querySelector('.nav-empty')?.remove()
+    // Don't duplicate
+    if (body.querySelector(`[data-project="${name}"]`)) return
+    const row = document.createElement('div')
+    row.className = 'ex-row active'
+    row.dataset.project = name
+    row.innerHTML = `<span class="ex-icon">◉</span><span class="ex-name">${name}</span>`
+    body.appendChild(row)
   }
 
   // ── Drop zone ───────────────────────────────────────────────────────────────
