@@ -71,6 +71,15 @@ interface ArtlabContext {
   smoothstep(edge0: number, edge1: number, x: number): number;
   rad(degrees: number): number;
   deg(radians: number): number;
+  // Three.js shorthand constructors
+  vec2(x: number, y: number): import('three').Vector2;
+  vec3(x: number, y: number, z: number): import('three').Vector3;
+  vec4(x: number, y: number, z: number, w: number): import('three').Vector4;
+  color(r: number, g: number, b: number): import('three').Color;
+  quat(x: number, y: number, z: number, w: number): import('three').Quaternion;
+  /** range(n) → [0..n-1]  |  range(a,b) → [a..b-1] */
+  range(n: number): number[];
+  range(a: number, b: number): number[];
   [key: string]: any;
 }
 declare const ctx: ArtlabContext;
@@ -104,6 +113,19 @@ const EXAMPLES = [
 ]
 
 // ── Constants ─────────────────────────────────────────────────────────────────
+
+/**
+ * Parse and lightly validate an artlab.json manifest string.
+ * Returns the parsed object; throws a descriptive TypeError on problems.
+ */
+function parseManifest(text) {
+  let obj
+  try { obj = JSON.parse(text) } catch (e) { throw new TypeError(`JSON parse error: ${e.message}`) }
+  if (!obj || typeof obj !== 'object') throw new TypeError('Manifest must be a JSON object')
+  if (typeof obj.name !== 'string' || !obj.name.trim()) throw new TypeError('"name" must be a non-empty string')
+  if (typeof obj.entry !== 'string' || !obj.entry.trim()) throw new TypeError('"entry" must be a non-empty string')
+  return obj
+}
 
 const MONACO_CDN  = 'https://cdn.jsdelivr.net/npm/monaco-editor@0.50.0/min/vs/loader.js'
 const MONACO_BASE = 'https://cdn.jsdelivr.net/npm/monaco-editor@0.50.0/min/vs'
@@ -395,7 +417,6 @@ export class IDE {
 
     let manifest
     try {
-      const { parseManifest } = await import('../packages/Manifest.js')
       manifest = parseManifest(await (await manifestHandle.getFile()).text())
     } catch (e) {
       toast(`Invalid manifest: ${e.message}`, 4000); return
@@ -451,7 +472,6 @@ export class IDE {
 
     let manifest
     try {
-      const { parseManifest } = await import('../packages/Manifest.js')
       manifest = parseManifest(await manifestEntry.async('string'))
     } catch (e) {
       toast(`Invalid manifest: ${e.message}`, 4000); return

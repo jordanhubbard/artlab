@@ -234,6 +234,23 @@ export class PreviewPane {
       rad:        _math.rad,
       deg:        _math.deg,
 
+      // ── Three.js shorthand constructors ─────────────────────────────────────
+      // These replace what the DSL provided as syntax; e.g. ctx.vec3(1,2,3)
+      // instead of new THREE.Vector3(1,2,3).
+      vec2:  (x, y)          => new THREE.Vector2(x, y),
+      vec3:  (x, y, z)       => new THREE.Vector3(x, y, z),
+      vec4:  (x, y, z, w)    => new THREE.Vector4(x, y, z, w),
+      color: (r, g, b)       => new THREE.Color(r, g, b),
+      quat:  (x, y, z, w)    => new THREE.Quaternion(x, y, z, w),
+
+      // ── Iteration helpers ────────────────────────────────────────────────────
+      /** range(n) → [0,1,…,n-1]  or  range(a,b) → [a,a+1,…,b-1] */
+      range: (a, b) => {
+        const start = b === undefined ? 0 : a
+        const end   = b === undefined ? a : b
+        return Array.from({ length: Math.max(0, end - start) }, (_, i) => start + i)
+      },
+
       // ── Assets ──────────────────────────────────────────────────────────────
       loadTexture(path) {
         const bytes = self._assetFiles?.get(path)

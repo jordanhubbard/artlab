@@ -5,10 +5,6 @@
  * It instantiates the IDE controller and calls init().
  */
 
-export { IDE }         from './IDE.js'
-export { PreviewPane } from './PreviewPane.js'
-export * from './panels/index.js'
-
 import { IDE } from './IDE.js'
 
 // Boot

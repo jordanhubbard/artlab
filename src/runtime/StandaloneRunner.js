@@ -103,9 +103,20 @@ export class StandaloneRunner {
       add:    (obj) => { self._scene.add(obj); return obj },
       remove: (obj) => { self._scene.remove(obj) },
 
-      /** Adjust bloom strength (0–3).  Called every frame by audio-reactive packages. */
       setBloom(strength) {
         if (self._bloomPass) self._bloomPass.strength = strength
+      },
+
+      // Three.js shorthand constructors (mirrors PreviewPane ctx)
+      vec2:  (x, y)       => new THREE.Vector2(x, y),
+      vec3:  (x, y, z)    => new THREE.Vector3(x, y, z),
+      vec4:  (x, y, z, w) => new THREE.Vector4(x, y, z, w),
+      color: (r, g, b)    => new THREE.Color(r, g, b),
+      quat:  (x, y, z, w) => new THREE.Quaternion(x, y, z, w),
+      range: (a, b) => {
+        const start = b === undefined ? 0 : a
+        const end   = b === undefined ? a : b
+        return Array.from({ length: Math.max(0, end - start) }, (_, i) => start + i)
       },
 
       elapsed: 0,
