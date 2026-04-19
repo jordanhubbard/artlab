@@ -1,0 +1,39 @@
+{
+  "title": "Video Kaleidoscope — Live Webcam Symmetry Shader",
+  "pages": [
+    {
+      "id": "intro",
+      "title": "Overview",
+      "body": "A single GLSL fragment shader folds a live webcam feed into a rotationally-symmetric kaleidoscope pattern. The number of mirror segments cycles through 3, 4, 6, 8, and 12 via the K key, and a slow continuous rotation is baked into the shader's time uniform.\n\nNavigate through the pages below to walk through each section of this file.",
+      "lines": [1, 196]
+    },
+    {
+      "id": "kaleidoscope-shader",
+      "title": "Kaleidoscope Shader",
+      "parent": "intro",
+      "body": "The fragment shader converts each UV coordinate to polar form (radius + angle), then uses modulo and a reflection test to fold the angle into the first wedge of a pie divided into N segments. Reconstructing Cartesian UVs from this folded angle produces the mirror-repeat pattern.\n\nA slow uniform-driven rotation is added to theta before folding, so the pattern spins continuously. After sampling the texture a mild saturation boost is applied by interpolating away from the luminance value, making the colours more vivid without a dedicated colour-grading pass.",
+      "lines": [28, 64]
+    },
+    {
+      "id": "setup",
+      "title": "Setup",
+      "parent": "intro",
+      "body": "setup() calculates exact plane dimensions from the camera FOV and distance so the geometry fills the viewport edge-to-edge regardless of aspect ratio. After a user-gesture gate it opens the webcam and wires its VideoTexture into the ShaderMaterial's map uniform.\n\nKeyboard listeners update the segments uniform immediately on K and zero the accumulated rotation offset on R, so R appears to reset the spin without restarting the clock.",
+      "lines": [74, 121]
+    },
+    {
+      "id": "update",
+      "title": "Update",
+      "parent": "intro",
+      "body": "update() writes ctx.elapsed minus the stored rotation offset into the time uniform each frame. Subtracting the offset instead of resetting to zero lets the shader's animation clock continue smoothly after an R keypress, with the visual rotation restarting from its current angle.",
+      "lines": [123, 129]
+    },
+    {
+      "id": "teardown",
+      "title": "Teardown",
+      "parent": "intro",
+      "body": "teardown() stops the webcam, removes the keydown listener and HUD element, and nulls all module references. The segment index and rotation offset are also reset so the example starts fresh if reloaded.",
+      "lines": [131, 142]
+    }
+  ]
+}

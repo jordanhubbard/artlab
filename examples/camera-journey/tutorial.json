@@ -1,0 +1,35 @@
+{
+  "title": "Camera Journey — Irrational-Frequency Camera Orbit",
+  "pages": [
+    {
+      "id": "intro",
+      "title": "Overview",
+      "body": "Camera Journey shows how to create a compelling autonomous camera path without keyframes or splines. A central glowing sphere is surrounded by three tilted torus rings and eight small coloured orbiters; the camera circles the whole assembly using overlapping sine and cosine functions whose frequency ratios are irrational numbers, guaranteeing the path never exactly repeats. Pressing C at any time hands control back to OrbitControls, illustrating how autonomous and manual cameras can coexist in the same Artlab example.",
+      "lines": [1, 138]
+    },
+    {
+      "id": "constants",
+      "title": "Data Arrays: Rings & Orbiters",
+      "body": "Four irrational frequency constants (F1–F4) built from π and √2/√3 fractions are declared first; they appear in both the orbit math and the glow pulse. `RING_DATA` encodes three torus rings as plain objects — color, geometry dimensions, initial axis tilts, and a signed spin speed — so the setup loop is data-driven rather than copy-pasted. `ORBITER_DATA` similarly describes eight small spheres with individual orbital radii, tilt angles, speeds, and evenly-distributed initial phases (multiples of 2π/8 ≈ 1.047 rad) so they start spread around the orbit rather than clustered at the same point.",
+      "lines": [1, 25]
+    },
+    {
+      "id": "setup",
+      "title": "Building Rings & Orbiters",
+      "body": "Setup disables the default OrbitControls immediately so the autonomous camera takes over from frame one. Two asymmetrically-placed coloured point lights (warm orange from the front, cool blue from behind) create depth without a complex lighting rig. The core sphere is built with high-emissive white material so it reads as a light source even without HDR. The ring and orbiter loops iterate over their respective data arrays; each mesh receives an emissive tint matching its diffuse color, and orbiters store all their orbital parameters in the array entry so the update loop needs no additional state.",
+      "lines": [27, 91]
+    },
+    {
+      "id": "update-orbit",
+      "title": "Camera Orbit Math",
+      "body": "The autonomous camera block runs only when `ctx._useOrbit` is false. Orbital radius `r` oscillates around a base of 8.5 units using two additive sine/cosine terms driven by F3 and F4 — different irrational frequencies ensure the radius variation never locks to the rotation period. The horizontal angle `theta` advances linearly but is also modulated by a slow sine on F2, so the camera drifts subtly forward and back around the subject rather than sweeping at constant angular speed. Height is a sum of two more sinusoids at F4 and F2 frequencies, producing a gentle figure-eight-like vertical drift that keeps the scene visually dynamic without ever reaching a predictable apex.",
+      "lines": [93, 132]
+    },
+    {
+      "id": "teardown",
+      "title": "Teardown",
+      "body": "Teardown is minimal: the keydown listener is removed and OrbitControls are re-enabled so the next example the user loads starts with normal mouse navigation. This is deliberate — Camera Journey deliberately suppresses controls in setup, so teardown must restore them to avoid leaving the IDE in a broken state.",
+      "lines": [134, 138]
+    }
+  ]
+}

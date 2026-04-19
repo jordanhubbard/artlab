@@ -1,0 +1,35 @@
+{
+  "title": "UI Showcase — HTML Controls Overlaid on a 3D Scene",
+  "pages": [
+    {
+      "id": "intro",
+      "title": "Overview",
+      "body": "UI Showcase demonstrates the recommended Artlab pattern for adding interactive HTML controls to a 3D canvas: all DOM elements are appended to the canvas parent element and use `position:absolute` so they stay canvas-relative rather than page-relative. The example includes a geometry picker, a speed slider, wireframe and bloom toggles, a live stat readout, and a hover tooltip backed by Three.js raycasting — covering the full range of common in-canvas UI primitives. Six colored meshes orbit in a ring and change geometry type live without reloading the scene.",
+      "lines": [1, 244]
+    },
+    {
+      "id": "panel-build",
+      "title": "Control Panel Construction",
+      "body": "The `buildUI` function sets `position:relative` on the container before appending anything, which is the prerequisite for `position:absolute` children to be contained within the canvas area. The panel div is built with inline `innerHTML` for the static structure (header, slider, checkboxes, stat area) and then augmented with dynamically-created buttons for the shape list, because the button count comes from a runtime array. Each shape button stores its target shape in `dataset.shape` and refreshes the full button-group appearance on click by iterating sibling buttons — keeping active-state styling in one place. All event listeners (slider `input`, checkbox `change`) write directly to module-level state variables that the update loop reads each frame.",
+      "lines": [21, 133]
+    },
+    {
+      "id": "raycasting",
+      "title": "Hover Detection via Raycasting",
+      "body": "Raycasting is set up in `setup` rather than inside `buildUI` so the raycaster and mouse vector are available as module-level references. On every `mousemove` event the handler converts the raw client coordinates into NDC space using the canvas bounding rect, calls `raycaster.intersectObjects` against the current `_meshes` array, and positions the tooltip div relative to the container's bounding rect (not the window) so it tracks correctly when the canvas is not full-screen. The `mouseleave` listener on the canvas element hides the tooltip immediately when the cursor exits, preventing a stale tooltip from floating in place.",
+      "lines": [188, 215]
+    },
+    {
+      "id": "update",
+      "title": "Update Loop & Live Stats",
+      "body": "Each frame, every mesh is repositioned along a circular path whose angle advances at `_speed * 0.3` radians per elapsed second, with a vertical sine oscillation at half that rate offset by the mesh index — producing a gentle wave effect around the ring. Meshes also self-rotate on Y and X axes scaled by `_speed`, so the speed slider affects both orbit pace and spin simultaneously. The stat panel is updated by directly writing `innerHTML` with the current elapsed time, object count, shape name, and speed — a deliberately simple approach to show that live readouts do not require a framework.",
+      "lines": [217, 235]
+    },
+    {
+      "id": "teardown",
+      "title": "Teardown",
+      "body": "Teardown removes the `mousemove` window listener and the `mouseleave` canvas listener, then removes the panel and tooltip DOM nodes. Meshes are removed from the scene via `ctx.remove` in a loop. Notably, geometry and material disposal is omitted here because these meshes are small and the Artlab runtime handles WebGL context cleanup — the teardown focuses on reversing observable side-effects (DOM nodes, global event listeners) that would otherwise leak into the next example.",
+      "lines": [237, 244]
+    }
+  ]
+}

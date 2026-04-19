@@ -1,0 +1,47 @@
+{
+  "title": "Music Synth — Generative Chord Progressions with 3D Visuals",
+  "pages": [
+    {
+      "id": "intro",
+      "title": "Overview",
+      "body": "Music Synth demonstrates how Artlab's `stdlib/audio` helpers compose a living generative score that drives 3D geometry. Four Tone.js voices — arpeggio pluck, chord pad, bass synth, and noise accent — play in A natural minor over a repeating i-VI-III-VII progression. The scene responds beat-by-beat: torus rings pulse in chord colors, a particle cloud shifts hue with the melody, and a central sphere flashes on every bar. A spacebar shortcut pauses and resumes the transport so the connection between sound and visuals is immediately audible.",
+      "lines": [1, 273]
+    },
+    {
+      "id": "music-theory",
+      "title": "Music Theory Constants",
+      "body": "The module-level constants lock in all harmonic decisions up front. `ROOT`, `MODE`, and `OCTAVE` define the key; `progression()` then resolves the Roman-numeral shorthand `'i-VI-III-VII'` into actual note arrays for each chord, while `scale()` produces a two-octave melodic scale used by the arp. Centralising these means any scale or key change is a one-line edit that automatically propagates to every sequencer and visual.",
+      "lines": [12, 20]
+    },
+    {
+      "id": "build-synths",
+      "title": "Building the Synth Voices",
+      "body": "Four distinct timbres are constructed inside `_buildSynths`. The arpeggio uses a triangle oscillator with a very short decay routed through both reverb and delay, giving a bright echoing pluck. The chord pad uses a `PolySynth` with slow sine attacks and long releases for a warm sustained cluster. The bass uses a clean sine sub routed straight to the destination for weight without effects mud. The noise burst is a white-noise accent with near-zero attack to mark bar boundaries with a transient click.",
+      "lines": [34, 65]
+    },
+    {
+      "id": "build-sequencers",
+      "title": "Building the Sequencers",
+      "body": "Three independent `Tone.Sequence` instances share the same transport clock. The arp sequencer steps through `MELODY` one note per 8th note and tracks the current melody index so the particle cloud can mirror the pitch in color. The chord sequencer fires every measure, releases all previous chord voices before re-triggering the new ones, and simultaneously stamps the beat timestamp (`_beatT`) used by the flash animation. The bass sequencer derives the root note from the current chord position and drops it an octave by parsing and decrementing the octave digit in the note name string.",
+      "lines": [69, 104]
+    },
+    {
+      "id": "build-3d",
+      "title": "Building the 3D Scene",
+      "body": "Four visual elements map directly to musical structure. One torus ring per chord in the progression is colored with a unique hue from `CHORD_COLORS`, providing a permanent spatial representation of harmonic structure. A 480-point particle sphere distributed uniformly via spherical coordinates (phi/theta sampling) surrounds the rings; its color tracks melody pitch in real time. A small central sphere acts as the beat-flash indicator. A DOM `div` chord label shows the current Roman numeral and note names using monospaced styling so it reads cleanly over the scene.",
+      "lines": [108, 159]
+    },
+    {
+      "id": "update",
+      "title": "Update Loop",
+      "body": "The update function animates three independent systems every frame. All rings rotate on two axes at different speeds; only the active-chord ring's emissive intensity spikes and lerps toward a fast sine wave to suggest it is \"singing.\" The particle cloud's color lerps toward a hue derived from the current melody note index, smoothing out step-to-step hue jumps. The beat flash reads the age since `_beatT` was last stamped and exponentially decays the central sphere's emissive intensity and scale, creating a sharp flash that fades within a fraction of a second.",
+      "lines": [205, 252]
+    },
+    {
+      "id": "teardown",
+      "title": "Teardown",
+      "body": "Teardown is explicit and thorough because Tone.js nodes are WebAudio graph objects that leak if not disposed. Each sequencer is stopped and disposed individually, the transport is stopped globally, and every synth, effects unit, and routing node calls `.dispose()`. DOM elements (start button, chord label) are removed, and the keyboard listener is deregistered. The `_isStarted` flag is reset so a future hot-reload of the module starts in a clean state.",
+      "lines": [254, 273]
+    }
+  ]
+}

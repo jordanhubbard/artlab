@@ -1,0 +1,39 @@
+{
+  "title": "Video FX Lab — Real-Time Shader Effects",
+  "pages": [
+    {
+      "id": "intro",
+      "title": "Overview",
+      "body": "Four side-by-side panels display a live webcam feed processed by three different GLSL shaders: pixelation, glitch, and Sobel edge detection. Each panel shares the same underlying video texture so only one GPU upload is needed per frame.\n\nNavigate through the pages below to walk through each section of this file.",
+      "lines": [1, 303]
+    },
+    {
+      "id": "shader-materials",
+      "title": "Shader Materials",
+      "parent": "intro",
+      "body": "Three factory functions — makePixelate, makeGlitch, and makeEdge — each return a ShaderMaterial built around a shared vertex shader that simply passes UV coordinates to the fragment stage.\n\n· makePixelate snaps UVs to a configurable block grid, creating a chunky mosaic effect whose size is animated each frame\n· makeGlitch simulates analog corruption via per-row scanline offsets, RGB channel separation, and random full-line jumps driven by a time uniform\n· makeEdge converts luminance with the Sobel operator and renders detected edges as an electric-blue glow on a near-black background",
+      "lines": [19, 130]
+    },
+    {
+      "id": "setup",
+      "title": "Setup",
+      "parent": "intro",
+      "body": "setup() gates startup behind a user-gesture button (required by browsers before getUserMedia), then opens the webcam and passes its VideoTexture to all four materials. Four PlaneGeometry meshes and matching LineSegments edge-frames are positioned at the POSITIONS corners, and DOM label elements are appended to the canvas container so they can be repositioned each frame in screen space.\n\nKeyboard listeners handle R (record toggle), G (heavy glitch), and P (pixelation level cycling) and update a persistent on-screen HUD.",
+      "lines": [142, 222]
+    },
+    {
+      "id": "update",
+      "title": "Update",
+      "parent": "intro",
+      "body": "Each frame the glitch shader's time uniform advances with ctx.elapsed, and the pixelation block size is modulated with a slow sine so it breathes rather than snapping between fixed levels. The four planes gently bob vertically with staggered phase offsets.\n\nDOM label positions are recomputed by projecting each label's 3-D anchor through the camera's projection matrix into normalised device coordinates, then converting to pixel offsets within the canvas container's bounding rect.",
+      "lines": [224, 250]
+    },
+    {
+      "id": "teardown",
+      "title": "Teardown",
+      "parent": "intro",
+      "body": "teardown() stops any in-progress recording, halts the webcam stream (freeing the camera hardware), removes the global keydown listener, and removes the HUD and label DOM nodes. Three.js meshes added via ctx.add() are cleaned up automatically by the Artlab runtime.",
+      "lines": [252, 258]
+    }
+  ]
+}

@@ -1,0 +1,29 @@
+{
+  "title": "Physics Particles — Click-to-Move Particle Fountain",
+  "pages": [
+    {
+      "id": "intro",
+      "title": "Overview",
+      "body": "Physics Particles is a focused introduction to Artlab's particle physics stdlib. A fountain of glowing blue particles streams upward from a point on the ground plane, arcs under gravity, and fades out over a three-second lifetime. Clicking anywhere on the canvas ray-casts against an invisible `THREE.Plane` at ground level and teleports the emitter to that world-space position, giving the user direct spatial control with just a few lines of raycasting boilerplate. The example deliberately keeps all logic in the three lifecycle functions so the stdlib API is easy to read in isolation.",
+      "lines": [1, 60]
+    },
+    {
+      "id": "setup",
+      "title": "World, Emitter & Click Handler",
+      "body": "A `createParticleWorld` call allocates the physics simulation state; the returned world object is passed to `emitter()` along with the Three.js scene so the stdlib can manage the `THREE.Points` object internally. Emitter parameters — rate, speed, spread angle, lifetime, color, size, and gravity — are all set at construction time as a plain config object rather than individual setter calls. The click handler uses a `THREE.Plane` at `y = GROUND_Y` as the intersection target instead of raycasting against the visible ground mesh, which avoids the need to make the ground mesh part of the hit-test set and works correctly even at oblique camera angles.",
+      "lines": [8, 46]
+    },
+    {
+      "id": "update",
+      "title": "Force Field & Emitter Tick",
+      "body": "Each frame, `forceField` applies an upward impulse centered slightly above the emitter origin, giving particles a gentle additional lift that keeps the fountain shape coherent even as gravity pulls them back down. The force magnitude scales by `dt` to remain frame-rate-independent. `ctx._emitter.update` is then called with the elapsed time and delta time; internally it spawns new particles at the configured rate, integrates positions under gravity, ages particles, and removes any whose lifetime has expired — all without any manual loop in this file.",
+      "lines": [48, 52]
+    },
+    {
+      "id": "teardown",
+      "title": "Teardown",
+      "body": "Teardown removes the click listener, calls `ctx._emitter.dispose()` to release the particle system's geometry and GPU buffers, and manually disposes the ground plane's geometry and material before removing it from the scene. The explicit disposal pattern here is intentional — it serves as a model for how Artlab examples should clean up after themselves when the stdlib does not own all scene objects.",
+      "lines": [54, 60]
+    }
+  ]
+}

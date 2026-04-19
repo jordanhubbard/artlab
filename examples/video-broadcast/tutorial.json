@@ -1,0 +1,39 @@
+{
+  "title": "Video Broadcast — Live Webcam with Broadcast Overlays",
+  "pages": [
+    {
+      "id": "intro",
+      "title": "Overview",
+      "body": "A live webcam feed is rendered on a full-frame Three.js plane and dressed with broadcast-style DOM overlays: a pulsing LIVE badge, a lower-third name card that slides in after 1.5 seconds, a scrolling ticker band at the bottom, and a corner branding watermark.\n\nNavigate through the pages below to walk through each section of this file.",
+      "lines": [1, 320]
+    },
+    {
+      "id": "overlay-builder",
+      "title": "Overlay Builder Functions",
+      "parent": "intro",
+      "body": "Four private helpers construct each overlay piece and append it to a shared transparent div that sits absolutely over the canvas.\n\n· _buildLiveBadge creates the top-right badge with a round red dot that is animated in update()\n· _buildCornerBranding stamps a faint ARTLAB watermark in the top-left\n· _buildLowerThird builds the sliding name-and-title card, starting off-screen at translateX(-110%)\n· _buildTicker assembles the bottom band: a fixed TOPICS chip and a scrolling text node whose content is doubled so the seam never shows",
+      "lines": [128, 287]
+    },
+    {
+      "id": "setup",
+      "title": "Setup",
+      "parent": "intro",
+      "body": "setup() positions the camera for a snug 16:9 framing (FOV 60, z=9), gates on a user-gesture button required for getUserMedia, then opens the webcam and maps its texture onto a 16×9 PlaneGeometry. A single overlay div is created with pointer-events:none and all four builder helpers are called to populate it.\n\nThe elapsed time reference and animation state (ticker position, lower-third progress) are reset here so the example restarts cleanly if reloaded.",
+      "lines": [44, 85]
+    },
+    {
+      "id": "update",
+      "title": "Update — Lower-Third & Ticker",
+      "parent": "intro",
+      "body": "The LIVE dot opacity is driven by a 3.2 Hz sine so it breathes rather than blinks. The lower-third becomes visible after 1.5 s of elapsed time and then slides in over 0.6 s using a cubic ease-out curve applied as a CSS translateX percentage.\n\nThe ticker advances _tickerX by TICKER_SPEED × dt pixels per frame; when the offset exceeds the full text width the counter wraps to zero, producing a seamless loop because the text content was doubled during construction.",
+      "lines": [87, 113]
+    },
+    {
+      "id": "teardown",
+      "title": "Teardown",
+      "parent": "intro",
+      "body": "teardown() stops the webcam stream and removes the overlay div in a single call, which also removes all child elements. All module-level references are nulled so garbage collection can reclaim them between example loads.",
+      "lines": [115, 126]
+    }
+  ]
+}

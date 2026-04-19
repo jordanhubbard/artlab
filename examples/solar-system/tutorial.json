@@ -1,0 +1,35 @@
+{
+  "title": "Solar System — Audio-Reactive 3D Solar System",
+  "pages": [
+    {
+      "id": "intro",
+      "title": "Overview",
+      "body": "Solar System is the Artlab reference package: a physically-scaled solar system (1 AU = 100 Three.js units, 1 year = 120 s) with textured planets, LOD meshes, Saturn's rings, atmospheric rim-glow shaders, a 3000-asteroid instanced belt, CSS2D labels, click-to-focus tweening, and a generative audio layer that responds to camera proximity. The demo is split across three files: `solar-system.js` orchestrates scene construction and the update loop, `camera-journey.js` drives a scripted flythrough, and `audio.js` handles Tone.js synthesis and FFT bloom binding. Everything activates from a single \"Begin Journey\" button click.",
+      "lines": [1, 455]
+    },
+    {
+      "id": "planet-data",
+      "title": "Planet Data — the PLANETS Constant",
+      "body": "All eight planets are described as entries in the `PLANETS` object rather than as imperative construction code. Each entry carries six physical values — semi-major axis `a` (AU), orbital period `T` (years), radius `r` (Earth radii), axial tilt, rotation period in Earth days, and base color — plus renderer hints: a texture path, optional `atm` RGB triple for the rim shader, a `clouds` path for Earth, and a `rings` flag for Saturn. This data-driven approach means adding a dwarf planet or moon is a single object entry; the planet-creation loop reads the same fields uniformly.",
+      "lines": [21, 31]
+    },
+    {
+      "id": "setup-planets",
+      "title": "Planet Mesh Creation Loop",
+      "body": "For each name in `PLANET_ORDER`, setup creates a two-level group hierarchy: an outer `orbit` group whose position is set each frame by orbital mechanics, and an inner `tilted` group whose Z-rotation encodes axial tilt permanently. The planet sphere is wrapped in a `THREE.LOD` node with four detail levels (128/64/32/16 segments at increasing camera distances) so distant planets stay cheap to render. Conditional branches inside the same loop handle the cloud layer (Earth only), atmosphere shader (any planet with an `atm` entry), Saturn's procedural ring texture, the elliptical orbit line, and an optional CSS2D label — all keyed off the same data record.",
+      "lines": [177, 255]
+    },
+    {
+      "id": "update-orbits",
+      "title": "Orbital Position Math",
+      "body": "The update loop computes each planet's current angle as `(t / (T * YEAR)) * 2π`, where `t` is `ctx.elapsed` in seconds and `T * YEAR` converts the orbital period to seconds. This gives circular orbits that advance at the correct relative speeds — Mercury completes a full lap roughly 4× faster than Earth. Self-rotation uses the same pattern: `rotDir * (t / rotPeriod) * 2π` applied to `_lodRoots[name].rotation.y`, with Venus and Uranus given negative `rotDir` to model retrograde rotation. The Moon and asteroid belt follow the same formula at their own periods and radii.",
+      "lines": [359, 397]
+    },
+    {
+      "id": "audio-reactive",
+      "title": "Audio Reactivity — Bloom, Sun & Stars",
+      "body": "After the button click, `setupAudio` in `audio.js` initialises a Tone.js signal chain: per-planet `PolySynth` AMSynth pads routed through reverb and delay, a background drone, and a `Tone.Analyser` tapped from the master bus. Each frame, `updateAudio` converts the FFT dB values to 0–1 amplitudes for bass (bins 0–12), mid (13–89), and high (90–127) bands. Bass amplitude scales the post-processing bloom strength via `ctx.setBloom(0.5 + bassAmp * 0.5)`. Mid amplitude drives the sun mesh's `emissiveIntensity`, and high amplitude varies starfield opacity — so the entire scene breathes with the music. Proximity to a planet triggers its pad note with a smooth volume ramp, making the soundscape change as the camera moves through the system.",
+      "lines": [109, 136]
+    }
+  ]
+}

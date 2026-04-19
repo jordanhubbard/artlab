@@ -1,0 +1,32 @@
+{
+  "title": "Wave Sculpture — Sine-Wave Sphere Grid",
+  "pages": [
+    {
+      "id": "intro",
+      "title": "Overview",
+      "body": "A 15×15 grid of metallic spheres rises and falls as a continuous sine-wave landscape. Each sphere's Y position is computed from two superimposed waves with different frequencies and directions, and its colour smoothly transitions from deep navy at the troughs to bright cyan at the peaks.\n\nNavigate through the pages below to walk through each section of this file.",
+      "lines": [1, 76]
+    },
+    {
+      "id": "color-helper",
+      "title": "Color Helper — colorFromY",
+      "parent": "intro",
+      "body": "colorFromY() maps a Y position in the range [-WAVE_AMP, +WAVE_AMP] to a packed RGB integer. The normalised height t drives linear interpolation across three channels: red stays near zero, green sweeps from a dark teal to near-white, and blue rises from mid-blue to full white.\n\nReturning a packed integer (using bitshift composition) lets the caller call setHex() directly and reuse the same value for both the diffuse colour and a dimmed emissive, avoiding two separate interpolation calls.",
+      "lines": [11, 17]
+    },
+    {
+      "id": "setup",
+      "title": "Setup",
+      "parent": "intro",
+      "body": "setup() positions the camera above and behind the grid for a slight bird's-eye perspective and adds three lights: a white directional sun, an orange point light centred above the grid, and a dark blue ambient floor. All 225 spheres share the same SphereGeometry instance; only their materials differ.\n\nEach mesh stores its column and row indices in userData so update() can reconstruct the grid position without indexing into a separate array.",
+      "lines": [19, 51]
+    },
+    {
+      "id": "update",
+      "title": "Update",
+      "parent": "intro",
+      "body": "Two sine waves with different spatial frequencies (0.5 and 0.3 in X, 0.4 and 0.6 in Z) and different temporal frequencies (1.5 and 0.9 Hz) are summed per sphere to create interference patterns that travel diagonally. The colour and a proportional scale factor are derived from the resulting Y value each frame, so peak spheres glow brightest and appear slightly larger than trough spheres.",
+      "lines": [53, 73]
+    }
+  ]
+}

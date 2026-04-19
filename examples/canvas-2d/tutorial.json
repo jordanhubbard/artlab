@@ -1,0 +1,39 @@
+{
+  "title": "Canvas 2D — Generative Painting on a 3D Plane",
+  "pages": [
+    {
+      "id": "intro",
+      "title": "Overview",
+      "body": "A generative 2D painting — concentric rainbow rings and an animating Lissajous curve — is rendered each frame onto an off-screen canvas and streamed to a Three.js plane as a CanvasTexture. The plane slowly rotates so the flat artwork reads as a physical object in 3D space.\n\nNavigate through the pages below to walk through each section of this file.",
+      "lines": [1, 75]
+    },
+    {
+      "id": "draw-frame",
+      "title": "Draw Frame Helper",
+      "parent": "intro",
+      "body": "drawFrame() paints one frame of the generative artwork onto a 2D context. A semi-transparent black fill is applied first, but because fillStyle uses full opacity the canvas is completely cleared each frame with no motion-blur ghost. Twenty concentric arcs are then drawn, each with a hue derived from elapsed time and ring index so the colour wheel rotates at different speeds per ring.\n\nThe Lissajous figure is constructed by sampling a parametric path with frequency ratio 3:2 and advancing its phase by elapsed time, producing a continuously morphing knot drawn in translucent white on top of the rings.",
+      "lines": [7, 35]
+    },
+    {
+      "id": "setup",
+      "title": "Setup",
+      "parent": "intro",
+      "body": "setup() initialises an ambient light and a point light to give the plane a slight directional shading at the edges. A 512×512 canvas is created off-screen and filled black, then wrapped in a CanvasTexture and mapped onto an 8×8 PlaneGeometry with MeshBasicMaterial so the canvas colours are displayed at full brightness without lighting calculations.",
+      "lines": [37, 60]
+    },
+    {
+      "id": "update",
+      "title": "Update",
+      "parent": "intro",
+      "body": "update() calls drawFrame() with the current elapsed time, then sets needsUpdate on the texture to signal Three.js to re-upload the canvas pixel data to the GPU. The plane is rotated on the Y axis by 0.2 × dt radians, keeping the spin framerate-independent.",
+      "lines": [62, 66]
+    },
+    {
+      "id": "teardown",
+      "title": "Teardown",
+      "parent": "intro",
+      "body": "teardown() explicitly removes the plane and point light from the scene, then calls dispose() on the geometry, material, and texture to release the associated GPU buffers. This is necessary because the objects were stored on ctx rather than added through Artlab's automatic cleanup path.",
+      "lines": [68, 74]
+    }
+  ]
+}

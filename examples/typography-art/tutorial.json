@@ -1,0 +1,39 @@
+{
+  "title": "Typography Art — Neon Logotype Poster",
+  "pages": [
+    {
+      "id": "intro",
+      "title": "Overview",
+      "body": "A neon ARTLAB logotype pulses over a dark grid backdrop, with cycling inspirational quotes beneath it. All text is rendered each frame onto an off-screen HTML canvas, which is uploaded as a Three.js CanvasTexture onto a transparent full-screen quad in front of the scene geometry.\n\nNavigate through the pages below to walk through each section of this file.",
+      "lines": [1, 145]
+    },
+    {
+      "id": "setup",
+      "title": "Setup — Canvas Texture & Quad Mesh",
+      "parent": "intro",
+      "body": "setup() builds the scene geometry first: a dark background plane and two sets of thin emissive strips (13 horizontal, 21 vertical) that form a barely-visible grid recessed behind the main content. A 1280×720 canvas element is created and wrapped in a CanvasTexture; the resulting texture drives a transparent MeshBasicMaterial on a full-screen quad placed slightly in front of the grid.\n\nUsing a canvas texture rather than Text geometry means any 2D drawing API call — blurs, gradients, arcs — is available for free without loading a font loader.",
+      "lines": [15, 67]
+    },
+    {
+      "id": "update-glow",
+      "title": "Update — Glow Passes",
+      "parent": "intro",
+      "body": "Each frame the canvas is cleared with a translucent black fill (opacity 1.0, so it is a full clear) and the logotype is redrawn in four stacked passes: two heavily-blurred wide halos, a tighter medium halo, the sharp fill layer, and a thin stroke. Stacking blurred copies at decreasing radii simulates the bloom effect that would otherwise require a postprocessing render target.\n\nAll colours share the same rgba() alpha, which is multiplied by a 0.8 Hz sine pulse so the glow breathes over time.",
+      "lines": [69, 101]
+    },
+    {
+      "id": "update-quote",
+      "title": "Update — Quote Cycling & Fade",
+      "parent": "intro",
+      "body": "Quotes rotate on a QUOTE_INTERVAL timer: when the time since the last swap exceeds 4 seconds the index advances and the clock resets. A local fade coefficient is derived from the time within the current interval — linearly ramping up during the first 0.6 s and ramping down during the last 0.6 s — so each quote fades in and out smoothly. The quote is drawn twice: once with a 1.5 px blur for a soft glow, then again sharp on top, with the fade applied to both alpha values.",
+      "lines": [102, 139]
+    },
+    {
+      "id": "teardown",
+      "title": "Teardown",
+      "parent": "intro",
+      "body": "teardown() disposes the CanvasTexture to release the GPU memory it occupies. The canvas element itself is garbage-collected when ctx._canvas and ctx._canvasCtx go out of scope.",
+      "lines": [142, 145]
+    }
+  ]
+}

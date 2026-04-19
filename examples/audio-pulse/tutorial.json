@@ -1,0 +1,35 @@
+{
+  "title": "Audio Pulse — Microphone-Reactive Sphere & Satellite Ring",
+  "pages": [
+    {
+      "id": "intro",
+      "title": "Overview",
+      "body": "Audio Pulse is a minimal audio-reactivity example: a central glowing sphere expands and contracts with bass energy, while eight satellite spheres orbit at fixed radius and respond individually to their own FFT frequency bin. The file is intentionally short — it exists to show the complete pattern (setup → audio init → update loop) without any library dependencies beyond Three.js. All audio branching is handled gracefully so the scene still animates attractively before the user grants microphone permission.",
+      "lines": [1, 124]
+    },
+    {
+      "id": "fft-helpers",
+      "title": "FFT Helpers",
+      "body": "Two pure utility functions live at the top of the file. `fftAvg` sums a slice of the raw byte-frequency array and normalises to 0–1, making it easy to extract a scalar energy level for any frequency band without caring about bin count. `satColor` converts a normalised intensity value into a packed hex color that shifts from cool blue toward warm orange as energy rises — keeping satellite color always visually legible without importing any color library.",
+      "lines": [7, 14]
+    },
+    {
+      "id": "setup-mesh",
+      "title": "Core Sphere & Satellites",
+      "body": "Setup positions the camera, adds ambient and point lights, then builds two kinds of objects. The core is a single large `MeshStandardMaterial` sphere with a deep-purple emissive tint; its material properties are deliberately chosen so small emissiveIntensity changes are clearly visible. The eight satellites share one `SphereGeometry` instance (saving draw calls) and are placed around a ring using evenly-spaced angles stored in `userData.angle` so the update loop can reuse them without recomputing trigonometry from scratch.",
+      "lines": [16, 49]
+    },
+    {
+      "id": "audio-init",
+      "title": "Audio Initialisation",
+      "body": "Because browsers require a user gesture before opening an `AudioContext`, audio is wired up inside a one-time click handler on an overlay button. The handler first tries `getUserMedia` to capture real microphone input; if permission is denied it silently falls back to a 55 Hz sine oscillator so the visual remains reactive without any error message. Either source connects to a 256-bin `AnalyserNode` and the resulting context object is stored on `ctx._audio` for the update loop to consume.",
+      "lines": [51, 86]
+    },
+    {
+      "id": "update",
+      "title": "Update Loop",
+      "body": "Each frame, if audio is active the analyser fills `fftData` with raw byte values; bass (bins 0–12) and mid (bins 13–90) averages are extracted via `fftAvg`. Bloom strength scales directly with bass so the post-processing halo pulses with the kick. Each satellite reads the single FFT bin closest to its angular index, lifts its Y position proportionally, and recolors through `satColor` — giving a frequency-spectrum readout spread around the ring. The core's scale uses a spring integrator (`_bassSpring`) for smoothed elastic behaviour rather than a direct assignment, which avoids jitter on sharp transients.",
+      "lines": [88, 118]
+    }
+  ]
+}
