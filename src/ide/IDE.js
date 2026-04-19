@@ -226,7 +226,10 @@ export class IDE {
     // Preview
     const canvasContainer = document.getElementById('canvas-container')
     if (canvasContainer) {
-      try { this.preview = new PreviewPane(canvasContainer) } catch (e) {
+      try {
+        this.preview = new PreviewPane(canvasContainer)
+        this.preview.onError = (msg) => this._addRuntimeError(msg)
+      } catch (e) {
         console.warn('[IDE] PreviewPane init failed:', e)
       }
     }
@@ -710,6 +713,19 @@ export class IDE {
   }
 
   // ── Diagnostics ─────────────────────────────────────────────────────────────
+
+  _addRuntimeError(msg) {
+    // Switch to the Errors tab so the user sees it
+    document.querySelectorAll('.output-tab').forEach(t => t.classList.remove('active'))
+    document.querySelectorAll('.output-pane').forEach(p => p.classList.remove('active'))
+    document.querySelector('.output-tab[data-out="errors"]')?.classList.add('active')
+    document.getElementById('out-errors')?.classList.add('active')
+
+    // Append as a runtime diagnostic (doesn't overwrite compile errors)
+    const existing = [...this._errors]
+    existing.push({ severity: 'error', message: msg, runtime: true })
+    this._setErrors(existing)
+  }
 
   _setErrors(diags) {
     this._errors = diags
@@ -1270,6 +1286,9 @@ export class IDE {
   }
 
   async _loadExample(ex) {
+    // Clear previous runtime errors when switching examples
+    this._setErrors([])
+
     // Highlight in tree
     document.querySelectorAll('.ex-row').forEach(r => r.classList.remove('active'))
     const row = document.querySelector(`.ex-row[data-name="${ex.name}"]`)
@@ -1307,7 +1326,7 @@ export class IDE {
     }
 
     toast(`Loaded example: ${ex.name}`)
-    this._tut?.tryLoad(ex.name)
+    this._tut?.tryLoad(ex)
   }
 
   // ── Project Navigator ────────────────────────────────────────────────────────
@@ -1411,7 +1430,7 @@ export class IDE {
   // ── Tutorial pane ────────────────────────────────────────────────────────────
 
   _initTutorial() {
-    this._tut = new TutorialMgr()
+    this._tut = new TutorialMgr(this)
   }
 
   // ── FPS counter ─────────────────────────────────────────────────────────────
@@ -1439,9 +1458,12 @@ export class IDE {
 // ── Tutorial pane manager ─────────────────────────────────────────────────────
 
 class TutorialMgr {
-  constructor() {
+  constructor(ide) {
+    this._ide     = ide   // IDE instance — for editor + monaco access
     this._data    = null
+    this._ex      = null  // current example {name, entry}
     this._pageIdx = 0
+    this._decorations = null
     this._pane    = document.getElementById('tutorial-pane')
     this._crumb   = document.getElementById('tut-breadcrumb')
     this._body    = document.getElementById('tut-body')
@@ -1464,11 +1486,13 @@ class TutorialMgr {
     })
   }
 
-  async tryLoad(exampleName) {
+  async tryLoad(ex) {
+    this._ex = ex
     this._data = null
     this._pageIdx = 0
+    this._clearHighlight()
     try {
-      const res = await fetch(`/examples/${exampleName}/tutorial.json`)
+      const res = await fetch(`/examples/${ex.name}/tutorial.json`)
       if (!res.ok) { this.close(); return }
       this._data = await res.json()
       this._render()
@@ -1481,6 +1505,7 @@ class TutorialMgr {
   close() {
     this._pane?.classList.remove('open')
     this._data = null
+    this._clearHighlight()
   }
 
   _goNext() {
@@ -1520,10 +1545,45 @@ class TutorialMgr {
     // Body content
     this._body.innerHTML = _renderTutBody(page.body || '')
 
+    // Code highlight
+    if (page.lines) {
+      this._highlight(page.lines[0], page.lines[1])
+    } else {
+      this._clearHighlight()
+    }
+
     // Nav button state
     this._btnPrev.disabled = this._pageIdx <= 0
     this._btnNext.disabled = this._pageIdx >= pages.length - 1
     this._btnUp.disabled   = !page.parent
+  }
+
+  _highlight(startLine, endLine) {
+    const ide = this._ide
+    if (!ide?.editor || !ide?._monaco) return
+
+    // Ensure the example source file is active in the editor
+    if (this._ex) ide.openFile(this._ex.entry)
+
+    const monaco = ide._monaco
+    const editor = ide.editor
+
+    this._decorations?.clear()
+    this._decorations = editor.createDecorationsCollection([{
+      range: new monaco.Range(startLine, 1, endLine, Number.MAX_SAFE_INTEGER),
+      options: {
+        isWholeLine: true,
+        className: 'tut-line-hl',
+        linesDecorationsClassName: 'tut-line-gutter',
+      },
+    }])
+
+    editor.revealLinesInCenter(startLine, endLine)
+  }
+
+  _clearHighlight() {
+    this._decorations?.clear()
+    this._decorations = null
   }
 }
 

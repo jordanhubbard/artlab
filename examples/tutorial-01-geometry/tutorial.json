@@ -3,27 +3,44 @@
   "pages": [
     {
       "id": "intro",
-      "title": "Geometry & Materials",
-      "body": "# Geometry & Materials\n\nArtlab wraps Three.js geometry into simple factory functions. Five primitives are visible in the preview — a sphere, box, torus, cylinder, and cone.\n\nEach shape is created from a geometry + material pair and added to the scene with ctx.add().\n\nUse → to explore each concept in detail, ↑ to go back to a parent topic, and ← to go to the previous page.",
-      "children": ["primitives", "materials", "mesh-factory"]
+      "title": "Overview",
+      "body": "Five rotating primitives demonstrate Artlab's geometry factories and MeshStandardMaterial. Each shape is defined once in the SHAPES array, then built in a loop inside setup().\n\nNavigate through the pages below to walk through each section of this file.",
+      "lines": [1, 10]
     },
     {
-      "id": "primitives",
-      "title": "Primitive Shapes",
+      "id": "label-helper",
+      "title": "DOM Label Helper",
       "parent": "intro",
-      "body": "# Primitive Shapes\n\nSix common primitives are available as factory functions on ctx:\n\n```\nsphere(radius)             → SphereGeometry\nbox(width, height, depth)  → BoxGeometry\ntorus(R, r)                → TorusGeometry\ncylinder(radius, height)   → CylinderGeometry\ncone(radius, height)       → ConeGeometry\nplane(width, height)       → PlaneGeometry\n```\n\nEach returns a THREE.BufferGeometry you pass to mesh().\n\nUnder the hood these are standard Three.js geometries — you can also construct them directly via ctx.THREE if you need custom segment counts."
+      "body": "makeLabelEl() creates a fixed-position <div> that floats over the canvas. It returns the element without appending it — the caller decides where to place it.\n\nThis pattern is reusable: keep DOM creation in a helper function and lifecycle management (append / remove) in setup() and teardown().",
+      "lines": [12, 21]
     },
     {
-      "id": "materials",
-      "title": "Materials",
+      "id": "setup-lights",
+      "title": "Camera & Lights",
       "parent": "intro",
-      "body": "# Materials\n\nArtlab uses MeshStandardMaterial by default — a physically-based material that responds to lights realistically.\n\nKey parameters:\n\n```\nmesh(geo, {\n  color:     0x4466ff,  // base albedo hex\n  roughness: 0.35,      // 0 = mirror, 1 = matte\n  metalness: 0.15,      // 0 = plastic, 1 = metal\n  emissive:  0x112244,  // self-illumination color\n})\n```\n\n## Roughness vs Metalness\n\n- Rough metal → brushed aluminium look\n- Smooth metal → chrome mirror\n- Rough non-metal → chalk, stone, matte paint\n- Smooth non-metal → polished plastic, lacquer"
+      "body": "setup() positions the camera and adds three lights:\n\n· AmbientLight — raises the shadow floor so dark sides aren't pure black\n· DirectionalLight — the primary \"sun\" from upper-right\n· PointLight — a blue rim from behind-left to add depth\n\nThree-light rigs like this approximate classic studio photography.",
+      "lines": [23, 37]
     },
     {
-      "id": "mesh-factory",
-      "title": "The mesh() Factory",
+      "id": "setup-meshes",
+      "title": "Creating Meshes",
       "parent": "intro",
-      "body": "# The mesh() Factory\n\nmesh() combines geometry and material into a THREE.Mesh in one call:\n\n```\nconst { mesh, sphere } = ctx;\n\nconst ball = mesh(\n  sphere(0.6),\n  { color: 0x4466ff, roughness: 0.4 }\n);\nball.position.set(0, 1, 0);\nctx.add(ball);\n```\n\nThe returned object is a standard THREE.Mesh — set position, rotation, scale, and userData just as you would in plain Three.js.\n\nAnimate it in update():\n\n```\nexport function update(ctx, dt) {\n  ball.rotation.y += dt;\n  ball.position.y = Math.sin(ctx.elapsed) * 0.5;\n}\n```"
+      "body": "For each entry in SHAPES, a geometry is created from the factory function stored in def.geo, then combined with a MeshStandardMaterial into a Mesh.\n\nNote: emissive is set to a dim version of the base color. This gives each mesh a subtle self-glow that prevents it from going completely dark on the unlit side — especially useful under directional lighting.",
+      "lines": [42, 58]
+    },
+    {
+      "id": "update",
+      "title": "Animation in update()",
+      "parent": "intro",
+      "body": "update() is called every frame. Each mesh spins on Y using dt (delta time in seconds), so motion is framerate-independent. X rotation and Y position use Math.sin(elapsed + offset) to phase-shift the meshes apart.\n\nThe label positions are recomputed each frame by projecting the mesh's 3D position into screen space using Three.js's project() method.",
+      "lines": [63, 81]
+    },
+    {
+      "id": "teardown",
+      "title": "Teardown",
+      "parent": "intro",
+      "body": "teardown() removes only the DOM elements this example created. Three.js meshes added via ctx.add() are cleaned up automatically by the Artlab runtime when the example unloads.",
+      "lines": [83, 85]
     }
   ]
 }

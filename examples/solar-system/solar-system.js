@@ -348,6 +348,8 @@ export async function setup(ctx) {
 // ── Update ─────────────────────────────────────────────────────────────────────
 
 export function update(ctx, dt) {
+  if (!ctx._planets) return   // async setup() still in progress
+
   const { THREE } = ctx
   const t = ctx.elapsed
 

@@ -319,6 +319,7 @@ export class PreviewPane {
   _showError(msg) {
     this._running = false
     console.error('[PreviewPane]', msg)
+    this.onError?.(msg)
     let ov = this._container.querySelector('.preview-error')
     if (!ov) {
       ov = document.createElement('div')

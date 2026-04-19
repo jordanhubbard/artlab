@@ -3,39 +3,37 @@
   "pages": [
     {
       "id": "intro",
-      "title": "Lighting in Three.js",
-      "body": "# Lighting in Three.js\n\nThe preview cycles through five lighting modes. Each mode uses different light types to demonstrate a distinct look.\n\nArtlab exposes light factories on ctx:\n\n```\nambient(color, intensity)\npoint(color, intensity, distance, decay)\ndirectional(color, intensity)\nspot(color, intensity, distance, angle)\nhemi(skyColor, groundColor, intensity)\n```\n\nLights added with ctx.add() affect every MeshStandardMaterial object in the scene. MeshBasicMaterial ignores lights entirely.",
-      "children": ["ambient", "directional", "point", "studio", "hemisphere"]
+      "title": "Overview",
+      "body": "A single sphere cycles through five lighting rigs every 4 seconds. Each mode uses different Three.js light types — from the simplest ambient-only fill to a full three-point studio rig.\n\nThe key data is the MODES array and the CYCLE_DURATION constant at the top of the file.",
+      "lines": [1, 12]
     },
     {
-      "id": "ambient",
-      "title": "Ambient Light",
+      "id": "clear-helper",
+      "title": "clearLights()",
       "parent": "intro",
-      "body": "# Ambient Light\n\nAmbient light fills the entire scene uniformly — no direction, no shadows.\n\n```\nconst fill = ctx.ambient(0x888888, 0.4);\nctx.add(fill);\n```\n\nAlone it produces flat, directionless shading. Use it as a minimum floor so objects never go completely black in shadow.\n\n## Good Practice\n\nKeep ambient intensity low (0.1–0.4) and use directional or point lights for the primary illumination. High ambient destroys depth cues and makes scenes look washed out."
+      "body": "clearLights() removes every light added in the previous mode and disposes it. Disposing lights frees their GPU resources — always dispose Three.js objects you're done with.\n\nThe pattern of storing scene objects in ctx._lights and then clearing them here is how Artlab examples manage dynamic scene content.",
+      "lines": [14, 20]
     },
     {
-      "id": "directional",
-      "title": "Directional Light",
+      "id": "apply-mode",
+      "title": "applyMode() — all five rigs",
       "parent": "intro",
-      "body": "# Directional Light\n\nDirectional light simulates distant sunlight — parallel rays with no distance falloff.\n\n```\nconst sun = new THREE.DirectionalLight(0xffffff, 1.4);\nsun.position.set(5, 8, 4);\nctx.add(sun);\n```\n\nThe position sets direction only — distance from the origin has no effect. Only the angle matters.\n\n## Shadow Maps\n\nEnable shadows with:\n\n```\nctx.renderer.shadowMap.enabled = true;\nsun.castShadow = true;\nmesh.castShadow = true;\nmesh.receiveShadow = true;\n```"
+      "body": "Each branch of applyMode() builds a different lighting rig:\n\n· idx 0 — AmbientLight only (flat, no depth)\n· idx 1 — Directional + dim ambient (sunlight)\n· idx 2 — Orbiting PointLight (stored for animation)\n· idx 3 — Three-point studio (key, fill, rim)\n· idx 4 — HemisphereLight (sky + ground bounce)\n\nCompare how the sphere reads differently under each mode in the preview.",
+      "lines": [22, 51]
     },
     {
-      "id": "point",
-      "title": "Point Light",
+      "id": "setup",
+      "title": "setup()",
       "parent": "intro",
-      "body": "# Point Light\n\nPoint lights emit in all directions from a single position, with realistic falloff.\n\n```\nconst lamp = ctx.point(\n  0xff8844,  // warm orange\n  2.0,       // intensity\n  12,        // max distance (0 = infinite)\n  2          // decay exponent\n);\nlamp.position.set(0, 3, 0);\nctx.add(lamp);\n```\n\nDecay of 2 gives physically accurate inverse-square falloff.\n\nAnimate the position in update() to create orbiting flames, moving lamps, or flickering effects:\n\n```\nexport function update(ctx, dt) {\n  const t = ctx.elapsed;\n  lamp.position.x = Math.sin(t) * 5;\n  lamp.position.z = Math.cos(t) * 5;\n}\n```"
+      "body": "setup() creates a single grey sphere and starts mode 0. The sphere's roughness: 0.5 and metalness: 0.1 make it a good neutral test subject — reflective enough to show highlights, matte enough to show diffuse shading.",
+      "lines": [53, 67]
     },
     {
-      "id": "studio",
-      "title": "Three-Point Studio",
+      "id": "update",
+      "title": "update() — cycling",
       "parent": "intro",
-      "body": "# Three-Point Studio Lighting\n\nClassic photography lighting with three directional lights:\n\n```\n// Key — primary illumination\nconst key = new THREE.DirectionalLight(0xfff0cc, 1.4);\nkey.position.set(5, 8, 4);\n\n// Fill — softens key-side shadows\nconst fill = new THREE.DirectionalLight(0x4488ff, 0.5);\nfill.position.set(-5, 3, 2);\n\n// Rim — separates subject from background\nconst rim = new THREE.DirectionalLight(0xff4488, 0.7);\nrim.position.set(0, -2, -8);\n```\n\nThis rig produces a well-defined professional look used in product renders and character animation. The colored fill and rim add depth without requiring HDR environment maps."
-    },
-    {
-      "id": "hemisphere",
-      "title": "Hemisphere Light",
-      "parent": "intro",
-      "body": "# Hemisphere Light\n\nHemisphere light simulates outdoor sky/ground bounce — sky color from above, ground color reflected from below.\n\n```\nconst hemi = ctx.hemi(\n  0x8888ff,  // sky color (blue)\n  0x664422,  // ground color (warm brown)\n  1.2        // intensity\n);\nctx.add(hemi);\n```\n\nIdeal for outdoor scenes. It produces soft, natural illumination without the harshness of directional lights, and is cheap to compute — no shadow maps required.\n\nCombine with a single low-intensity directional light to add just enough directionality for material PBR to read clearly."
+      "body": "update() compares elapsed time against _lastSwitch. When 4 seconds have passed it increments _modeIdx (wrapping via modulo) and calls applyMode().\n\nThe point-light mode (idx 2) also animates the light in a circle each frame using sin/cos of elapsed time.",
+      "lines": [69, 85]
     }
   ]
 }

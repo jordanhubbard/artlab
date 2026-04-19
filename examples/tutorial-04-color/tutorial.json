@@ -1,41 +1,32 @@
 {
-  "title": "Tutorial 04 — Color & Material",
+  "title": "Tutorial 04 — Color & Materials",
   "pages": [
     {
       "id": "intro",
-      "title": "Color & PBR Materials",
-      "body": "# Color & PBR Materials\n\nThe preview shows a 4×4 grid of spheres demonstrating color spaces and PBR material parameters:\n\n- Row 1: Hue rotation (H in HSL)\n- Row 2: Saturation ramp (S in HSL)\n- Row 3: Emissive intensity ramp\n- Row 4: Metalness × roughness combinations\n\nThree.js uses MeshStandardMaterial for physically-based rendering (PBR). Getting these parameters right is the difference between plastic-looking and photo-realistic materials.",
-      "children": ["color-basics", "hsl", "pbr", "emissive", "env-maps"]
+      "title": "Overview",
+      "body": "A 4×4 grid of spheres demonstrates color spaces and PBR material parameters. Each row explores one concept:\n\n· Row 1 — Hue rotation (H in HSL, 0→360)\n· Row 2 — Saturation ramp (S in HSL, 0→1)\n· Row 3 — Emissive intensity (0→1)\n· Row 4 — Metalness + roughness combinations\n\nThe data driving this is in ROW_DEFS and PBR_COMBOS.",
+      "lines": [1, 18]
     },
     {
-      "id": "color-basics",
-      "title": "Color Basics",
+      "id": "row-color",
+      "title": "rowColor() — HSL helper",
       "parent": "intro",
-      "body": "# Color in Three.js\n\nColors can be set several ways:\n\n```\n// Hex literal (most common)\nmesh.material.color.setHex(0x4466ff);\n\n// From CSS string\nconst c = new THREE.Color('hsl(220, 70%, 55%)');\n\n// RGB components 0..1\nconst c = new THREE.Color(0.27, 0.4, 1.0);\n\n// In material constructor\nnew THREE.MeshStandardMaterial({ color: 0x4466ff })\n```\n\nThree.js Color stores values as linear RGB (0..1 per channel). When you pass a hex value it automatically converts from sRGB gamma space to linear."
+      "body": "rowColor() returns a THREE.Color for a given row and column. Rows 0 and 1 use setHSL(h, s, l) with H or S swept across columns. Row 2 returns a fixed blue for the emissive demo. Row 3 returns neutral grey since PBR combos set metalness/roughness, not color.\n\nThree.js's setHSL() takes all values in the 0..1 range.",
+      "lines": [20, 28]
     },
     {
-      "id": "hsl",
-      "title": "HSL Color Space",
+      "id": "setup-grid",
+      "title": "setup() — building the grid",
       "parent": "intro",
-      "body": "# HSL Color Space\n\nHSL (Hue, Saturation, Lightness) is often more intuitive than RGB for generating color palettes:\n\n```\nconst c = new THREE.Color();\n\n// setHSL(h, s, l) — all values 0..1\nc.setHSL(0.6, 0.7, 0.55);  // blue\nc.setHSL(0.0, 0.7, 0.55);  // red\nc.setHSL(0.3, 0.7, 0.55);  // green\n```\n\nGenerate a color wheel by sweeping hue:\n\n```\nfor (let i = 0; i < N; i++) {\n  const h = i / N;          // 0..1\n  c.setHSL(h, 0.7, 0.55);\n  meshes[i].material.color.copy(c);\n}\n```\n\nFor palettes, fix S and L and vary H. For mood shifts, vary S or L while keeping H constant."
+      "body": "The double loop creates 16 spheres. For each sphere, rowColor() provides the base color, then the material options are extended based on the row:\n\n· Row 2 sets emissive + emissiveIntensity\n· Row 3 copies roughness + metalness from PBR_COMBOS\n\nPosition is computed so the grid is centered at the origin.",
+      "lines": [30, 75]
     },
     {
-      "id": "pbr",
-      "title": "PBR — Roughness & Metalness",
+      "id": "update",
+      "title": "update() — live hue animation",
       "parent": "intro",
-      "body": "# Physically-Based Rendering\n\nMeshStandardMaterial has two key PBR parameters:\n\n```\nnew THREE.MeshStandardMaterial({\n  roughness: 0.0,  // 0 = mirror-smooth, 1 = fully matte\n  metalness: 0.0,  // 0 = dielectric, 1 = conductor\n})\n```\n\n## The Four Archetypes\n\n```\n// Rough dielectric — chalk, concrete, matte paint\n{ roughness: 0.9, metalness: 0.0 }\n\n// Rough conductor — brushed steel, cast iron\n{ roughness: 0.9, metalness: 1.0 }\n\n// Smooth dielectric — polished plastic, lacquer\n{ roughness: 0.05, metalness: 0.0 }\n\n// Smooth conductor — chrome, mirror-polished metal\n{ roughness: 0.05, metalness: 1.0 }\n```\n\nIn between gives you every material in between — anodized aluminium, satin finish, worn metal, etc."
-    },
-    {
-      "id": "emissive",
-      "title": "Emissive Materials",
-      "parent": "intro",
-      "body": "# Emissive Materials\n\nEmissive color makes a surface appear to glow — it adds light to the final pixel regardless of scene lighting.\n\n```\nnew THREE.MeshStandardMaterial({\n  color:              0x224499,\n  emissive:           0x0011ff,\n  emissiveIntensity:  0.6,\n})\n```\n\nEmissive does not actually emit light into the scene (use a PointLight for that). It only affects the surface's own color.\n\nAnimate emissiveIntensity in update() for pulsing or power indicators:\n\n```\nexport function update(ctx, dt) {\n  const pulse = 0.4 + 0.6 * Math.sin(ctx.elapsed * 3);\n  mesh.material.emissiveIntensity = pulse;\n}\n```"
-    },
-    {
-      "id": "env-maps",
-      "title": "Environment Maps",
-      "parent": "intro",
-      "body": "# Environment Maps\n\nFor the most realistic look, smooth metals and plastics need an environment map — an HDR panorama that provides realistic reflections.\n\n```\nimport { RGBELoader } from\n  'three/addons/loaders/RGBELoader.js';\n\nconst loader = new RGBELoader();\nconst texture = await loader.loadAsync('/env/studio.hdr');\ntexture.mapping = THREE.EquirectangularReflectionMapping;\nctx.scene.environment = texture;\n```\n\nOnce set on `scene.environment`, all MeshStandardMaterial objects automatically pick up the environment for reflections and IBL (image-based lighting).\n\nCombined with low roughness and metalness = 1.0, this produces mirror-quality chrome reflections."
+      "body": "Only row 0 spheres are updated each frame — their hue slowly rotates over time using elapsed. The formula (t * 0.08 + c / COLS) % 1 ensures each column is phase-shifted so you see a wave of hues moving across the row.\n\nAll spheres rotate slowly and bob gently in Z to make the material differences easier to read.",
+      "lines": [77, 92]
     }
   ]
 }

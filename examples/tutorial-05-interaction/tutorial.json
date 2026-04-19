@@ -3,33 +3,65 @@
   "pages": [
     {
       "id": "intro",
-      "title": "Mouse & Keyboard Interaction",
-      "body": "# Mouse & Keyboard Interaction\n\nThe preview shows a 5×5 grid of cubes. Hover to highlight, click to launch, press R to reset all, G to toggle the grid.\n\nArtlab examples handle input directly via standard browser events. Key patterns:\n\n- Raycasting for hover and click on 3D objects\n- Mouse coordinate normalization\n- Keyboard event registration and cleanup\n\nAlways remove event listeners in teardown() to prevent leaks when switching examples.",
-      "children": ["raycasting", "mouse-coords", "keyboard", "teardown"]
+      "title": "Overview",
+      "body": "A 5×5 grid of cubes responds to hover, click, and keyboard events. Three color constants drive the visual feedback:\n\n· COL_BASE — default blue\n· COL_HOVER — yellow highlight on hover\n· COL_CLICK — red flash when clicked\n\nHover a cube to highlight it. Click to launch it. Press R to reset, G to toggle the grid helper.",
+      "lines": [1, 7]
     },
     {
-      "id": "raycasting",
-      "title": "Raycasting",
+      "id": "cube-grid",
+      "title": "Building the cube grid",
       "parent": "intro",
-      "body": "# Raycasting\n\nRaycasting shoots an invisible ray from the camera through a screen point into the 3D scene and returns any objects it hits.\n\n```\nconst raycaster = new THREE.Raycaster();\nconst mouse = new THREE.Vector2();\n\n// Set normalized device coordinates (-1..1)\nmouse.x =  (e.clientX / innerWidth)  * 2 - 1;\nmouse.y = -(e.clientY / innerHeight) * 2 + 1;\n\n// Configure ray from camera through mouse point\nraycaster.setFromCamera(mouse, camera);\n\n// Test against an array of meshes\nconst hits = raycaster.intersectObjects(meshArray);\nif (hits.length > 0) {\n  const first = hits[0].object; // closest hit\n  const point = hits[0].point;  // 3D world position\n}\n```"
+      "body": "The double loop creates GRID×GRID cubes (25 total). Each cube is positioned so the grid is centered at origin, with userData storing base position and a fly value used by the click animation.\n\nAll 25 cubes share the same geometry instance — only their materials differ. This is a common Three.js optimization.",
+      "lines": [23, 42]
     },
     {
-      "id": "mouse-coords",
-      "title": "Mouse Coordinate Normalization",
+      "id": "raycaster-init",
+      "title": "Raycaster setup",
       "parent": "intro",
-      "body": "# Mouse Coordinate Normalization\n\nThe raycaster expects Normalized Device Coordinates (NDC) in the range −1 to +1. Screen pixels must be converted:\n\n```\n// For full-window mouse:\nmouse.x =  (e.clientX / window.innerWidth)  * 2 - 1;\nmouse.y = -(e.clientY / window.innerHeight) * 2 + 1;\n```\n\nWhen the canvas doesn't fill the whole window (common in the IDE preview pane), use the canvas bounding rect:\n\n```\nconst rect = ctx.renderer.domElement.getBoundingClientRect();\nmouse.x =  ((e.clientX - rect.left) / rect.width)  * 2 - 1;\nmouse.y = -((e.clientY - rect.top)  / rect.height) * 2 + 1;\n```\n\nThis is the correct approach in Artlab — always use the canvas rect."
+      "body": "The Raycaster and mouse Vector2 are created once and reused every frame. The mouse starts at (-9, -9) — well outside NDC range — so the raycaster doesn't hit anything until the user actually moves the mouse over the canvas.",
+      "lines": [44, 48]
     },
     {
-      "id": "keyboard",
-      "title": "Keyboard Events",
+      "id": "mouse-move",
+      "title": "mousemove — NDC conversion",
       "parent": "intro",
-      "body": "# Keyboard Events\n\nListen on window for keyboard events and store the handler so it can be removed in teardown():\n\n```\nlet _onKey;\n\nexport function setup(ctx) {\n  _onKey = (e) => {\n    if (e.key === 'r') resetAll();\n    if (e.key === 'g') toggleGrid(ctx);\n  };\n  window.addEventListener('keydown', _onKey);\n}\n\nexport function teardown(ctx) {\n  window.removeEventListener('keydown', _onKey);\n}\n```\n\nUse `e.key` for printable characters and named keys (`'ArrowLeft'`, `'Escape'`, `'Enter'`, `' '` for space). Use `e.code` for physical key positions (layout-independent).\n\nPrefix keys with modifiers: `e.shiftKey`, `e.ctrlKey`, `e.altKey`."
+      "body": "The mouse handler converts screen pixels to Normalized Device Coordinates (-1 to +1). Critically, it uses the canvas bounding rect rather than window.innerWidth — this is required when the canvas doesn't fill the whole window, as in the Artlab IDE preview pane.",
+      "lines": [50, 55]
+    },
+    {
+      "id": "click-handler",
+      "title": "click — launch a cube",
+      "parent": "intro",
+      "body": "The click handler performs its own raycast at the moment of click (the stored mouse position can be stale). Setting cube.userData.fly = 1.0 triggers the animation in update() — the value counts down to 0 over about 1.6 seconds.",
+      "lines": [57, 68]
+    },
+    {
+      "id": "key-handler",
+      "title": "keydown — R and G",
+      "parent": "intro",
+      "body": "The keyboard handler handles two keys:\n\n· R — resets all cubes to their base position and color\n· G — toggles a GridHelper; when toggling off, it must be removed from the scene explicitly\n\nThe handler reference is stored in ctx._onKey so it can be removed by teardown().",
+      "lines": [70, 94]
+    },
+    {
+      "id": "update-hover",
+      "title": "update() — hover detection",
+      "parent": "intro",
+      "body": "Every frame, the stored mouse position is used to raycast against all cubes. When the hovered object changes, the previous cube is reset to its base color (only if it isn't currently flying).\n\nThe hovered cube gets COL_HOVER and a pulsing emissiveIntensity using Math.sin(t * 8) for a rapid shimmer effect.",
+      "lines": [97, 115]
+    },
+    {
+      "id": "update-fly",
+      "title": "update() — fly animation",
+      "parent": "intro",
+      "body": "Cubes with fly > 0 arc upward. The height uses Math.sin(f * PI) which gives a smooth ballistic arc — 0 at launch, peak at f=0.5, 0 at landing. Rotation is added while flying. When fly reaches 0 the cube snaps back to its base color and position.",
+      "lines": [117, 133]
     },
     {
       "id": "teardown",
-      "title": "Clean Teardown",
+      "title": "teardown() — event cleanup",
       "parent": "intro",
-      "body": "# Clean Teardown\n\nArtlab calls teardown() when switching to a new example. Failing to clean up causes event listener leaks that accumulate across every example load.\n\nThe teardown() checklist:\n\n```\nexport function teardown(ctx) {\n  // Remove DOM event listeners\n  window.removeEventListener('mousemove', _onMouseMove);\n  window.removeEventListener('click',     _onClick);\n  window.removeEventListener('keydown',   _onKey);\n\n  // Remove DOM elements this example created\n  _hudElement?.remove();\n\n  // Stop audio / video streams\n  _cam?.stop();\n\n  // Dispose Three.js resources (optional but good practice)\n  mesh.geometry.dispose();\n  mesh.material.dispose();\n}\n```\n\nThree.js objects added with ctx.add() are automatically removed from the scene by PreviewPane when teardown is called. You only need to manually dispose geometries and materials if you created many unique ones."
+      "body": "All three event listeners are removed using the stored handler references. The grid helper is also explicitly removed if it was visible.\n\nFailing to remove event listeners here would cause them to accumulate across every example load in the same session — a common source of subtle bugs.",
+      "lines": [135, 140]
     }
   ]
 }
