@@ -9,36 +9,31 @@ export class PostProcessor {
     this._renderer = renderer
     this._scene = scene
     this._camera = camera
+    this._isWebGPU = renderer.isWebGPURenderer === true
+    this.enabled = false
+    this.bloomPass = null
 
-    // Try to use EffectComposer with bloom.
-    // WebGPURenderer works with EffectComposer in compatibility mode;
-    // if it fails we fall back to direct render.
+    if (!this._isWebGPU) {
+      this._initWebGL(renderer)
+    } else {
+      console.info('[post] WebGPU — direct render (no EffectComposer)')
+    }
+  }
+
+  _initWebGL(renderer) {
     try {
-      // EffectComposer requires calling the renderer's WebGL context.
-      // With WebGPURenderer we need to check if it supports this.
-      const isWebGPU = renderer.isWebGPURenderer === true
-      if (isWebGPU) {
-        // Use direct render for WebGPU — EffectComposer is WebGL-only
-        console.info('[post] WebGPU detected — using direct render (no EffectComposer)')
-        this.enabled = false
-      } else {
-        this.composer = new EffectComposer(renderer)
-        this.composer.addPass(new RenderPass(scene, camera))
-
-        this.bloomPass = new UnrealBloomPass(
-          new THREE.Vector2(window.innerWidth, window.innerHeight),
-          /* strength */ 1.6,
-          /* radius   */ 0.6,
-          /* threshold */ 0.82
-        )
-        this.composer.addPass(this.bloomPass)
-        this.composer.addPass(new OutputPass())
-        this.enabled = true
-        console.info('[post] EffectComposer + UnrealBloom active')
-      }
+      this.composer = new EffectComposer(renderer)
+      this.composer.addPass(new RenderPass(this._scene, this._camera))
+      this.bloomPass = new UnrealBloomPass(
+        new THREE.Vector2(window.innerWidth, window.innerHeight),
+        1.6, 0.6, 0.82
+      )
+      this.composer.addPass(this.bloomPass)
+      this.composer.addPass(new OutputPass())
+      this.enabled = true
+      console.info('[post] EffectComposer + UnrealBloom active')
     } catch (e) {
       console.warn('[post] EffectComposer failed, using direct render:', e.message)
-      this.enabled = false
     }
   }
 
@@ -57,7 +52,6 @@ export class PostProcessor {
     }
   }
 
-  /** Adjust bloom strength reactively (called from audio pipeline) */
   setBloomStrength(v) {
     if (this.bloomPass) this.bloomPass.strength = v
   }
