@@ -71,3 +71,5 @@ export function update(ctx, dt) {
     ball.scale.set(s, s, s);
   }
 }
+
+export function teardown(ctx) {}

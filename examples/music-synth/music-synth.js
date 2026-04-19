@@ -148,13 +148,14 @@ function _build3D(ctx) {
   ctx.add(_beatFlash)
 
   // Chord label
+  const container = ctx.renderer.domElement.parentElement
   _chordLabel = document.createElement('div')
   Object.assign(_chordLabel.style, {
-    position: 'fixed', bottom: '52px', left: '50%', transform: 'translateX(-50%)',
+    position: 'absolute', bottom: '52px', left: '50%', transform: 'translateX(-50%)',
     fontFamily: 'monospace', fontSize: '13px', letterSpacing: '.25em',
     color: '#6688aa', pointerEvents: 'none', zIndex: '10',
   })
-  document.body.appendChild(_chordLabel)
+  container.appendChild(_chordLabel)
 }
 
 // ── Lifecycle ─────────────────────────────────────────────────────────────────
@@ -172,16 +173,17 @@ export function setup(ctx) {
   ctx.setBloom(0.6)
 
   // Start button — audio requires user gesture
+  const _container = ctx.renderer.domElement.parentElement
   _startBtn = document.createElement('button')
   Object.assign(_startBtn.style, {
-    position: 'fixed', bottom: '24px', left: '50%', transform: 'translateX(-50%)',
+    position: 'absolute', bottom: '24px', left: '50%', transform: 'translateX(-50%)',
     background: 'rgba(10,14,36,0.92)', border: '1px solid rgba(80,140,255,0.5)',
     color: '#88aaff', padding: '11px 36px', cursor: 'pointer',
     fontFamily: 'monospace', fontSize: '12px', letterSpacing: '.25em',
     borderRadius: '3px', zIndex: '100',
   })
   _startBtn.textContent = 'Start Music'
-  document.body.appendChild(_startBtn)
+  _container.appendChild(_startBtn)
 
   _startBtn.addEventListener('click', async () => {
     _startBtn.style.display = 'none'

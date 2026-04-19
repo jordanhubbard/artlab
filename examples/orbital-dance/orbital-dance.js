@@ -90,3 +90,7 @@ export function update(ctx, dt) {
     }
   }
 }
+
+export function teardown(ctx) {
+  ctx.controls.enabled = true
+}

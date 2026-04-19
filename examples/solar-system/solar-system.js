@@ -323,18 +323,19 @@ export async function setup(ctx) {
   }
   ctx.renderer.domElement.addEventListener('click', ctx._onClick)
 
-  // Start button — reuse HTML element if present, otherwise create one
-  let btn = document.getElementById('start-btn')
+  // Start button — positioned relative to canvas container
+  const _btnContainer = ctx.renderer.domElement.parentElement
+  let btn = _btnContainer.querySelector('#start-btn')
   if (!btn) {
     btn = document.createElement('button')
     btn.id = 'start-btn'
     btn.style.cssText =
-      'position:fixed;bottom:48px;left:50%;transform:translateX(-50%);' +
+      'position:absolute;bottom:48px;left:50%;transform:translateX(-50%);' +
       'background:transparent;border:1px solid rgba(100,170,255,0.4);' +
       'color:#aaddff;padding:14px 44px;cursor:pointer;font-size:12px;' +
       'border-radius:2px;z-index:50;font-family:"Courier New",monospace;' +
       'letter-spacing:0.3em;text-transform:uppercase'
-    document.body.appendChild(btn)
+    _btnContainer.appendChild(btn)
   }
   btn.textContent = 'Begin Journey'
   btn.style.display = 'block'
@@ -432,7 +433,7 @@ export function teardown(ctx) {
   teardownAudio(ctx)
   if (ctx._onKey)   window.removeEventListener('keydown', ctx._onKey)
   if (ctx._onClick) ctx.renderer?.domElement.removeEventListener('click', ctx._onClick)
-  document.getElementById('start-btn')?.remove()
+  ctx.renderer?.domElement.parentElement.querySelector('#start-btn')?.remove()
 }
 
 // ── Private ────────────────────────────────────────────────────────────────────

@@ -138,3 +138,7 @@ export function update(ctx, dt) {
 
   ctx._texture.needsUpdate = true;
 }
+
+export function teardown(ctx) {
+  ctx._texture?.dispose()
+}

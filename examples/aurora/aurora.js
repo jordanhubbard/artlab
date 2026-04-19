@@ -155,3 +155,5 @@ export function update(ctx, dt) {
     star.material.emissive.setHex((sr << 16) | (sg << 8) | sb);
   }
 }
+
+export function teardown(ctx) {}

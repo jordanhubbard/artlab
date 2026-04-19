@@ -8,12 +8,11 @@ function easeInOut(t) {
 function makeLabelEl(text, color) {
   const el = document.createElement('div');
   el.style.cssText = [
-    'position:fixed', 'z-index:98', 'pointer-events:none',
+    'position:absolute', 'z-index:98', 'pointer-events:none',
     `color:${color}`, 'font-family:monospace', 'font-size:11px',
     'background:rgba(0,0,0,0.55)', 'padding:2px 7px', 'border-radius:3px',
   ].join(';');
   el.textContent = text;
-  document.body.appendChild(el);
   return el;
 }
 
@@ -39,6 +38,7 @@ export function setup(ctx) {
     { label: 'easeInOut', color: 0xffcc44, x:  3, shape: 'torus'  },
   ];
 
+  const container = ctx.renderer.domElement.parentElement;
   ctx._objs = [];
   for (const d of defs) {
     let geo;
@@ -53,6 +53,7 @@ export function setup(ctx) {
     m.position.set(d.x, 0, 0);
     ctx.add(m);
     const lel = makeLabelEl(d.label, '#' + d.color.toString(16).padStart(6, '0'));
+    container.appendChild(lel);
     ctx._objs.push({ mesh: m, lel, x: d.x });
   }
 }

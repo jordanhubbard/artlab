@@ -12,7 +12,7 @@ const SHAPES = [
 function makeLabelEl(text) {
   const el = document.createElement('div');
   el.style.cssText = [
-    'position:fixed', 'z-index:98', 'pointer-events:none',
+    'position:absolute', 'z-index:98', 'pointer-events:none',
     'color:#aaccff', 'font-family:monospace', 'font-size:11px',
     'background:rgba(0,0,0,0.5)', 'padding:2px 6px', 'border-radius:3px',
   ].join(';');
@@ -36,6 +36,7 @@ export function setup(ctx) {
   rim.position.set(-6, 4, -4);
   ctx.add(rim);
 
+  const container = ctx.renderer.domElement.parentElement;
   ctx._meshes = [];
   ctx._labels = [];
 
@@ -53,7 +54,7 @@ export function setup(ctx) {
     ctx._meshes.push(m);
 
     const lel = makeLabelEl(def.label);
-    document.body.appendChild(lel);
+    container.appendChild(lel);
     ctx._labels.push({ el: lel, mesh: m });
   }
 

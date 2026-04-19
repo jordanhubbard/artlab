@@ -48,17 +48,19 @@ export function setup(ctx) {
   ctx._bassSpring = 0;
   ctx._audio = null;
 
-  let btn = document.getElementById('start-btn');
+  const container = ctx.renderer.domElement.parentElement;
+  let btn = container.querySelector('#start-btn');
   if (!btn) {
     btn = Object.assign(document.createElement('button'), { id: 'start-btn', textContent: 'Click to enable audio' });
     Object.assign(btn.style, {
-      position: 'fixed', bottom: '24px', left: '50%', transform: 'translateX(-50%)',
+      position: 'absolute', bottom: '24px', left: '50%', transform: 'translateX(-50%)',
       padding: '12px 28px', fontSize: '15px', fontFamily: 'sans-serif',
       background: 'rgba(80,40,180,0.85)', color: '#fff', border: 'none',
       borderRadius: '8px', cursor: 'pointer', zIndex: 9999,
     });
-    document.body.appendChild(btn);
+    container.appendChild(btn);
   }
+  ctx._btn = btn;
   btn.style.display = 'block';
 
   btn.addEventListener('click', async () => {
@@ -116,5 +118,6 @@ export function update(ctx, dt) {
 }
 
 export function teardown(ctx) {
-  if (ctx._audio) ctx._audio.audioCtx.suspend();
+  ctx._btn?.remove();
+  if (ctx._audio) ctx._audio.audioCtx.close();
 }

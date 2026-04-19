@@ -106,3 +106,5 @@ export function update(ctx, dt) {
     p.scale.set(s, s, s);
   }
 }
+
+export function teardown(ctx) {}

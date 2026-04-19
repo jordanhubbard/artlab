@@ -146,7 +146,7 @@ export async function setup(ctx) {
   ctx.add(new THREE.AmbientLight(0x112233, 1.0))
 
   // Allow Camera gesture
-  await _awaitGesture()
+  await _awaitGesture(ctx.renderer.domElement.parentElement)
   _cam = webcam({ width: 1280, height: 720 })
   const tex = _cam.texture
 
@@ -199,7 +199,7 @@ export async function setup(ctx) {
   })
 
   _recorder = captureCanvas(ctx.renderer.domElement, { fps: 30 })
-  _hud = _buildHud()
+  _hud = _buildHud(container)
 
   _onKey = e => {
     const k = e.key.toLowerCase()
@@ -259,20 +259,20 @@ export function teardown(ctx) {
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
-function _awaitGesture() {
+function _awaitGesture(container) {
   return new Promise(resolve => {
-    let btn = document.getElementById('start-btn')
+    let btn = container.querySelector('#start-btn')
     if (!btn) {
       btn = document.createElement('button')
       btn.id = 'start-btn'
       Object.assign(btn.style, {
-        position: 'fixed', bottom: '60px', left: '50%', transform: 'translateX(-50%)',
+        position: 'absolute', bottom: '60px', left: '50%', transform: 'translateX(-50%)',
         background: 'rgba(10,15,40,0.9)', border: '1px solid rgba(100,170,255,0.5)',
         color: '#aaddff', padding: '12px 40px', cursor: 'pointer', fontSize: '12px',
         borderRadius: '3px', zIndex: '100', fontFamily: 'monospace',
         letterSpacing: '0.25em',
       })
-      document.body.appendChild(btn)
+      container.appendChild(btn)
     }
     btn.textContent = 'Allow Camera'
     btn.style.display = 'block'
@@ -280,15 +280,15 @@ function _awaitGesture() {
   })
 }
 
-function _buildHud() {
+function _buildHud(container) {
   const el = document.createElement('div')
   Object.assign(el.style, {
-    position: 'fixed', bottom: '36px', left: '24px', zIndex: '50',
+    position: 'absolute', bottom: '36px', left: '24px', zIndex: '50',
     color: '#445566', font: '10px/1.9 monospace', letterSpacing: '.12em',
     pointerEvents: 'none',
   })
   _updateHud(el)
-  document.body.appendChild(el)
+  container.appendChild(el)
   return el
 }
 

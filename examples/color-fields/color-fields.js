@@ -72,3 +72,5 @@ export function update(ctx, dt) {
     tile.material.emissive.setHex(hslToHex(h, 1.0, l));
   }
 }
+
+export function teardown(ctx) {}
