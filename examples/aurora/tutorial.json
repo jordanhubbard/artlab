@@ -1,0 +1,46 @@
+{
+  "title": "Aurora Borealis — Stars, Curtains & Slow Waves",
+  "pages": [
+    {
+      "id": "intro",
+      "title": "Overview",
+      "body": "The scene places the viewer inside a dark field looking upward at a dome of 280 stars and 9 vertical aurora curtains arranged along an arc. Each curtain is split into 12 independent segments so per-segment wave offsets produce the characteristic rippling motion of real northern lights.\n\nNavigate through the pages below to walk through each section of this file.",
+      "lines": [1, 159]
+    },
+    {
+      "id": "star-generation",
+      "title": "Star Dome Generation",
+      "parent": "intro",
+      "body": "Each star is positioned by converting two pseudo-random angles (theta, phi) into Cartesian coordinates on a hemisphere of radius 60–80 units. A hash-like rand() function seeds all randomness deterministically from the star index, so the layout is identical every run. Star size varies between 0.3× and 1.7× of the base sphere, and color cycles through four temperature-inspired tints.",
+      "lines": [64, 85]
+    },
+    {
+      "id": "curtain-panels",
+      "title": "Aurora Curtain Panels",
+      "parent": "intro",
+      "body": "Nine curtain columns are distributed along a circular arc of radius 16. Each column is subdivided into 12 stacked plane segments of height 0.67 units. Splitting the curtain into segments makes it possible to apply independent wave offsets per segment in update(), which is what produces the flowing, undulating look. Each panel stores its column index, segment index, base position, and arc angle in userData for use during animation.",
+      "lines": [87, 119]
+    },
+    {
+      "id": "update-curtains",
+      "title": "Curtain Wave Animation",
+      "parent": "intro",
+      "body": "Three overlapping sine waves with different frequencies and column/segment phase offsets are combined into a single lateral sway vector. The sway direction is computed perpendicular to the curtain face so it moves in and out of the arc rather than sideways. Brightness scales with height (lower segments are dimmer) and pulses via a slow sine, then the emissive color is rebuilt from the panel's base color each frame.",
+      "lines": [125, 145]
+    },
+    {
+      "id": "update-stars",
+      "title": "Star Twinkle",
+      "parent": "intro",
+      "body": "Each star's emissive color is multiplied by a twinkle factor — a sine wave whose frequency and phase are both offset by the star index. This gives every star an independent, slightly different blink rate so the dome feels alive without requiring any random state per frame.",
+      "lines": [147, 156]
+    },
+    {
+      "id": "teardown",
+      "title": "Teardown",
+      "parent": "intro",
+      "body": "No explicit teardown is needed. All meshes were registered with ctx.add() so the Artlab runtime disposes them automatically when the example unloads.",
+      "lines": [159, 159]
+    }
+  ]
+}

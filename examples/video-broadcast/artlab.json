@@ -1,0 +1,6 @@
+{
+  "name": "video-broadcast",
+  "version": "1.0.0",
+  "entry": "video-broadcast.js",
+  "description": "Live webcam with broadcast-quality overlay — animated lower-third, live badge, scrolling ticker"
+}

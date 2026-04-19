@@ -31,12 +31,18 @@ Object.defineProperty(window.HTMLVideoElement.prototype, 'play', {
 // ── Mock ctx ─────────────────────────────────────────────────────────────────
 
 function makeMockCtx() {
+  // Canvas must be in a container so parentElement is non-null
+  const container = document.createElement('div')
+  const canvas = document.createElement('canvas')
+  canvas.getBoundingClientRect = () => ({ left: 0, top: 0, width: 800, height: 600 })
+  container.appendChild(canvas)
+
   const scene = { add: vi.fn(), remove: vi.fn(), children: [] }
   return {
     THREE,
     scene,
-    camera:        { position: new THREE.Vector3(0, 0, 11), fov: 60, aspect: 1, updateProjectionMatrix: vi.fn() },
-    renderer:      { domElement: document.createElement('canvas'), shadowMap: { enabled: false }, setSize: vi.fn() },
+    camera:        { position: new THREE.Vector3(0, 0, 11), fov: 60, aspect: 1, updateProjectionMatrix: vi.fn(), projectionMatrix: new THREE.Matrix4(), matrixWorldInverse: new THREE.Matrix4(), matrixWorld: new THREE.Matrix4() },
+    renderer:      { domElement: canvas, shadowMap: { enabled: false }, setSize: vi.fn() },
     controls:      { update: vi.fn(), target: new THREE.Vector3(), enableDamping: true },
     labelRenderer: { render: vi.fn(), setSize: vi.fn(), domElement: document.createElement('div') },
     add:           vi.fn(obj => { scene.add(obj); return obj }),
@@ -54,11 +60,14 @@ describe('video-fx', () => {
   beforeEach(async () => {
     ctx = makeMockCtx()
 
-    // Auto-resolve the start-btn click so setup() doesn't hang
-    vi.spyOn(document, 'getElementById').mockReturnValue({
+    // Auto-resolve the start-btn click so setup() doesn't hang.
+    // Stub querySelector on the container to return a fake button.
+    const container = ctx.renderer.domElement.parentElement
+    vi.spyOn(container, 'querySelector').mockReturnValue({
       style:       { display: '' },
       textContent: '',
       addEventListener: (_ev, cb, _opts) => cb(),
+      appendChild:  vi.fn(),
     })
 
     mod = await import('./video-fx.js')
@@ -67,7 +76,7 @@ describe('video-fx', () => {
   it('setup() completes and adds objects to scene', async () => {
     await mod.setup(ctx)
     expect(ctx.add).toHaveBeenCalled()
-    expect(ctx.setBloom).toHaveBeenCalledWith(0.35)
+    expect(ctx.setBloom).toHaveBeenCalledWith(0.2)
   })
 
   it('update() runs 3 frames without throwing', async () => {

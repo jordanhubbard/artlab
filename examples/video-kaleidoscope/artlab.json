@@ -1,0 +1,6 @@
+{
+  "name": "video-kaleidoscope",
+  "version": "1.0.0",
+  "entry": "video-kaleidoscope.js",
+  "description": "Real-time kaleidoscope GLSL shader on live webcam — press K to change symmetry, R to rotate"
+}

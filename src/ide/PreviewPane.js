@@ -20,7 +20,11 @@
  */
 
 import * as THREE from 'three'
-import { OrbitControls } from 'three/addons/controls/OrbitControls.js'
+import { OrbitControls }    from 'three/addons/controls/OrbitControls.js'
+import { EffectComposer }   from 'three/addons/postprocessing/EffectComposer.js'
+import { RenderPass }       from 'three/addons/postprocessing/RenderPass.js'
+import { UnrealBloomPass }  from 'three/addons/postprocessing/UnrealBloomPass.js'
+import { CSS2DRenderer }    from 'three/addons/renderers/CSS2DRenderer.js'
 import * as _geo    from '../stdlib/geometry.js'
 import * as _lights from '../stdlib/lights.js'
 import * as _math   from '../stdlib/math.js'
@@ -52,6 +56,21 @@ export class PreviewPane {
     this._controls.rotateSpeed    = 0.5
     this._controls.minDistance    = 0.1
     this._controls.maxDistance    = 500000
+
+    // Bloom post-processing (strength starts at 0 = off)
+    this._bloomPass = new UnrealBloomPass(new THREE.Vector2(400, 300), 0, 0.4, 0.0)
+    this._composer  = new EffectComposer(this._renderer)
+    this._composer.addPass(new RenderPass(this._scene, this._camera))
+    this._composer.addPass(this._bloomPass)
+
+    // CSS2D label renderer — absolute overlay inside the canvas container
+    this._css2DRenderer = new CSS2DRenderer()
+    Object.assign(this._css2DRenderer.domElement.style, {
+      position: 'absolute', top: '0', left: '0',
+      width: '100%', height: '100%',
+      pointerEvents: 'none',
+    })
+    container.appendChild(this._css2DRenderer.domElement)
 
     // Idle placeholder lights (removed as soon as a module loads)
     this._idleLight = new THREE.AmbientLight(0x445566, 0.8)
@@ -160,6 +179,8 @@ export class PreviewPane {
     this._controls.dispose()
     this._ro.disconnect()
     this._renderer.dispose()
+    this._composer.dispose()
+    this._css2DRenderer.domElement.remove()
     this.canvas.remove()
   }
 
@@ -172,11 +193,13 @@ export class PreviewPane {
     const ctx = {
       // ── Three.js core ───────────────────────────────────────────────────────
       THREE,
-      scene:    this._scene,
-      camera:   this._camera,
-      renderer: this._renderer,
+      scene:         this._scene,
+      camera:        this._camera,
+      renderer:      this._renderer,
       /** OrbitControls instance — configure target, min/maxDistance, etc. */
-      controls: this._controls,
+      controls:      this._controls,
+      /** CSS2DRenderer — use with THREE.CSS2DObject for 3D-tracked DOM labels */
+      labelRenderer: this._css2DRenderer,
 
       // ── Scene management ────────────────────────────────────────────────────
       add(obj)    { self._scene.add(obj); added.push(obj); return obj },
@@ -212,11 +235,6 @@ export class PreviewPane {
       deg:        _math.deg,
 
       // ── Assets ──────────────────────────────────────────────────────────────
-      /**
-       * Load a texture from a package-relative path.
-       * Resolves from in-memory assetFiles when the package is loaded as a
-       * directory or zip; falls back to a plain HTTP fetch for standalone use.
-       */
       loadTexture(path) {
         const bytes = self._assetFiles?.get(path)
         if (bytes) {
@@ -232,10 +250,9 @@ export class PreviewPane {
       // ── Time ────────────────────────────────────────────────────────────────
       elapsed: 0,
 
-      // ── Post-processing stubs ───────────────────────────────────────────────
-      // PreviewPane has no bloom composer, but packages may call these.
-      // Provided as no-ops so examples run without errors.
-      setBloom(/* strength */) {},
+      // ── Post-processing ─────────────────────────────────────────────────────
+      /** setBloom(strength) — 0 disables, typical range 0.3–2.0 */
+      setBloom(strength = 0) { self._bloomPass.strength = Math.max(0, strength) },
 
       _added:    added,
       _userVars: {},
@@ -263,7 +280,10 @@ export class PreviewPane {
       }
     }
 
-    this._renderer.render(this._scene, this._camera)
+    // Use composer for bloom-capable rendering
+    this._composer.render(dt)
+    // Render CSS2D labels on top
+    this._css2DRenderer.render(this._scene, this._camera)
   }
 
   // ── Internals ───────────────────────────────────────────────────────────────
@@ -279,6 +299,9 @@ export class PreviewPane {
       else obj.material?.dispose?.()
     }
     if (this._ctx) this._ctx._added.length = 0
+
+    // Reset bloom to off between examples
+    this._bloomPass.strength = 0
 
     // Reset controls to neutral defaults
     this._controls.enabled     = true
@@ -312,6 +335,8 @@ export class PreviewPane {
     const w = this._container.clientWidth  || 400
     const h = this._container.clientHeight || 300
     this._renderer.setSize(w, h, false)
+    this._composer.setSize(w, h)
+    this._css2DRenderer.setSize(w, h)
     this._camera.aspect = w / h
     this._camera.updateProjectionMatrix()
   }

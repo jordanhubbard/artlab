@@ -32,8 +32,9 @@ export function setup(ctx) {
   const groundPlane = new THREE.Plane(new THREE.Vector3(0, 1, 0), -GROUND_Y)
 
   ctx._onClick = (e) => {
-    mouse.x = (e.clientX / window.innerWidth)  * 2 - 1
-    mouse.y = -(e.clientY / window.innerHeight) * 2 + 1
+    const rect = ctx.renderer.domElement.getBoundingClientRect()
+    mouse.x =  ((e.clientX - rect.left) / rect.width)  * 2 - 1
+    mouse.y = -((e.clientY - rect.top)  / rect.height) * 2 + 1
     raycaster.setFromCamera(mouse, ctx.camera)
     const hit = new THREE.Vector3()
     if (raycaster.ray.intersectPlane(groundPlane, hit)) {

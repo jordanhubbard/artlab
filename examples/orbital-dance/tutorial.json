@@ -1,0 +1,46 @@
+{
+  "title": "Orbital Dance — Planets, Trails & Camera Orbit",
+  "pages": [
+    {
+      "id": "intro",
+      "title": "Overview",
+      "body": "Five colored planets orbit a luminous central sun at staggered radii, speeds, and orbital tilts. Each planet leaves a ring of 20 ghost spheres behind it that fade and shrink with distance, forming glowing trails. The camera slowly orbits the system on its own timeline, independent of the planet motion.\n\nNavigate through the pages below to walk through each section of this file.",
+      "lines": [1, 96]
+    },
+    {
+      "id": "planet-data",
+      "title": "PLANET_DATA Array",
+      "parent": "intro",
+      "body": "All per-planet parameters live in a single data array rather than scattered constants. Each entry defines orbital radius and speed, the planet's color and emissive tint, a separate dimmer emissive for trail ghosts, an orbital tilt angle, and a phase offset that staggers planets around the orbit at startup.\n\n· Separating data from logic makes it trivial to add or tune planets without touching animation code\n· trailEmissive is darker than emissive so trails read as faint echoes of the planet",
+      "lines": [8, 14]
+    },
+    {
+      "id": "setup-planets",
+      "title": "Planet Mesh & Trail Creation",
+      "parent": "intro",
+      "body": "For each planet, a small sphere mesh is created and placed at its initial orbital position. A trail array of 20 smaller ghost spheres is then created in a nested loop, each sharing the planet's trailEmissive color. Both the planet mesh and its trail array are stored together in ctx._planets so update() can access them in a single pass.",
+      "lines": [38, 56]
+    },
+    {
+      "id": "update-orbit",
+      "title": "Orbital Position Math",
+      "parent": "intro",
+      "body": "The planet's angle is computed as elapsed * speed + phase, giving continuous counter-clockwise motion that differs per planet. The 3D position is derived from the angle using cos/sin for the X/Z plane, then the Z component is multiplied by sin(tilt) to lift or depress part of the orbit, producing an inclined elliptical path when viewed from the side.",
+      "lines": [67, 76]
+    },
+    {
+      "id": "update-trail",
+      "title": "Trail Ghost Positioning",
+      "parent": "intro",
+      "body": "Each of the 20 trail ghosts is placed at an angle slightly behind the planet — offset by (ti+1) * 0.08 radians. The same tilt math is applied so ghosts follow the exact same inclined path. Ghost scale fades from 0.4× at the head of the trail down toward zero at the tail, making older positions visually recede.",
+      "lines": [78, 90]
+    },
+    {
+      "id": "teardown",
+      "title": "Teardown",
+      "parent": "intro",
+      "body": "teardown() re-enables orbit controls that were disabled during the example (update() manually drives the camera). All scene objects registered via ctx.add() are disposed automatically by the runtime.",
+      "lines": [94, 96]
+    }
+  ]
+}

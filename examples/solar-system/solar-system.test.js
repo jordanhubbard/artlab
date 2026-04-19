@@ -4,6 +4,21 @@ import * as THREE from 'three'
 
 vi.mock('three', async () => await vi.importActual('three'))
 
+// ── Tone.js mock ──────────────────────────────────────────────────────────────
+// Tone.js ESM has unresolvable internal paths in the test environment.
+vi.mock('tone', () => ({
+  start: vi.fn().mockResolvedValue(undefined),
+  Transport: { start: vi.fn(), stop: vi.fn(), pause: vi.fn(), state: 'stopped', bpm: { value: 120 } },
+  Synth: vi.fn(() => ({ connect: vi.fn().mockReturnThis(), dispose: vi.fn(), triggerAttackRelease: vi.fn() })),
+  PolySynth: vi.fn(() => ({ connect: vi.fn().mockReturnThis(), dispose: vi.fn(), triggerAttackRelease: vi.fn() })),
+  AMSynth: vi.fn(() => ({ connect: vi.fn().mockReturnThis(), dispose: vi.fn(), triggerAttackRelease: vi.fn() })),
+  NoiseSynth: vi.fn(() => ({ connect: vi.fn().mockReturnThis(), dispose: vi.fn(), triggerAttackRelease: vi.fn() })),
+  Reverb: vi.fn(() => ({ connect: vi.fn().mockReturnThis(), dispose: vi.fn(), toDestination: vi.fn().mockReturnThis() })),
+  FeedbackDelay: vi.fn(() => ({ connect: vi.fn().mockReturnThis(), dispose: vi.fn() })),
+  Analyser: vi.fn(() => ({ getValue: vi.fn(() => new Float32Array(32)), dispose: vi.fn() })),
+  Sequence: vi.fn(() => ({ start: vi.fn(), stop: vi.fn(), dispose: vi.fn() })),
+}))
+
 // ── CSS2DRenderer mock ────────────────────────────────────────────────────────
 // CSS2DObject must extend THREE.Object3D so three.js Group.add() accepts it.
 
@@ -94,8 +109,13 @@ function makeMockCtx(overrides = {}) {
     maxDistance: Infinity,
     target: new THREE.Vector3(),
   }
+  // Canvas must be in a container so parentElement is non-null
+  // (solar-system uses domElement.parentElement for the start button)
+  const container = document.createElement('div')
+  const canvas = document.createElement('canvas')
+  container.appendChild(canvas)
   const renderer = {
-    domElement: document.createElement('canvas'),
+    domElement: canvas,
     setSize: vi.fn(),
     render: vi.fn(),
     shadowMap: { enabled: false },
@@ -134,8 +154,7 @@ describe('solar-system', () => {
   })
 
   afterEach(() => {
-    // Clean up any DOM nodes and event listeners the example injected
-    document.getElementById('start-btn')?.remove()
+    ctx.renderer.domElement.parentElement.querySelector('#start-btn')?.remove()
   })
 
   it('setup() completes without throwing', async () => {

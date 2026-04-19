@@ -1,0 +1,39 @@
+{
+  "title": "Color Fields — HSL Wave Grid",
+  "pages": [
+    {
+      "id": "intro",
+      "title": "Overview",
+      "body": "A 20×20 grid of emissive flat planes face the camera. Every cell computes its own hue from its grid coordinates and the global elapsed time, producing a slow chromatic wave that rolls across the field. The scene uses no textures — all color is driven by math.\n\nNavigate through the pages below to walk through each section of this file.",
+      "lines": [1, 76]
+    },
+    {
+      "id": "hsl-math",
+      "title": "HSL Helper Functions",
+      "parent": "intro",
+      "body": "hslToRgb() implements the standard HSL-to-RGB formula using a helper hue() that wraps fractional input into [0, 1] and applies the piecewise linear conversion. hslToHex() clamps each channel, scales to 0–255, and bit-packs the result into a single integer suitable for Three.js setHex().\n\n· Keeping the math in two small pure functions makes it easy to call from both setup() and update()\n· Clamping before scaling prevents overflow from the wave offsets added in update()",
+      "lines": [10, 30]
+    },
+    {
+      "id": "setup-grid",
+      "title": "Grid Creation",
+      "parent": "intro",
+      "body": "The nested row/col loop computes a normalized offset (nx, ny) centered around zero, then derives an initial hue from the cell's position. Each tile is a 1×1 plane with a black base color — all visible color comes from the emissive channel. The col and row indices are stored in userData so update() can recompute the position offset without iterating a 2D array.",
+      "lines": [38, 55]
+    },
+    {
+      "id": "update",
+      "title": "Per-Frame Color Wave",
+      "parent": "intro",
+      "body": "Each frame, a sine wave keyed on elapsed time and the tile's (nx, ny) coordinates perturbs the base hue. The base hue itself advances linearly with elapsed * 0.06, so the palette scrolls slowly through the full color wheel. Lightness also oscillates via a second sine with different spatial frequencies, adding a brightness ripple that runs diagonally across the grid.",
+      "lines": [58, 74]
+    },
+    {
+      "id": "teardown",
+      "title": "Teardown",
+      "parent": "intro",
+      "body": "No explicit teardown is needed. All tile meshes were registered with ctx.add() and are disposed automatically by the Artlab runtime when the example unloads.",
+      "lines": [76, 76]
+    }
+  ]
+}

@@ -310,9 +310,10 @@ export async function setup(ctx) {
   const mouse     = new THREE.Vector2()
   ctx._onClick = (e) => {
     if (ctx._journey?.playing) return
+    const rect = ctx.renderer.domElement.getBoundingClientRect()
     mouse.set(
-      (e.clientX / window.innerWidth)  *  2 - 1,
-      (e.clientY / window.innerHeight) * -2 + 1,
+      ((e.clientX - rect.left) / rect.width)  *  2 - 1,
+      ((e.clientY - rect.top)  / rect.height) * -2 + 1,
     )
     raycaster.setFromCamera(mouse, ctx.camera)
     const hits = raycaster.intersectObjects(ctx._pickMeshes.map(p => p.m))

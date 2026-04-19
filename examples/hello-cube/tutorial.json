@@ -1,0 +1,46 @@
+{
+  "title": "Hello Cube — Geometry, Lighting & Animation",
+  "pages": [
+    {
+      "id": "intro",
+      "title": "Overview",
+      "body": "A single rotating cube demonstrates the essential building blocks of an Artlab scene: geometry, a PBR material, a three-light rig, shadow casting, edge wireframe overlay, a ground plane, and frame-rate-independent animation.\n\nNavigate through the pages below to walk through each section of this file.",
+      "lines": [1, 61]
+    },
+    {
+      "id": "setup-geometry",
+      "title": "Cube Mesh & Edge Overlay",
+      "parent": "intro",
+      "body": "A BoxGeometry is paired with a MeshStandardMaterial that uses a dim emissive color to prevent the unlit face from going fully black. An EdgesGeometry derived from the same box is rendered as LineSegments and attached as a child of the cube mesh, so it rotates with it automatically.\n\n· emissive keeps dark faces readable under strong directional light\n· EdgesGeometry reuses the existing geometry — no extra vertex data needed\n· mesh.add(edges) parents the wireframe so transforms stay in sync",
+      "lines": [26, 41]
+    },
+    {
+      "id": "setup-lights",
+      "title": "Camera, Shadows & Lights",
+      "parent": "intro",
+      "body": "The camera is placed at a three-quarter view angle. Shadow mapping is enabled on the renderer using PCFSoft for smoother penumbras. Three lights approximate a studio rig:\n\n· AmbientLight — raises the shadow floor so nothing goes pure black\n· DirectionalLight — the primary sun, positioned upper-right with shadow casting on\n· PointLight — a blue-tinted rim from behind-left that adds depth and color contrast",
+      "lines": [6, 24]
+    },
+    {
+      "id": "setup-ground",
+      "title": "Ground Plane",
+      "parent": "intro",
+      "body": "A large PlaneGeometry rotated flat receives shadows from the cube. Its near-black color and roughness:1 material keep it visually neutral so the cube and its shadow are the focus. The plane is not stored in a variable because it never needs to be referenced after setup.",
+      "lines": [43, 49]
+    },
+    {
+      "id": "update",
+      "title": "Animation in update()",
+      "parent": "intro",
+      "body": "Each frame, the cube spins on both X and Y axes using dt (delta-time in seconds) so motion is frame-rate-independent. A sine wave on ctx.elapsed drives a gentle vertical bob, giving the cube a floating, breathing quality.",
+      "lines": [52, 56]
+    },
+    {
+      "id": "teardown",
+      "title": "Teardown",
+      "parent": "intro",
+      "body": "teardown() explicitly removes the cube mesh from the scene. Because the edge overlay and all lights were added via ctx.add(), the Artlab runtime handles their disposal automatically when the example unloads.",
+      "lines": [58, 60]
+    }
+  ]
+}
