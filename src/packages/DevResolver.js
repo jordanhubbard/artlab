@@ -1,12 +1,19 @@
 /**
- * DevResolver — resolve DSL `use url:"…"` imports in development mode.
+ * DevResolver — resolve DSL `use url:"…"` imports at runtime.
  *
  * Strategy:
- *  1. Try a direct fetch with cache headers.
- *  2. If the fetch fails (e.g. CORS), retry via the local proxy path
- *     /artlab-proxy?url=<encoded-url>.
- *  3. stdlib names (e.g. "artlab/geometry") return a placeholder comment
- *     so the DSL transpiler can continue without a network round-trip.
+ *  1. Normalize bare npm specifiers (e.g. "lodash@4/fp") to jsDelivr URLs.
+ *  2. Fetch the URL directly.  All supported CDNs send CORS-open headers
+ *     so no local proxy is needed and the app can be hosted on GitHub Pages.
+ *
+ * Supported CDNs (all send Access-Control-Allow-Origin: *):
+ *   https://cdn.jsdelivr.net/npm/<pkg>@<ver>/<path>
+ *   https://unpkg.com/<pkg>@<ver>/<path>
+ *   https://esm.sh/<pkg>@<ver>
+ *   https://cdn.skypack.dev/<pkg>@<ver>
+ *
+ * Bare npm specifier shorthand — `use url:"npm:lodash@4/fp"` becomes
+ * https://cdn.jsdelivr.net/npm/lodash@4/fp automatically.
  */
 
 /** Pattern that matches `use url:"<url>"` in DSL source. */
@@ -15,8 +22,38 @@ const USE_URL_RE = /\buse\s+url\s*:\s*"([^"]+)"/g
 /** Stdlib name pattern: starts with "artlab/" and has no scheme. */
 const STDLIB_RE = /^artlab\/[\w/]+$/
 
-/** Proxy path used to sidestep CORS in dev. */
-const PROXY_PREFIX = '/artlab-proxy?url='
+/** npm bare specifier: starts with "npm:" */
+const NPM_RE = /^npm:(.+)$/
+
+/**
+ * Normalize a name or URL to a fetchable HTTPS URL.
+ * Returns null for stdlib names (handled separately).
+ */
+function normalize(nameOrUrl) {
+  if (STDLIB_RE.test(nameOrUrl)) return null
+
+  const npm = NPM_RE.exec(nameOrUrl)
+  if (npm) return `https://cdn.jsdelivr.net/npm/${npm[1]}`
+
+  // Already a full URL — trust it, but warn if it's not a known CDN
+  if (nameOrUrl.startsWith('http://') || nameOrUrl.startsWith('https://')) {
+    const known = [
+      'cdn.jsdelivr.net', 'unpkg.com', 'esm.sh', 'cdn.skypack.dev',
+    ]
+    const host = new URL(nameOrUrl).hostname
+    if (!known.some(h => host === h || host.endsWith('.' + h))) {
+      console.warn(
+        `[DevResolver] "${host}" may not send CORS headers.\n` +
+        `Use a CORS-open CDN: cdn.jsdelivr.net, unpkg.com, esm.sh, or cdn.skypack.dev.\n` +
+        `Or use the "npm:" shorthand: npm:<package>@<version>/<path>`
+      )
+    }
+    return nameOrUrl
+  }
+
+  // Unknown form — pass through and let the fetch fail with a clear error
+  return nameOrUrl
+}
 
 export class DevResolver {
   constructor() {
@@ -27,110 +64,65 @@ export class DevResolver {
   /**
    * Scan DSL source for all `use url:"…"` declarations and pre-fetch each
    * URL so that subsequent resolve() calls are synchronous.
-   *
-   * @param {string} source - DSL source text
-   * @returns {Promise<void>}
+   * @param {string} source
    */
   async prefetch(source) {
     const urls = []
     let match
     USE_URL_RE.lastIndex = 0
     while ((match = USE_URL_RE.exec(source)) !== null) {
-      const url = match[1]
-      if (!this._cache.has(url)) {
-        urls.push(url)
-      }
+      const raw = match[1]
+      if (!this._cache.has(raw)) urls.push(raw)
     }
-
-    await Promise.all(urls.map(url => this._fetchAndCache(url)))
+    await Promise.all(urls.map(u => this._fetchAndCache(u)))
   }
 
   /**
-   * Resolve a library name or URL to DSL source text.
-   *
-   * - Stdlib names (e.g. "artlab/geometry") → placeholder comment.
-   * - URLs already prefetched → cached source.
-   * - Uncached URLs → null (call prefetch() first, or use DevResolver.fetch()).
-   *
+   * Resolve a name or URL to its cached DSL source text.
    * @param {string} nameOrUrl
    * @returns {string|null}
    */
   resolve(nameOrUrl) {
-    if (STDLIB_RE.test(nameOrUrl)) {
-      return `// stdlib ${nameOrUrl} — resolved at runtime\n`
-    }
+    if (STDLIB_RE.test(nameOrUrl)) return `// stdlib ${nameOrUrl} — resolved at runtime\n`
     return this._cache.get(nameOrUrl) ?? null
   }
 
   /**
-   * Fetch a URL directly, bypassing the pre-fetch queue.
-   * Useful when you need to resolve a single dependency synchronously
-   * after awaiting this method.
-   *
-   * @param {string} url
+   * Fetch a URL (bypassing the pre-fetch queue).
+   * @param {string} nameOrUrl
    * @returns {Promise<string>}
    */
-  async fetch(url) {
-    if (!this._cache.has(url)) {
-      await this._fetchAndCache(url)
-    }
-    return this._cache.get(url)
+  async fetch(nameOrUrl) {
+    if (!this._cache.has(nameOrUrl)) await this._fetchAndCache(nameOrUrl)
+    return this._cache.get(nameOrUrl)
   }
 
   // ── private ────────────────────────────────────────────────────────────────
 
-  /**
-   * Attempt to fetch a URL. Falls back to the local proxy on failure.
-   * @param {string} url
-   * @returns {Promise<void>}
-   */
-  async _fetchAndCache(url) {
-    let source = null
+  async _fetchAndCache(raw) {
+    const url = normalize(raw)
+    if (url === null) {
+      // stdlib — no fetch needed
+      this._cache.set(raw, `// stdlib ${raw} — resolved at runtime\n`)
+      return
+    }
 
-    // 1. Direct fetch
+    let text
     try {
-      source = await this._fetchDirect(url)
-    } catch (directErr) {
-      // 2. Proxy fallback
-      try {
-        source = await this._fetchViaProxy(url)
-      } catch (proxyErr) {
-        throw new Error(
-          `DevResolver: failed to fetch "${url}"\n` +
-          `  Direct: ${directErr.message}\n` +
-          `  Proxy:  ${proxyErr.message}`
-        )
-      }
+      const res = await fetch(url, {
+        cache: 'no-cache',
+        headers: { Accept: 'text/plain, */*' },
+      })
+      if (!res.ok) throw new Error(`HTTP ${res.status} ${res.statusText}`)
+      text = await res.text()
+    } catch (err) {
+      throw new Error(
+        `DevResolver: failed to fetch "${raw}" (resolved to "${url}")\n` +
+        `  ${err.message}\n` +
+        `  Tip: use cdn.jsdelivr.net, unpkg.com, esm.sh, or the npm: shorthand.`
+      )
     }
 
-    this._cache.set(url, source)
-  }
-
-  /**
-   * @param {string} url
-   * @returns {Promise<string>}
-   */
-  async _fetchDirect(url) {
-    const response = await fetch(url, {
-      cache: 'no-cache',
-      headers: { Accept: 'text/plain, */*' },
-    })
-    if (!response.ok) {
-      throw new Error(`HTTP ${response.status} ${response.statusText}`)
-    }
-    return response.text()
-  }
-
-  /**
-   * @param {string} url
-   * @returns {Promise<string>}
-   */
-  async _fetchViaProxy(url) {
-    const proxyUrl = `${PROXY_PREFIX}${encodeURIComponent(url)}`
-    const response = await fetch(proxyUrl, { cache: 'no-cache' })
-    if (!response.ok) {
-      throw new Error(`HTTP ${response.status} ${response.statusText} (via proxy)`)
-    }
-    return response.text()
+    this._cache.set(raw, text)
   }
 }

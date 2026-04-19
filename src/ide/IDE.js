@@ -1300,8 +1300,13 @@ export class IDE {
     const pkgName = document.getElementById('pkg-name')
     if (pkgName) { pkgName.textContent = ex.name; pkgName.classList.add('loaded') }
 
-    // Load into preview via real URL (supports relative imports)
-    const url = `/examples/${ex.name}/${ex.entry}`
+    // Load into preview via real URL (supports relative imports).
+    // import.meta.env.BASE_URL is '/' in dev and the configured base in prod
+    // (e.g. '/artlab/' on GitHub Pages), so paths resolve correctly everywhere.
+    const url = new URL(
+      `${import.meta.env.BASE_URL}examples/${ex.name}/${ex.entry}`,
+      location.href,
+    ).href
     let mod
     try { mod = await import(/* @vite-ignore */ url) } catch (err) {
       console.error('[IDE] Example load failed:', err)
@@ -1494,7 +1499,7 @@ class TutorialMgr {
     this._pageIdx = 0
     this._clearHighlight()
     try {
-      const res = await fetch(`/examples/${ex.name}/tutorial.json`)
+      const res = await fetch(`${import.meta.env.BASE_URL}examples/${ex.name}/tutorial.json`)
       if (!res.ok) { this.close(); return }
       this._data = await res.json()
       this._render()
