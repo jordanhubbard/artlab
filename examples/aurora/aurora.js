@@ -40,7 +40,8 @@ export function setup(ctx) {
   const { THREE, sphere, plane, mesh, ambient, point } = ctx;
 
   ctx.camera.position.set(0, 1.5, 0);
-  ctx.camera.rotation.x = -0.5;
+  ctx.controls.target.set(0, 6, -16);
+  ctx.controls.update();
 
   ctx.add(ambient(0x020408, 1.0));
 

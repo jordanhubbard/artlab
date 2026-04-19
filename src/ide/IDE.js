@@ -1289,7 +1289,8 @@ export class IDE {
 
     // Fetch source and show in Monaco
     try {
-      const src = await fetch(url).then(r => r.text())
+      const raw = await fetch(url).then(r => r.text())
+      const src = raw.replace(/\/\/# sourceMappingURL=data:[^\n]+\n?$/, '')
       // Store in artFiles so openFile() can find it
       this.artFiles.set(ex.entry, src)
       // Open in editor
