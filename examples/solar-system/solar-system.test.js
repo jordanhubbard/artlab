@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
-import * as THREE from 'three'
+import * as Three from 'three'
 
 vi.mock('three', async () => await vi.importActual('three'))
 
@@ -20,7 +20,7 @@ vi.mock('tone', () => ({
 }))
 
 // ── CSS2DRenderer mock ────────────────────────────────────────────────────────
-// CSS2DObject must extend THREE.Object3D so three.js Group.add() accepts it.
+// CSS2DObject must extend Three.Object3D so three.js Group.add() accepts it.
 
 vi.mock('three/addons/renderers/CSS2DRenderer.js', async () => {
   const { Object3D, Vector3 } = await vi.importActual('three')
@@ -95,7 +95,7 @@ function makeMockCtx(overrides = {}) {
     children: [],
   }
   const camera = {
-    position: new THREE.Vector3(0, 0, 50),
+    position: new Three.Vector3(0, 0, 50),
     lookAt: vi.fn(),
     aspect: 1,
     updateProjectionMatrix: vi.fn(),
@@ -107,7 +107,7 @@ function makeMockCtx(overrides = {}) {
     enabled: true,
     minDistance: 0,
     maxDistance: Infinity,
-    target: new THREE.Vector3(),
+    target: new Three.Vector3(),
   }
   // Canvas must be in a container so parentElement is non-null
   // (solar-system uses domElement.parentElement for the start button)
@@ -123,7 +123,7 @@ function makeMockCtx(overrides = {}) {
   }
 
   const ctx = {
-    THREE,
+    Three,
     scene,
     camera,
     renderer,

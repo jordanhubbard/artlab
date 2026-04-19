@@ -22,12 +22,12 @@ import { PreviewPane } from './PreviewPane.js'
 const JS_LANG = 'javascript'
 
 // ── Artlab context type definitions injected into Monaco for autocomplete ─────
-// Users get ctx.sphere(), ctx.THREE, etc. without any imports.
+// Users get ctx.sphere(), ctx.Three, etc. without any imports.
 const ARTLAB_TYPES_DTS = `
 /** Artlab package context — passed to setup() and update(). Destructure what you need. */
 interface ArtlabContext {
-  /** THREE.js namespace — access any Three.js class via ctx.THREE */
-  THREE: typeof import('three');
+  /** Three.js namespace — access any Three.js class via ctx.Three */
+  Three: typeof import('three');
   /** The Three.js scene */
   scene: import('three').Scene;
   /** The active perspective camera */
@@ -312,7 +312,7 @@ export class IDE {
       checkJs:              false,
     })
 
-    // Inject Artlab context types — gives autocomplete on ctx.sphere(), ctx.THREE, etc.
+    // Inject Artlab context types — gives autocomplete on ctx.sphere(), ctx.Three, etc.
     jsDefaults.addExtraLib(ARTLAB_TYPES_DTS, 'artlab://types/artlab-context.d.ts')
   }
 
@@ -604,7 +604,7 @@ export class IDE {
       `// ${name}`,
       '',
       'export function setup(ctx) {',
-      '  const { THREE, sphere, mesh, box, ambient, point } = ctx',
+      '  const { Three, sphere, mesh, box, ambient, point } = ctx',
       '}',
       '',
       'export function update(ctx, dt) {',
@@ -1081,11 +1081,11 @@ export class IDE {
       `// ${name} — Artlab scene`,
       '',
       'export function setup(ctx) {',
-      '  const { THREE, sphere, mesh, box, ambient, point } = ctx',
+      '  const { Three, sphere, mesh, box, ambient, point } = ctx',
       '',
       '  const geo = box(1, 1, 1)',
-      '  const mat = new THREE.MeshStandardMaterial({ color: 0x4488cc })',
-      '  const cube = new THREE.Mesh(geo, mat)',
+      '  const mat = new Three.MeshStandardMaterial({ color: 0x4488cc })',
+      '  const cube = new Three.Mesh(geo, mat)',
       '  ctx.add(cube)',
       '  ctx.add(ambient(0x404060, 0.8))',
       '  ctx.add(point(0xffffff, 200, 0, 0, 0, 2))',

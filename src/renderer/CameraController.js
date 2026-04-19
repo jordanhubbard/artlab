@@ -8,7 +8,7 @@ import { CameraSystem } from '../camera/CameraSystem.js'
 export class CameraController {
   /**
    * @param {import('./IRenderer.js').IRenderer} renderer
-   * @param {THREE.Scene} scene
+   * @param {Three.Scene} scene
    */
   constructor(renderer, scene) {
     this._system = new CameraSystem(renderer, scene)
@@ -97,7 +97,7 @@ export class CameraController {
 
   // ── Accessors ────────────────────────────────────────────────────────────────
 
-  /** @returns {THREE.PerspectiveCamera} */
+  /** @returns {Three.PerspectiveCamera} */
   get camera() {
     return this._system.camera
   }

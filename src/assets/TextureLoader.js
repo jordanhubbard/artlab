@@ -1,4 +1,4 @@
-import * as THREE from 'three'
+import * as Three from 'three'
 
 /**
  * ArtlabTextureLoader — loads textures from a PackageReader (zip) or by URL.
@@ -16,18 +16,18 @@ import * as THREE from 'three'
 export class ArtlabTextureLoader {
   constructor(packageReader = null) {
     this._reader      = packageReader
-    this._threeLoader = new THREE.TextureLoader()
+    this._threeLoader = new Three.TextureLoader()
     this._cache       = new Map()
   }
 
   /**
    * Load a texture synchronously returning a placeholder that is updated async.
-   * Safe to pass directly to THREE material properties — the material will
+   * Safe to pass directly to Three material properties — the material will
    * update automatically once the real image is swapped in.
    *
    * @param {string} path  package-relative path or URL
    * @param {number} [fallbackColor=0x888888]  hex color for the placeholder
-   * @returns {THREE.Texture}  placeholder (real image swapped in async)
+   * @returns {Three.Texture}  placeholder (real image swapped in async)
    */
   load(path, fallbackColor = 0x888888) {
     if (this._cache.has(path)) return this._cache.get(path)
@@ -46,12 +46,12 @@ export class ArtlabTextureLoader {
   }
 
   /**
-   * Load a texture and return a Promise that resolves to the real THREE.Texture.
+   * Load a texture and return a Promise that resolves to the real Three.Texture.
    * Used by AssetManager.loadAll() so callers can await full load completion.
    *
    * @param {string} path
    * @param {number} [fallbackColor=0x888888]
-   * @returns {Promise<THREE.Texture>}
+   * @returns {Promise<Three.Texture>}
    */
   async loadAsync(path, fallbackColor = 0x888888) {
     if (this._cache.has(path)) return this._cache.get(path)
@@ -94,9 +94,9 @@ export class ArtlabTextureLoader {
   }
 
   _configureTexture(tex) {
-    tex.colorSpace       = THREE.SRGBColorSpace
-    tex.minFilter        = THREE.LinearMipmapLinearFilter
-    tex.magFilter        = THREE.LinearFilter
+    tex.colorSpace       = Three.SRGBColorSpace
+    tex.minFilter        = Three.LinearMipmapLinearFilter
+    tex.magFilter        = Three.LinearFilter
     tex.anisotropy       = 16
     tex.generateMipmaps  = true
     return tex
@@ -131,7 +131,7 @@ export class ArtlabTextureLoader {
     }
     ctx.putImageData(id, 0, 0)
 
-    const tex = new THREE.CanvasTexture(canvas)
+    const tex = new Three.CanvasTexture(canvas)
     this._configureTexture(tex)
     return tex
   }

@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
-import * as THREE from 'three'
+import * as Three from 'three'
 
 // ── Browser API stubs ────────────────────────────────────────────────────────
 
@@ -42,10 +42,10 @@ function makeMockCtx() {
   const scene = { add: vi.fn(), remove: vi.fn(), children: [] }
 
   return {
-    THREE,
+    Three,
     scene,
     camera: {
-      position: new THREE.Vector3(0, 0, 9),
+      position: new Three.Vector3(0, 0, 9),
       fov: 60,
       aspect: 16 / 9,
       updateProjectionMatrix: vi.fn(),
@@ -58,7 +58,7 @@ function makeMockCtx() {
     },
     controls: {
       update: vi.fn(),
-      target: new THREE.Vector3(),
+      target: new Three.Vector3(),
       enableDamping: true,
     },
     labelRenderer: {
@@ -94,7 +94,7 @@ describe('video-kaleidoscope', () => {
   it('setup() completes and adds at least one mesh to scene', async () => {
     await mod.setup(ctx)
     expect(ctx.add).toHaveBeenCalled()
-    const meshes = ctx.scene.children.filter(o => o instanceof THREE.Mesh)
+    const meshes = ctx.scene.children.filter(o => o instanceof Three.Mesh)
     expect(meshes.length).toBeGreaterThanOrEqual(1)
   })
 
@@ -104,7 +104,7 @@ describe('video-kaleidoscope', () => {
     ctx.elapsed = 1.5
     mod.update(ctx, 0.016)
 
-    const mesh = ctx.scene.children.find(o => o instanceof THREE.Mesh)
+    const mesh = ctx.scene.children.find(o => o instanceof Three.Mesh)
     expect(mesh).toBeDefined()
     // time uniform should be ctx.elapsed (minus any rotation offset, which starts at 0)
     expect(mesh.material.uniforms.time.value).toBeCloseTo(1.5)
@@ -120,7 +120,7 @@ describe('video-kaleidoscope', () => {
 
     const SEGMENTS = mod.__SEGMENTS  // [3, 4, 6, 8, 12]
 
-    const mesh = ctx.scene.children.find(o => o instanceof THREE.Mesh)
+    const mesh = ctx.scene.children.find(o => o instanceof Three.Mesh)
     expect(mesh).toBeDefined()
 
     // Cycle through every segment once, collecting the uniform value

@@ -61,28 +61,28 @@ function assetURL(rel) {
   return new URL(`./assets/textures/${rel}`, import.meta.url).href
 }
 
-function loadTex(THREE, rel) {
-  const t = new THREE.TextureLoader().load(assetURL(rel))
-  t.colorSpace = THREE.SRGBColorSpace
+function loadTex(Three, rel) {
+  const t = new Three.TextureLoader().load(assetURL(rel))
+  t.colorSpace = Three.SRGBColorSpace
   return t
 }
 
-function makeAtmosphere(THREE, parent, r, rgb) {
-  const geo  = new THREE.SphereGeometry(r * 1.025, 48, 48)
+function makeAtmosphere(Three, parent, r, rgb) {
+  const geo  = new Three.SphereGeometry(r * 1.025, 48, 48)
   const unif = {
-    uColor:    { value: new THREE.Vector3(...rgb) },
+    uColor:    { value: new Three.Vector3(...rgb) },
     uStrength: { value: 1.0 },
     uOpacity:  { value: 0.9 },
   }
-  const mkMat = (side) => new THREE.ShaderMaterial({
+  const mkMat = (side) => new Three.ShaderMaterial({
     uniforms: unif, vertexShader: ATM_VERT, fragmentShader: ATM_FRAG,
-    blending: THREE.AdditiveBlending, transparent: true, depthWrite: false, side,
+    blending: Three.AdditiveBlending, transparent: true, depthWrite: false, side,
   })
-  parent.add(new THREE.Mesh(geo, mkMat(THREE.BackSide)))
-  parent.add(new THREE.Mesh(geo, mkMat(THREE.FrontSide)))
+  parent.add(new Three.Mesh(geo, mkMat(Three.BackSide)))
+  parent.add(new Three.Mesh(geo, mkMat(Three.FrontSide)))
 }
 
-function makeRingTexture(THREE, size = 512) {
+function makeRingTexture(Three, size = 512) {
   const cv = document.createElement('canvas')
   cv.width = size; cv.height = 4
   const c = cv.getContext('2d')
@@ -101,7 +101,7 @@ function makeRingTexture(THREE, size = 512) {
   g.addColorStop(0.92, 'rgba(140,115,85,0.2)')
   g.addColorStop(1.00, 'rgba(140,115,85,0)')
   c.fillStyle = g; c.fillRect(0, 0, size, 4)
-  return new THREE.CanvasTexture(cv)
+  return new Three.CanvasTexture(cv)
 }
 
 function fixRingUVs(geo, innerR, outerR) {
@@ -120,7 +120,7 @@ function easeInOut(t) {
 // ── Setup ──────────────────────────────────────────────────────────────────────
 
 export async function setup(ctx) {
-  const { THREE } = ctx
+  const { Three } = ctx
 
   // CSS2DObject — dynamic import so the package degrades gracefully in blob-URL contexts
   let CSS2DObject = null
@@ -139,31 +139,31 @@ export async function setup(ctx) {
   setupJourney(ctx)
 
   // Lighting
-  ctx.add(new THREE.PointLight(0xffeebb, 10000, 0, 2))
-  ctx.add(new THREE.AmbientLight(0x111122, 0.5))
+  ctx.add(new Three.PointLight(0xffeebb, 10000, 0, 2))
+  ctx.add(new Three.AmbientLight(0x111122, 0.5))
 
   // Starfield
   const starVerts = new Float32Array(120000 * 3)
   for (let i = 0; i < starVerts.length; i++) starVerts[i] = (Math.random() - 0.5) * 120000
-  const starGeo = new THREE.BufferGeometry()
-  starGeo.setAttribute('position', new THREE.BufferAttribute(starVerts, 3))
-  ctx._stars = ctx.add(new THREE.Points(starGeo,
-    new THREE.PointsMaterial({ color: 0xffffff, size: 2.5, sizeAttenuation: true, transparent: true, opacity: 0.7 })
+  const starGeo = new Three.BufferGeometry()
+  starGeo.setAttribute('position', new Three.BufferAttribute(starVerts, 3))
+  ctx._stars = ctx.add(new Three.Points(starGeo,
+    new Three.PointsMaterial({ color: 0xffffff, size: 2.5, sizeAttenuation: true, transparent: true, opacity: 0.7 })
   ))
 
   // Sun — emissive sphere + halo
-  ctx._sunMesh = ctx.add(new THREE.Mesh(
-    new THREE.SphereGeometry(SUNR, 64, 64),
-    new THREE.MeshStandardMaterial({
-      color: new THREE.Color(1.0, 0.95, 0.7), emissive: new THREE.Color(1.0, 0.75, 0.2),
+  ctx._sunMesh = ctx.add(new Three.Mesh(
+    new Three.SphereGeometry(SUNR, 64, 64),
+    new Three.MeshStandardMaterial({
+      color: new Three.Color(1.0, 0.95, 0.7), emissive: new Three.Color(1.0, 0.75, 0.2),
       emissiveIntensity: 1.2, roughness: 0.4,
     })
   ))
-  ctx.add(new THREE.Mesh(
-    new THREE.SphereGeometry(SUNR * 1.35, 32, 32),
-    new THREE.MeshStandardMaterial({
-      color: new THREE.Color(1.0, 0.8, 0.3), transparent: true, opacity: 0.07,
-      side: THREE.BackSide, depthWrite: false,
+  ctx.add(new Three.Mesh(
+    new Three.SphereGeometry(SUNR * 1.35, 32, 32),
+    new Three.MeshStandardMaterial({
+      color: new Three.Color(1.0, 0.8, 0.3), transparent: true, opacity: 0.07,
+      side: Three.BackSide, depthWrite: false,
     })
   ))
 
@@ -179,23 +179,23 @@ export async function setup(ctx) {
     const r = d.r * PS
 
     // Outer orbit group — positioned each frame by orbital mechanics
-    const orbit = new THREE.Group()
+    const orbit = new Three.Group()
     ctx.add(orbit)
     ctx._planets[name] = orbit
 
     // Inner tilted group — carries axial tilt + sphere + atmosphere + rings
-    const tilted = new THREE.Group()
-    tilted.rotation.z = THREE.MathUtils.degToRad(d.tilt)
+    const tilted = new Three.Group()
+    tilted.rotation.z = Three.MathUtils.degToRad(d.tilt)
     orbit.add(tilted)
 
     // Planet sphere with LOD
-    const mat = new THREE.MeshStandardMaterial({ map: loadTex(THREE, d.tex), roughness: 0.85 })
+    const mat = new Three.MeshStandardMaterial({ map: loadTex(Three, d.tex), roughness: 0.85 })
     const mkSphere = (segs) => {
-      const m = new THREE.Mesh(new THREE.SphereGeometry(r, segs, Math.round(segs / 2)), mat)
+      const m = new Three.Mesh(new Three.SphereGeometry(r, segs, Math.round(segs / 2)), mat)
       m.castShadow = m.receiveShadow = true
       return m
     }
-    const lod = new THREE.LOD()
+    const lod = new Three.LOD()
     lod.addLevel(mkSphere(128), 0)
     lod.addLevel(mkSphere(64),  400)
     lod.addLevel(mkSphere(32),  1200)
@@ -206,24 +206,24 @@ export async function setup(ctx) {
 
     // Earth cloud layer
     if (d.clouds) {
-      ctx._earthClouds = new THREE.Mesh(
-        new THREE.SphereGeometry(r * 1.008, 64, 32),
-        new THREE.MeshStandardMaterial({ map: loadTex(THREE, d.clouds), transparent: true, opacity: 0.5, depthWrite: false })
+      ctx._earthClouds = new Three.Mesh(
+        new Three.SphereGeometry(r * 1.008, 64, 32),
+        new Three.MeshStandardMaterial({ map: loadTex(Three, d.clouds), transparent: true, opacity: 0.5, depthWrite: false })
       )
       tilted.add(ctx._earthClouds)
     }
 
     // Atmosphere rim glow
-    if (d.atm) makeAtmosphere(THREE, tilted, r, d.atm)
+    if (d.atm) makeAtmosphere(Three, tilted, r, d.atm)
 
     // Saturn rings
     if (d.rings) {
       const innerR = r * 1.11, outerR = r * 2.27
-      const ringGeo = new THREE.RingGeometry(innerR, outerR, 128)
+      const ringGeo = new Three.RingGeometry(innerR, outerR, 128)
       fixRingUVs(ringGeo, innerR, outerR)
-      const ring = new THREE.Mesh(ringGeo, new THREE.MeshBasicMaterial({
-        map: makeRingTexture(THREE), transparent: true, depthWrite: false,
-        side: THREE.DoubleSide, opacity: 0.95,
+      const ring = new Three.Mesh(ringGeo, new Three.MeshBasicMaterial({
+        map: makeRingTexture(Three), transparent: true, depthWrite: false,
+        side: Three.DoubleSide, opacity: 0.95,
       }))
       ring.rotation.x = Math.PI / 2
       tilted.add(ring)
@@ -233,11 +233,11 @@ export async function setup(ctx) {
     const pts = []
     for (let i = 0; i <= 256; i++) {
       const a = (i / 256) * Math.PI * 2
-      pts.push(new THREE.Vector3(d.a * AU * Math.cos(a), 0, d.a * AU * Math.sin(a)))
+      pts.push(new Three.Vector3(d.a * AU * Math.cos(a), 0, d.a * AU * Math.sin(a)))
     }
-    ctx._orbitLines.push(ctx.add(new THREE.Line(
-      new THREE.BufferGeometry().setFromPoints(pts),
-      new THREE.LineBasicMaterial({ color: d.color, transparent: true, opacity: 0.15 })
+    ctx._orbitLines.push(ctx.add(new Three.Line(
+      new Three.BufferGeometry().setFromPoints(pts),
+      new Three.LineBasicMaterial({ color: d.color, transparent: true, opacity: 0.15 })
     )))
 
     // CSS2D label
@@ -258,18 +258,18 @@ export async function setup(ctx) {
 
   // Moon
   const moonR = 0.273 * PS
-  ctx._moonGroup = new THREE.Group()
-  ctx._moonGroup.add(new THREE.Mesh(
-    new THREE.SphereGeometry(moonR, 32, 16),
-    new THREE.MeshStandardMaterial({ map: loadTex(THREE, 'moon/2k_moon.jpg'), roughness: 0.95 })
+  ctx._moonGroup = new Three.Group()
+  ctx._moonGroup.add(new Three.Mesh(
+    new Three.SphereGeometry(moonR, 32, 16),
+    new Three.MeshStandardMaterial({ map: loadTex(Three, 'moon/2k_moon.jpg'), roughness: 0.95 })
   ))
   ctx.add(ctx._moonGroup)
 
   // Asteroid belt (instanced)
   const BELT_N = 3000
-  ctx._belt = new THREE.InstancedMesh(
-    new THREE.IcosahedronGeometry(0.08, 0),
-    new THREE.MeshStandardMaterial({ color: 0x9a8b7a, roughness: 0.95, metalness: 0.05 }),
+  ctx._belt = new Three.InstancedMesh(
+    new Three.IcosahedronGeometry(0.08, 0),
+    new Three.MeshStandardMaterial({ color: 0x9a8b7a, roughness: 0.95, metalness: 0.05 }),
     BELT_N
   )
   ctx._belt.castShadow = ctx._belt.receiveShadow = true
@@ -278,7 +278,7 @@ export async function setup(ctx) {
   const by = ctx._beltYs     = new Float32Array(BELT_N)
   const bs = ctx._beltScales = new Float32Array(BELT_N)
   const brot = ctx._beltRots = new Float32Array(BELT_N * 3)
-  const bd   = ctx._beltDummy = new THREE.Object3D()
+  const bd   = ctx._beltDummy = new Three.Object3D()
   for (let i = 0; i < BELT_N; i++) {
     ba[i] = Math.random() * Math.PI * 2
     br[i] = 220 + Math.random() * 100
@@ -306,8 +306,8 @@ export async function setup(ctx) {
   window.addEventListener('keydown', ctx._onKey)
 
   // Click-to-focus raycasting
-  const raycaster = new THREE.Raycaster()
-  const mouse     = new THREE.Vector2()
+  const raycaster = new Three.Raycaster()
+  const mouse     = new Three.Vector2()
   ctx._onClick = (e) => {
     if (ctx._journey?.playing) return
     const rect = ctx.renderer.domElement.getBoundingClientRect()
@@ -352,7 +352,7 @@ export async function setup(ctx) {
 export function update(ctx, dt) {
   if (!ctx._planets) return   // async setup() still in progress
 
-  const { THREE } = ctx
+  const { Three } = ctx
   const t = ctx.elapsed
 
   // Orbital positions + self-rotation
@@ -423,7 +423,7 @@ export function update(ctx, dt) {
     for (const { div, name } of ctx._labelDivs) {
       const r    = PLANETS[name].r * PS
       const dist = cam.distanceTo(ctx._planets[name].position)
-      div.style.opacity = THREE.MathUtils.clamp((dist - r * 0.5) / (r * 1.5), 0, 1)
+      div.style.opacity = Three.MathUtils.clamp((dist - r * 0.5) / (r * 1.5), 0, 1)
     }
   }
 }
@@ -446,7 +446,7 @@ function _startFocus(ctx, name) {
   ctx._focusTween = {
     fromPos:  ctx.camera.position.clone(),
     fromLook: ctx.controls.target.clone(),
-    toPos:    planetPos.clone().add(new ctx.THREE.Vector3(r * 3.5, r * 1.5, r * 4.5)),
+    toPos:    planetPos.clone().add(new ctx.Three.Vector3(r * 3.5, r * 1.5, r * 4.5)),
     toLook:   planetPos.clone(),
     t: 0, dur: 2.2,
   }

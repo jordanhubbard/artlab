@@ -1,4 +1,4 @@
-import * as THREE from 'three'
+import * as Three from 'three'
 import { OrbitControls }  from 'three/addons/controls/OrbitControls.js'
 import { CSS2DRenderer }  from 'three/addons/renderers/CSS2DRenderer.js'
 import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js'
@@ -21,7 +21,7 @@ export class StandaloneRunner {
     this._canvas = canvas
 
     // ── Renderer ────────────────────────────────────────────────────────────────
-    this._renderer = new THREE.WebGLRenderer({
+    this._renderer = new Three.WebGLRenderer({
       canvas,
       antialias:        true,
       alpha:            false,
@@ -29,15 +29,15 @@ export class StandaloneRunner {
     })
     this._renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2))
     this._renderer.setSize(window.innerWidth, window.innerHeight)
-    this._renderer.toneMapping         = THREE.ACESFilmicToneMapping
+    this._renderer.toneMapping         = Three.ACESFilmicToneMapping
     this._renderer.toneMappingExposure = 0.75
-    this._renderer.outputColorSpace    = THREE.SRGBColorSpace
+    this._renderer.outputColorSpace    = Three.SRGBColorSpace
     this._renderer.shadowMap.enabled   = true
-    this._renderer.shadowMap.type      = THREE.PCFSoftShadowMap
+    this._renderer.shadowMap.type      = Three.PCFSoftShadowMap
 
     // ── Scene + camera ───────────────────────────────────────────────────────────
-    this._scene  = new THREE.Scene()
-    this._camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 200000)
+    this._scene  = new Three.Scene()
+    this._camera = new Three.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 200000)
 
     // ── Orbit controls ───────────────────────────────────────────────────────────
     this._controls = new OrbitControls(this._camera, canvas)
@@ -59,7 +59,7 @@ export class StandaloneRunner {
     this._initComposer()
 
     // ── Clock + module ───────────────────────────────────────────────────────────
-    this._clock = new THREE.Clock()
+    this._clock = new Three.Clock()
     this._mod   = null
     this._ctx   = null
 
@@ -93,7 +93,7 @@ export class StandaloneRunner {
   _makeCtx() {
     const self = this
     return {
-      THREE,
+      Three,
       scene:         this._scene,
       camera:        this._camera,
       renderer:      this._renderer,
@@ -108,11 +108,11 @@ export class StandaloneRunner {
       },
 
       // Three.js shorthand constructors (mirrors PreviewPane ctx)
-      vec2:  (x, y)       => new THREE.Vector2(x, y),
-      vec3:  (x, y, z)    => new THREE.Vector3(x, y, z),
-      vec4:  (x, y, z, w) => new THREE.Vector4(x, y, z, w),
-      color: (r, g, b)    => new THREE.Color(r, g, b),
-      quat:  (x, y, z, w) => new THREE.Quaternion(x, y, z, w),
+      vec2:  (x, y)       => new Three.Vector2(x, y),
+      vec3:  (x, y, z)    => new Three.Vector3(x, y, z),
+      vec4:  (x, y, z, w) => new Three.Vector4(x, y, z, w),
+      color: (r, g, b)    => new Three.Color(r, g, b),
+      quat:  (x, y, z, w) => new Three.Quaternion(x, y, z, w),
       range: (a, b) => {
         const start = b === undefined ? 0 : a
         const end   = b === undefined ? a : b
@@ -130,7 +130,7 @@ export class StandaloneRunner {
     composer.addPass(new RenderPass(this._scene, this._camera))
 
     this._bloomPass = new UnrealBloomPass(
-      new THREE.Vector2(window.innerWidth, window.innerHeight),
+      new Three.Vector2(window.innerWidth, window.innerHeight),
       0.55,   // strength
       0.25,   // radius
       0.85    // threshold

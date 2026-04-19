@@ -1,5 +1,5 @@
 // Tutorial 04 — Color & Material: a 4x4 grid of spheres showing HSL and PBR parameters.
-import * as THREE from 'three';
+import * as Three from 'three';
 
 const COLS = 4, ROWS = 4, SPACING = 2.2;
 
@@ -18,7 +18,7 @@ const PBR_COMBOS = [
 ];
 
 function rowColor(row, col) {
-  const c = new THREE.Color();
+  const c = new Three.Color();
   const t = col / (COLS - 1);
   if (row === 0) c.setHSL(t, 0.7, 0.55);
   else if (row === 1) c.setHSL(220 / 360, t, 0.55);
@@ -28,20 +28,20 @@ function rowColor(row, col) {
 }
 
 export function setup(ctx) {
-  const { THREE: T } = ctx;
+  const { Three: T } = ctx;
 
   ctx.camera.position.set(0, 4.5, 14);
   ctx.camera.lookAt(0, 0, 0);
 
-  ctx.add(new THREE.AmbientLight(0x334466, 0.7));
-  const d1 = new THREE.DirectionalLight(0xffffff, 1.2);
+  ctx.add(new Three.AmbientLight(0x334466, 0.7));
+  const d1 = new Three.DirectionalLight(0xffffff, 1.2);
   d1.position.set(6, 10, 8);
   ctx.add(d1);
-  const d2 = new THREE.DirectionalLight(0x4466ff, 0.4);
+  const d2 = new Three.DirectionalLight(0x4466ff, 0.4);
   d2.position.set(-8, 4, -4);
   ctx.add(d2);
 
-  const geo = new THREE.SphereGeometry(0.7, 32, 16);
+  const geo = new Three.SphereGeometry(0.7, 32, 16);
   ctx._spheres = [];
 
   for (let r = 0; r < ROWS; r++) {
@@ -60,8 +60,8 @@ export function setup(ctx) {
         matOpts.metalness = pbr.metalness;
       }
 
-      const mat = new THREE.MeshStandardMaterial(matOpts);
-      const mesh = new THREE.Mesh(geo, mat);
+      const mat = new Three.MeshStandardMaterial(matOpts);
+      const mesh = new Three.Mesh(geo, mat);
       const x = (c - (COLS - 1) / 2) * SPACING;
       const y = ((ROWS - 1) / 2 - r) * SPACING;
       mesh.position.set(x, y, 0);

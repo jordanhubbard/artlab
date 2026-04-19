@@ -2,14 +2,14 @@
  * artlab/physics/particles
  *
  * DSL-friendly wrappers around ParticleWorld for GPU-friendly particle systems.
- * Creates and manages THREE.Points meshes that stay in sync with the CPU
+ * Creates and manages Three.Points meshes that stay in sync with the CPU
  * simulation each frame.
  *
  * @module artlab/physics/particles
  *
  * @example
  *   import { createParticleWorld, emitter, forceField } from 'artlab/physics/particles'
- *   import * as THREE from 'three'
+ *   import * as Three from 'three'
  *
  *   const pworld = createParticleWorld()
  *
@@ -25,7 +25,7 @@
  */
 
 import { ParticleWorld } from '../../physics/ParticleWorld.js'
-import * as THREE from 'three'
+import * as Three from 'three'
 
 export { ParticleWorld }
 
@@ -60,13 +60,13 @@ export function createParticleWorld() {
 
 /**
  * Create a particle emitter that drives both a ParticleWorld simulation and
- * a matching THREE.Points mesh for rendering.
+ * a matching Three.Points mesh for rendering.
  *
  * The emitter is registered with `world` immediately.  Call `update(elapsed, dt)`
  * once per frame to advance the simulation and upload new positions to the GPU.
  *
  * @param {ParticleWorld} world  Particle simulation instance
- * @param {THREE.Scene}   scene  Scene to attach the Points mesh to
+ * @param {Three.Scene}   scene  Scene to attach the Points mesh to
  * @param {object}        [options]
  * @param {number}  [options.rate=20]         Particles spawned per second
  * @param {number}  [options.speed=5]         Initial speed (scene units / s)
@@ -78,7 +78,7 @@ export function createParticleWorld() {
  * @param {number}  [options.maxParticles=2000] Upper bound for the geometry buffer
  * @returns {{
  *   emitterId: string,
- *   points: THREE.Points,
+ *   points: Three.Points,
  *   update(elapsed: number, dt: number): void,
  *   dispose(): void,
  * }}
@@ -112,16 +112,16 @@ export function emitter(world, scene, options = {}) {
     gravity,
   })
 
-  // Build a THREE.Points mesh backed by a dynamic BufferGeometry
-  const geometry = new THREE.BufferGeometry()
+  // Build a Three.Points mesh backed by a dynamic BufferGeometry
+  const geometry = new Three.BufferGeometry()
   const positions = new Float32Array(maxParticles * 3)
-  const posAttr = new THREE.BufferAttribute(positions, 3)
-  posAttr.setUsage(THREE.DynamicDrawUsage)
+  const posAttr = new Three.BufferAttribute(positions, 3)
+  posAttr.setUsage(Three.DynamicDrawUsage)
   geometry.setAttribute('position', posAttr)
   // Start with zero draw range so no particles show until the first update
   geometry.setDrawRange(0, 0)
 
-  const material = new THREE.PointsMaterial({
+  const material = new Three.PointsMaterial({
     color,
     size,
     sizeAttenuation: true,
@@ -130,7 +130,7 @@ export function emitter(world, scene, options = {}) {
     opacity: 0.85,
   })
 
-  const points = new THREE.Points(geometry, material)
+  const points = new Three.Points(geometry, material)
   scene.add(points)
 
   return {

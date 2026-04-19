@@ -1,7 +1,7 @@
 // Video Broadcast — live webcam with broadcast-quality DOM overlays.
 // Lower-third slides in after 1.5s · scrolling ticker · pulsing LIVE badge
 
-import * as THREE from 'three'
+import * as Three from 'three'
 import { webcam } from '../../src/stdlib/video.js'
 
 // ── Ticker content ────────────────────────────────────────────────────────────
@@ -57,9 +57,9 @@ export async function setup(ctx) {
   _cam = webcam({ width: 1280, height: 720 })
 
   // 16:9 plane fills the view
-  const geo = new THREE.PlaneGeometry(16, 9)
-  const mat = new THREE.MeshBasicMaterial({ map: _cam.texture, side: THREE.DoubleSide })
-  _mesh = new THREE.Mesh(geo, mat)
+  const geo = new Three.PlaneGeometry(16, 9)
+  const mat = new Three.MeshBasicMaterial({ map: _cam.texture, side: Three.DoubleSide })
+  _mesh = new Three.Mesh(geo, mat)
   ctx.add(_mesh)
 
   // --- DOM overlay (positioned absolutely inside container) ---

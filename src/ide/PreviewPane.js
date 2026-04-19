@@ -12,14 +12,14 @@
  * helpers, and scene management — no imports required:
  *
  *   export function setup(ctx) {
- *     const { THREE, sphere, mesh, ambient, controls } = ctx
+ *     const { Three, sphere, mesh, ambient, controls } = ctx
  *     ctx.add(mesh(sphere(1), { color: 0x336699 }))
  *     ctx.add(ambient(0x112244, 0.5))
  *     controls.target.set(0, 0, 0)   // optional: orbit focus
  *   }
  */
 
-import * as THREE from 'three'
+import * as Three from 'three'
 import { OrbitControls }    from 'three/addons/controls/OrbitControls.js'
 import { EffectComposer }   from 'three/addons/postprocessing/EffectComposer.js'
 import { RenderPass }       from 'three/addons/postprocessing/RenderPass.js'
@@ -38,14 +38,14 @@ export class PreviewPane {
     this.canvas.style.cssText = 'display:block;width:100%;height:100%;'
     container.appendChild(this.canvas)
 
-    this._renderer = new THREE.WebGLRenderer({ canvas: this.canvas, antialias: true, alpha: false })
+    this._renderer = new Three.WebGLRenderer({ canvas: this.canvas, antialias: true, alpha: false })
     this._renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2))
     this._renderer.setClearColor(0x0a0a12, 1)
-    this._renderer.outputColorSpace = THREE.SRGBColorSpace
+    this._renderer.outputColorSpace = Three.SRGBColorSpace
     this._renderer.shadowMap.enabled = true
 
-    this._scene  = new THREE.Scene()
-    this._camera = new THREE.PerspectiveCamera(60, 1, 0.01, 100000)
+    this._scene  = new Three.Scene()
+    this._camera = new Three.PerspectiveCamera(60, 1, 0.01, 100000)
     this._camera.position.set(0, 2, 6)
 
     // OrbitControls — enabled by default; packages can configure via ctx.controls
@@ -58,7 +58,7 @@ export class PreviewPane {
     this._controls.maxDistance    = 500000
 
     // Bloom post-processing (strength starts at 0 = off)
-    this._bloomPass = new UnrealBloomPass(new THREE.Vector2(400, 300), 0, 0.4, 0.0)
+    this._bloomPass = new UnrealBloomPass(new Three.Vector2(400, 300), 0, 0.4, 0.0)
     this._composer  = new EffectComposer(this._renderer)
     this._composer.addPass(new RenderPass(this._scene, this._camera))
     this._composer.addPass(this._bloomPass)
@@ -73,7 +73,7 @@ export class PreviewPane {
     container.appendChild(this._css2DRenderer.domElement)
 
     // Idle placeholder lights (removed as soon as a module loads)
-    this._idleLight = new THREE.AmbientLight(0x445566, 0.8)
+    this._idleLight = new Three.AmbientLight(0x445566, 0.8)
     this._scene.add(this._idleLight)
 
     this._animationId    = null
@@ -82,7 +82,7 @@ export class PreviewPane {
     this._blobUrl        = null
     this._running        = false
     this._elapsed        = 0
-    this._clock          = new THREE.Clock(false)
+    this._clock          = new Three.Clock(false)
     this._assetFiles     = new Map()
     this._textureBlobUrls = []
 
@@ -192,13 +192,13 @@ export class PreviewPane {
 
     const ctx = {
       // ── Three.js core ───────────────────────────────────────────────────────
-      THREE,
+      Three,
       scene:         this._scene,
       camera:        this._camera,
       renderer:      this._renderer,
       /** OrbitControls instance — configure target, min/maxDistance, etc. */
       controls:      this._controls,
-      /** CSS2DRenderer — use with THREE.CSS2DObject for 3D-tracked DOM labels */
+      /** CSS2DRenderer — use with Three.CSS2DObject for 3D-tracked DOM labels */
       labelRenderer: this._css2DRenderer,
 
       // ── Scene management ────────────────────────────────────────────────────
@@ -236,12 +236,12 @@ export class PreviewPane {
 
       // ── Three.js shorthand constructors ─────────────────────────────────────
       // These replace what the DSL provided as syntax; e.g. ctx.vec3(1,2,3)
-      // instead of new THREE.Vector3(1,2,3).
-      vec2:  (x, y)          => new THREE.Vector2(x, y),
-      vec3:  (x, y, z)       => new THREE.Vector3(x, y, z),
-      vec4:  (x, y, z, w)    => new THREE.Vector4(x, y, z, w),
-      color: (r, g, b)       => new THREE.Color(r, g, b),
-      quat:  (x, y, z, w)    => new THREE.Quaternion(x, y, z, w),
+      // instead of new Three.Vector3(1,2,3).
+      vec2:  (x, y)          => new Three.Vector2(x, y),
+      vec3:  (x, y, z)       => new Three.Vector3(x, y, z),
+      vec4:  (x, y, z, w)    => new Three.Vector4(x, y, z, w),
+      color: (r, g, b)       => new Three.Color(r, g, b),
+      quat:  (x, y, z, w)    => new Three.Quaternion(x, y, z, w),
 
       // ── Iteration helpers ────────────────────────────────────────────────────
       /** range(n) → [0,1,…,n-1]  or  range(a,b) → [a,a+1,…,b-1] */
@@ -259,9 +259,9 @@ export class PreviewPane {
           const mime = ext === 'png' ? 'image/png' : 'image/jpeg'
           const url  = URL.createObjectURL(new Blob([bytes], { type: mime }))
           self._textureBlobUrls.push(url)
-          return new THREE.TextureLoader().load(url)
+          return new Three.TextureLoader().load(url)
         }
-        return new THREE.TextureLoader().load(path)
+        return new Three.TextureLoader().load(path)
       },
 
       // ── Time ────────────────────────────────────────────────────────────────

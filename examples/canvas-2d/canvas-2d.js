@@ -1,6 +1,6 @@
 // Canvas 2D — a generative painting (concentric rings + Lissajous) rendered live onto a 3D plane.
 
-import * as THREE from 'three'
+import * as Three from 'three'
 
 const SIZE = 512
 
@@ -38,8 +38,8 @@ export function setup(ctx) {
   ctx.camera.position.set(0, 0, 12)
   ctx.camera.lookAt(0, 0, 0)
 
-  ctx.add(new THREE.AmbientLight(0x222222, 1.0))
-  const pt = new THREE.PointLight(0xffffff, 1.2, 30)
+  ctx.add(new Three.AmbientLight(0x222222, 1.0))
+  const pt = new Three.PointLight(0xffffff, 1.2, 30)
   pt.position.set(4, 6, 8)
   ctx.add(pt)
   ctx._pt = pt
@@ -51,11 +51,11 @@ export function setup(ctx) {
   ctx._ctx2d.fillStyle = '#000'
   ctx._ctx2d.fillRect(0, 0, SIZE, SIZE)
 
-  ctx._texture = new THREE.CanvasTexture(ctx._canvas2d)
+  ctx._texture = new Three.CanvasTexture(ctx._canvas2d)
 
-  const geo = new THREE.PlaneGeometry(8, 8)
-  const mat = new THREE.MeshBasicMaterial({ map: ctx._texture })
-  ctx._plane = new THREE.Mesh(geo, mat)
+  const geo = new Three.PlaneGeometry(8, 8)
+  const mat = new Three.MeshBasicMaterial({ map: ctx._texture })
+  ctx._plane = new Three.Mesh(geo, mat)
   ctx.add(ctx._plane)
 }
 

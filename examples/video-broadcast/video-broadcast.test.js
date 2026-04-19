@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
-import * as THREE from 'three'
+import * as Three from 'three'
 
 // Stub getUserMedia — declared once at module scope; stays for all tests
 vi.stubGlobal('navigator', {
@@ -18,11 +18,11 @@ function makeMockCtx() {
   container.appendChild(canvas)
   const scene = { add: vi.fn(), remove: vi.fn(), children: [] }
   return {
-    THREE,
+    Three,
     scene,
-    camera: { position: new THREE.Vector3(0,0,9), fov:60, aspect:1, updateProjectionMatrix: vi.fn(), lookAt: vi.fn() },
+    camera: { position: new Three.Vector3(0,0,9), fov:60, aspect:1, updateProjectionMatrix: vi.fn(), lookAt: vi.fn() },
     renderer: { domElement: canvas, shadowMap: { enabled: false }, setSize: vi.fn() },
-    controls: { update: vi.fn(), target: new THREE.Vector3(), enableDamping: true },
+    controls: { update: vi.fn(), target: new Three.Vector3(), enableDamping: true },
     labelRenderer: { render: vi.fn(), setSize: vi.fn(), domElement: document.createElement('div') },
     add: vi.fn(obj => { scene.children.push(obj); return obj }),
     remove: vi.fn(),
@@ -62,7 +62,7 @@ describe('video-broadcast', () => {
   it('setup() completes and adds the webcam plane to the scene', async () => {
     await mod.setup(ctx)
     expect(ctx.add).toHaveBeenCalled()
-    const hasMesh = ctx.scene.children.some(o => o instanceof THREE.Mesh)
+    const hasMesh = ctx.scene.children.some(o => o instanceof Three.Mesh)
     expect(hasMesh).toBe(true)
   })
 

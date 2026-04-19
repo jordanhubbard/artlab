@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
-import * as THREE from 'three'
+import * as Three from 'three'
 
 vi.mock('three', async () => await vi.importActual('three'))
 
@@ -40,29 +40,29 @@ function makeMockCtx(overrides = {}) {
   container.appendChild(canvas)
   const scene = { add: vi.fn(), remove: vi.fn(), children: [] }
   const camera = {
-    position: new THREE.Vector3(0,2,6), lookAt: vi.fn(),
+    position: new Three.Vector3(0,2,6), lookAt: vi.fn(),
     fov: 60, aspect: 1, updateProjectionMatrix: vi.fn(),
-    projectionMatrix: new THREE.Matrix4(), matrixWorldInverse: new THREE.Matrix4(),
+    projectionMatrix: new Three.Matrix4(), matrixWorldInverse: new Three.Matrix4(),
   }
   return {
-    THREE, scene, camera,
+    Three, scene, camera,
     renderer: { domElement: canvas, shadowMap:{enabled:false}, setSize: vi.fn(), render: vi.fn() },
-    controls: { update: vi.fn(), target: new THREE.Vector3(), enabled: true, enableDamping: true },
+    controls: { update: vi.fn(), target: new Three.Vector3(), enabled: true, enableDamping: true },
     labelRenderer: { render: vi.fn(), setSize: vi.fn(), domElement: document.createElement('div') },
     add: vi.fn(obj => { scene.children.push(obj); return obj }),
     remove: vi.fn(),
     setBloom: vi.fn(),
     elapsed: 0,
-    sphere: (r=1,s=32) => new THREE.SphereGeometry(r,s,s),
-    box: (w=1,h=1,d=1) => new THREE.BoxGeometry(w,h,d),
-    cylinder: (rt=1,rb=1,h=1,s=32) => new THREE.CylinderGeometry(rt,rb,h,s),
-    torus: (r=1,t=0.4,rs=8,ts=32) => new THREE.TorusGeometry(r,t,rs,ts),
-    plane: (w=1,h=1) => new THREE.PlaneGeometry(w,h),
-    cone: (r=1,h=1,s=32) => new THREE.ConeGeometry(r,h,s),
-    mesh: (geo,opts={}) => new THREE.Mesh(geo, new THREE.MeshStandardMaterial(opts)),
-    ambient: (c=0x404040,i=1) => new THREE.AmbientLight(c,i),
-    point: (c=0xffffff,i=1,d=0,dc=2) => new THREE.PointLight(c,i,d,dc),
-    directional: (c=0xffffff,i=1) => new THREE.DirectionalLight(c,i),
+    sphere: (r=1,s=32) => new Three.SphereGeometry(r,s,s),
+    box: (w=1,h=1,d=1) => new Three.BoxGeometry(w,h,d),
+    cylinder: (rt=1,rb=1,h=1,s=32) => new Three.CylinderGeometry(rt,rb,h,s),
+    torus: (r=1,t=0.4,rs=8,ts=32) => new Three.TorusGeometry(r,t,rs,ts),
+    plane: (w=1,h=1) => new Three.PlaneGeometry(w,h),
+    cone: (r=1,h=1,s=32) => new Three.ConeGeometry(r,h,s),
+    mesh: (geo,opts={}) => new Three.Mesh(geo, new Three.MeshStandardMaterial(opts)),
+    ambient: (c=0x404040,i=1) => new Three.AmbientLight(c,i),
+    point: (c=0xffffff,i=1,d=0,dc=2) => new Three.PointLight(c,i,d,dc),
+    directional: (c=0xffffff,i=1) => new Three.DirectionalLight(c,i),
     ...overrides,
   }
 }
@@ -89,13 +89,13 @@ describe('audio-pulse', () => {
 
   it('setup() creates the core sphere mesh at ctx._core', () => {
     mod.setup(ctx)
-    expect(ctx._core).toBeInstanceOf(THREE.Mesh)
+    expect(ctx._core).toBeInstanceOf(Three.Mesh)
   })
 
   it('setup() creates SAT_COUNT satellite meshes in ctx._sats', () => {
     mod.setup(ctx)
     expect(ctx._sats).toHaveLength(8)
-    expect(ctx._sats[0]).toBeInstanceOf(THREE.Mesh)
+    expect(ctx._sats[0]).toBeInstanceOf(Three.Mesh)
   })
 
   it('setup() adds a start button to the container', () => {

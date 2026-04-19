@@ -8,7 +8,7 @@
  *   monitor.update(dt)
  *
  * The renderer argument is expected to expose a nested `_renderer` property
- * that is a THREE.WebGLRenderer (WebGL2Backend pattern used in Artlab):
+ * that is a Three.WebGLRenderer (WebGL2Backend pattern used in Artlab):
  *   renderer._renderer.info.render.{calls, triangles, points, lines}
  *   renderer._renderer.info.memory.{geometries, textures}
  */
@@ -174,7 +174,7 @@ const PANEL_CSS = `
 export class PerformanceMonitor {
   /**
    * @param {HTMLElement} container
-   * @param {object} renderer  - IRenderer wrapping a THREE.WebGLRenderer at ._renderer
+   * @param {object} renderer  - IRenderer wrapping a Three.WebGLRenderer at ._renderer
    */
   constructor(container, renderer) {
     this._container  = container

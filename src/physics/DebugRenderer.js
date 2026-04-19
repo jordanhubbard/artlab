@@ -1,20 +1,20 @@
-import * as THREE from 'three'
+import * as Three from 'three'
 import { OrbitalWorld } from './OrbitalWorld.js'
 import { RigidWorld } from './RigidWorld.js'
 import { ParticleWorld } from './ParticleWorld.js'
 
-const _MAT_ORBITAL  = new THREE.MeshBasicMaterial({ color: 0x00ff00, wireframe: true })
-const _MAT_RIGID    = new THREE.MeshBasicMaterial({ color: 0xffff00, wireframe: true })
-const _MAT_PARTICLE = new THREE.PointsMaterial({ color: 0x00ffff, size: 0.15 })
+const _MAT_ORBITAL  = new Three.MeshBasicMaterial({ color: 0x00ff00, wireframe: true })
+const _MAT_RIGID    = new Three.MeshBasicMaterial({ color: 0xffff00, wireframe: true })
+const _MAT_PARTICLE = new Three.PointsMaterial({ color: 0x00ffff, size: 0.15 })
 
 export class DebugRenderer {
   constructor(scene) {
     this._scene = scene
-    this._group = new THREE.Group()
+    this._group = new Three.Group()
     this._group.name = '__physics_debug__'
     this._enabled = false
     scene.add(this._group)
-    this._bodyMeshes = new Map()   // id → THREE.Object3D
+    this._bodyMeshes = new Map()   // id → Three.Object3D
   }
 
   toggle() { this._enabled = !this._enabled; this._group.visible = this._enabled }
@@ -53,8 +53,8 @@ export class DebugRenderer {
       liveIds.add(id)
       let mesh = this._bodyMeshes.get(id)
       if (!mesh) {
-        const geo = new THREE.SphereGeometry(0.5, 8, 6)
-        mesh = new THREE.Mesh(geo, _MAT_ORBITAL)
+        const geo = new Three.SphereGeometry(0.5, 8, 6)
+        mesh = new Three.Mesh(geo, _MAT_ORBITAL)
         this._group.add(mesh)
         this._bodyMeshes.set(id, mesh)
       }
@@ -84,19 +84,19 @@ export class DebugRenderer {
     let geo
     if (shape.type === 'sphere') {
       const radius = shape.radius ?? 0.5
-      geo = new THREE.SphereGeometry(radius, 8, 6)
+      geo = new Three.SphereGeometry(radius, 8, 6)
     } else if (shape.type === 'capsule') {
       const radius = shape.radius ?? 0.3
       const height = shape.height ?? 1.0
-      geo = new THREE.CapsuleGeometry(radius, height, 4, 8)
+      geo = new Three.CapsuleGeometry(radius, height, 4, 8)
     } else {
       // default: box
       const hw = shape.halfExtents?.x ?? 0.5
       const hh = shape.halfExtents?.y ?? 0.5
       const hd = shape.halfExtents?.z ?? 0.5
-      geo = new THREE.BoxGeometry(hw * 2, hh * 2, hd * 2)
+      geo = new Three.BoxGeometry(hw * 2, hh * 2, hd * 2)
     }
-    return new THREE.Mesh(geo, _MAT_RIGID)
+    return new Three.Mesh(geo, _MAT_RIGID)
   }
 
   _updateParticleWorld(world, liveIds) {
@@ -108,9 +108,9 @@ export class DebugRenderer {
       const count = particles.length
 
       if (!points) {
-        const geo = new THREE.BufferGeometry()
-        geo.setAttribute('position', new THREE.BufferAttribute(new Float32Array(0), 3))
-        points = new THREE.Points(geo, _MAT_PARTICLE)
+        const geo = new Three.BufferGeometry()
+        geo.setAttribute('position', new Three.BufferAttribute(new Float32Array(0), 3))
+        points = new Three.Points(geo, _MAT_PARTICLE)
         this._group.add(points)
         this._bodyMeshes.set(id, points)
       }
@@ -123,7 +123,7 @@ export class DebugRenderer {
         positions[i * 3 + 1] = p.position.y
         positions[i * 3 + 2] = p.position.z
       }
-      points.geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3))
+      points.geometry.setAttribute('position', new Three.BufferAttribute(positions, 3))
       points.geometry.setDrawRange(0, count)
       points.geometry.attributes.position.needsUpdate = true
     }

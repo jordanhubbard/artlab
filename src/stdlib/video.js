@@ -15,7 +15,7 @@
  *   videoPlane(texOrResult, opts) — PlaneGeometry Mesh sized to video aspect ratio
  */
 
-import * as THREE from 'three'
+import * as Three from 'three'
 
 // ---------------------------------------------------------------------------
 // Shared GLSL preamble — UV-based texture lookup used by all shader materials
@@ -40,7 +40,7 @@ const _VERT = /* glsl */`
  * @param {number} [options.width=1280]
  * @param {number} [options.height=720]
  * @param {'user'|'environment'} [options.facingMode='user']
- * @returns {{ texture: THREE.VideoTexture, video: HTMLVideoElement, start(): void, stop(): void, isReady(): boolean }}
+ * @returns {{ texture: Three.VideoTexture, video: HTMLVideoElement, start(): void, stop(): void, isReady(): boolean }}
  */
 export function webcam(options = {}) {
   const { width = 1280, height = 720, facingMode = 'user' } = options
@@ -58,7 +58,7 @@ export function webcam(options = {}) {
  * @param {object} [options]
  * @param {number} [options.width=1920]
  * @param {number} [options.height=1080]
- * @returns {{ texture: THREE.VideoTexture, video: HTMLVideoElement, start(): void, stop(): void, isReady(): boolean }}
+ * @returns {{ texture: Three.VideoTexture, video: HTMLVideoElement, start(): void, stop(): void, isReady(): boolean }}
  */
 export function screen(options = {}) {
   const { width = 1920, height = 1080 } = options
@@ -82,7 +82,7 @@ export function screen(options = {}) {
  * @param {boolean} [options.autoplay=true]
  * @param {boolean} [options.loop=true]
  * @param {boolean} [options.muted=true]
- * @returns {{ texture: THREE.VideoTexture, video: HTMLVideoElement, play(): void, pause(): void, loop(bool): void, currentTime: number, duration: number }}
+ * @returns {{ texture: Three.VideoTexture, video: HTMLVideoElement, play(): void, pause(): void, loop(bool): void, currentTime: number, duration: number }}
  */
 export function videoTexture(src, options = {}) {
   const { autoplay = true, loop = true, muted = true } = options
@@ -94,8 +94,8 @@ export function videoTexture(src, options = {}) {
   video.playsInline  = true
   video.crossOrigin  = 'anonymous'
 
-  const texture = new THREE.VideoTexture(video)
-  texture.colorSpace = THREE.SRGBColorSpace
+  const texture = new Three.VideoTexture(video)
+  texture.colorSpace = Three.SRGBColorSpace
 
   if (autoplay) video.play()
 
@@ -182,13 +182,13 @@ export function captureCanvas(canvas, options = {}) {
 /**
  * ShaderMaterial that removes a chroma key color from a video texture (green-screen).
  *
- * @param {THREE.Texture} texture     Source video (or any) texture
- * @param {THREE.Color}   keyColor    Color to key out
+ * @param {Three.Texture} texture     Source video (or any) texture
+ * @param {Three.Color}   keyColor    Color to key out
  * @param {number}        threshold   Similarity threshold in [0, 1] (default 0.3)
- * @returns {THREE.ShaderMaterial}
+ * @returns {Three.ShaderMaterial}
  */
-export function chromaKey(texture, keyColor = new THREE.Color(0, 1, 0), threshold = 0.3) {
-  return new THREE.ShaderMaterial({
+export function chromaKey(texture, keyColor = new Three.Color(0, 1, 0), threshold = 0.3) {
+  return new Three.ShaderMaterial({
     uniforms: {
       map:       { value: texture },
       keyColor:  { value: keyColor },
@@ -209,24 +209,24 @@ export function chromaKey(texture, keyColor = new THREE.Color(0, 1, 0), threshol
       }
     `,
     transparent: true,
-    side: THREE.DoubleSide,
+    side: Three.DoubleSide,
   })
 }
 
 /**
  * ShaderMaterial that renders a texture pixelated at a given block size.
  *
- * @param {THREE.Texture} texture    Source video (or any) texture
+ * @param {Three.Texture} texture    Source video (or any) texture
  * @param {number}        blockSize  Pixel block size in texels (default 8)
- * @returns {THREE.ShaderMaterial}
+ * @returns {Three.ShaderMaterial}
  */
 export function pixelate(texture, blockSize = 8) {
-  return new THREE.ShaderMaterial({
+  return new Three.ShaderMaterial({
     uniforms: {
       map:       { value: texture },
       blockSize: { value: blockSize },
       resolution: {
-        value: new THREE.Vector2(
+        value: new Three.Vector2(
           texture.image?.videoWidth  ?? texture.image?.width  ?? 1280,
           texture.image?.videoHeight ?? texture.image?.height ?? 720,
         ),
@@ -245,23 +245,23 @@ export function pixelate(texture, blockSize = 8) {
         gl_FragColor = texture2D(map, snapped);
       }
     `,
-    side: THREE.DoubleSide,
+    side: Three.DoubleSide,
   })
 }
 
 /**
  * ShaderMaterial with an RGB-split and scanline glitch effect.
  *
- * @param {THREE.Texture} texture
+ * @param {Three.Texture} texture
  * @param {object} [options]
  * @param {number} [options.intensity=0.01]  RGB channel separation amount (UV units)
  * @param {number} [options.speed=1.0]       Scanline animation speed multiplier
- * @returns {THREE.ShaderMaterial}
+ * @returns {Three.ShaderMaterial}
  */
 export function glitch(texture, options = {}) {
   const { intensity = 0.01, speed = 1.0 } = options
 
-  return new THREE.ShaderMaterial({
+  return new Three.ShaderMaterial({
     uniforms: {
       map:       { value: texture },
       intensity: { value: intensity },
@@ -296,7 +296,7 @@ export function glitch(texture, options = {}) {
         gl_FragColor = vec4(vec3(r, g, b) * scan, a);
       }
     `,
-    side: THREE.DoubleSide,
+    side: Three.DoubleSide,
   })
 }
 
@@ -307,15 +307,15 @@ export function glitch(texture, options = {}) {
 /**
  * Create a PlaneGeometry mesh sized to the correct aspect ratio of a video texture.
  *
- * Accepts either a raw THREE.VideoTexture or the result objects returned by
+ * Accepts either a raw Three.VideoTexture or the result objects returned by
  * webcam(), screen(), and videoTexture().
  *
- * @param {THREE.VideoTexture|{ texture: THREE.VideoTexture, video: HTMLVideoElement }} textureOrResult
+ * @param {Three.VideoTexture|{ texture: Three.VideoTexture, video: HTMLVideoElement }} textureOrResult
  * @param {object} [options]
  * @param {number} [options.width=2]       Desired display width in scene units
  * @param {number} [options.height]        If omitted, derived from video aspect ratio
- * @param {THREE.Material} [options.material]  Override material (defaults to MeshBasicMaterial)
- * @returns {THREE.Mesh}
+ * @param {Three.Material} [options.material]  Override material (defaults to MeshBasicMaterial)
+ * @returns {Three.Mesh}
  */
 export function videoPlane(textureOrResult, options = {}) {
   const texture = textureOrResult?.texture ?? textureOrResult
@@ -329,10 +329,10 @@ export function videoPlane(textureOrResult, options = {}) {
     height = (vh / vw) * width
   }
 
-  const geo = new THREE.PlaneGeometry(width, height)
-  const mat = material ?? new THREE.MeshBasicMaterial({ map: texture, side: THREE.DoubleSide })
+  const geo = new Three.PlaneGeometry(width, height)
+  const mat = material ?? new Three.MeshBasicMaterial({ map: texture, side: Three.DoubleSide })
 
-  return new THREE.Mesh(geo, mat)
+  return new Three.Mesh(geo, mat)
 }
 
 // ---------------------------------------------------------------------------
@@ -344,7 +344,7 @@ export function videoPlane(textureOrResult, options = {}) {
  * Returns the same handle shape as webcam() / screen().
  *
  * @param {() => Promise<MediaStream>} acquireFn
- * @returns {{ texture: THREE.VideoTexture, video: HTMLVideoElement, start(): void, stop(): void, isReady(): boolean }}
+ * @returns {{ texture: Three.VideoTexture, video: HTMLVideoElement, start(): void, stop(): void, isReady(): boolean }}
  */
 function _mediaStream(acquireFn) {
   const video = document.createElement('video')
@@ -352,8 +352,8 @@ function _mediaStream(acquireFn) {
   video.muted       = true
   video.autoplay    = true
 
-  const texture = new THREE.VideoTexture(video)
-  texture.colorSpace = THREE.SRGBColorSpace
+  const texture = new Three.VideoTexture(video)
+  texture.colorSpace = Three.SRGBColorSpace
 
   let _stream = null
   let _ready  = false

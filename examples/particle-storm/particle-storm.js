@@ -50,7 +50,7 @@ function spawn(p, seed) {
 }
 
 export function setup(ctx) {
-  const { THREE, sphere, mesh, ambient, point } = ctx;
+  const { Three, sphere, mesh, ambient, point } = ctx;
 
   ctx.camera.position.set(0, 2, 14);
 
@@ -63,11 +63,11 @@ export function setup(ctx) {
   ctx._particles = [];
 
   for (let i = 0; i < NUM; i++) {
-    const mat = new THREE.MeshStandardMaterial({
-      color: 0xffffff, emissive: new THREE.Color(0xffffff),
+    const mat = new Three.MeshStandardMaterial({
+      color: 0xffffff, emissive: new Three.Color(0xffffff),
       roughness: 1.0, metalness: 0.0
     });
-    const p = new THREE.Mesh(geo, mat);
+    const p = new Three.Mesh(geo, mat);
     spawn(p, i * 7.0 + 1.0);
     ctx.add(p);
     ctx._particles.push(p);

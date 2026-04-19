@@ -8,8 +8,8 @@ export class IRenderer {
   get domElement() { throw new Error('not implemented') }
 
   /**
-   * @param {THREE.Scene} scene
-   * @param {THREE.Camera} camera
+   * @param {Three.Scene} scene
+   * @param {Three.Camera} camera
    */
   render(scene, camera) { throw new Error('not implemented') }
 

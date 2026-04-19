@@ -2,16 +2,16 @@
 // Panels: Raw | Pixelate | Glitch | Edge Detection
 // Press G to toggle heavy glitch mode, P to bump pixelation up/down.
 
-import * as THREE from 'three'
+import * as Three from 'three'
 import { webcam, captureCanvas } from '../../src/stdlib/video.js'
 
 const W = 5.0, H = W * (9 / 16)
 
 const POSITIONS = [
-  new THREE.Vector3(-W / 2 - 0.12,  H / 2 + 0.12, 0),
-  new THREE.Vector3( W / 2 + 0.12,  H / 2 + 0.12, 0),
-  new THREE.Vector3(-W / 2 - 0.12, -H / 2 - 0.12, 0),
-  new THREE.Vector3( W / 2 + 0.12, -H / 2 - 0.12, 0),
+  new Three.Vector3(-W / 2 - 0.12,  H / 2 + 0.12, 0),
+  new Three.Vector3( W / 2 + 0.12,  H / 2 + 0.12, 0),
+  new Three.Vector3(-W / 2 - 0.12, -H / 2 - 0.12, 0),
+  new Three.Vector3( W / 2 + 0.12, -H / 2 - 0.12, 0),
 ]
 
 const LABELS = ['RAW', 'PIXELATE', 'GLITCH', 'EDGES']
@@ -24,11 +24,11 @@ const VERT = /* glsl */`
 `
 
 function makePixelate(tex) {
-  return new THREE.ShaderMaterial({
+  return new Three.ShaderMaterial({
     uniforms: {
       map:       { value: tex },
       blockSize: { value: 16.0 },
-      res:       { value: new THREE.Vector2(1280, 720) },
+      res:       { value: new Three.Vector2(1280, 720) },
     },
     vertexShader: VERT,
     fragmentShader: /* glsl */`
@@ -41,12 +41,12 @@ function makePixelate(tex) {
         gl_FragColor = texture2D(map, snapped);
       }
     `,
-    side: THREE.DoubleSide,
+    side: Three.DoubleSide,
   })
 }
 
 function makeGlitch(tex) {
-  return new THREE.ShaderMaterial({
+  return new Three.ShaderMaterial({
     uniforms: {
       map:       { value: tex },
       intensity: { value: 0.04 },
@@ -87,15 +87,15 @@ function makeGlitch(tex) {
         gl_FragColor = col;
       }
     `,
-    side: THREE.DoubleSide,
+    side: Three.DoubleSide,
   })
 }
 
 function makeEdge(tex) {
-  return new THREE.ShaderMaterial({
+  return new Three.ShaderMaterial({
     uniforms: {
       map:  { value: tex },
-      res:  { value: new THREE.Vector2(1280, 720) },
+      res:  { value: new Three.Vector2(1280, 720) },
     },
     vertexShader: VERT,
     fragmentShader: /* glsl */`
@@ -125,7 +125,7 @@ function makeEdge(tex) {
         gl_FragColor = vec4(glow, 1.0);
       }
     `,
-    side: THREE.DoubleSide,
+    side: Three.DoubleSide,
   })
 }
 
@@ -143,7 +143,7 @@ export async function setup(ctx) {
   ctx.camera.position.set(0, 0, 11)
   ctx.setBloom(0.2)
 
-  ctx.add(new THREE.AmbientLight(0x112233, 1.0))
+  ctx.add(new Three.AmbientLight(0x112233, 1.0))
 
   // Allow Camera gesture
   await _awaitGesture(ctx.renderer.domElement.parentElement)
@@ -151,7 +151,7 @@ export async function setup(ctx) {
   const tex = _cam.texture
 
   // Effect materials
-  const rawMat  = new THREE.MeshBasicMaterial({ map: tex, side: THREE.DoubleSide })
+  const rawMat  = new Three.MeshBasicMaterial({ map: tex, side: Three.DoubleSide })
   _pixMat       = makePixelate(tex)
   _glitchMat    = makeGlitch(tex)
   const edgeMat = makeEdge(tex)
@@ -159,8 +159,8 @@ export async function setup(ctx) {
   const materials = [rawMat, _pixMat, _glitchMat, edgeMat]
 
   // Build 4 planes with edge frames and DOM labels
-  const planeGeo = new THREE.PlaneGeometry(W, H)
-  const frameGeo = new THREE.EdgesGeometry(new THREE.PlaneGeometry(W, H))
+  const planeGeo = new Three.PlaneGeometry(W, H)
+  const frameGeo = new Three.EdgesGeometry(new Three.PlaneGeometry(W, H))
   _planes = []
   _labels = []
 
@@ -168,14 +168,14 @@ export async function setup(ctx) {
   container.style.position = 'relative'
 
   POSITIONS.forEach((pos, i) => {
-    const mesh = new THREE.Mesh(planeGeo, materials[i])
+    const mesh = new Three.Mesh(planeGeo, materials[i])
     mesh.position.copy(pos)
     ctx.add(mesh)
     _planes.push(mesh)
 
-    const frame = new THREE.LineSegments(
+    const frame = new Three.LineSegments(
       frameGeo,
-      new THREE.LineBasicMaterial({ color: 0x2255aa })
+      new Three.LineBasicMaterial({ color: 0x2255aa })
     )
     frame.position.copy(pos)
     ctx.add(frame)
@@ -195,7 +195,7 @@ export async function setup(ctx) {
       zIndex: '5',
     })
     container.appendChild(lbl)
-    _labels.push({ el: lbl, pos3d: new THREE.Vector3(pos.x, pos.y - H / 2 - 0.22, 0) })
+    _labels.push({ el: lbl, pos3d: new Three.Vector3(pos.x, pos.y - H / 2 - 0.22, 0) })
   })
 
   _recorder = captureCanvas(ctx.renderer.domElement, { fps: 30 })

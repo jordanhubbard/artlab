@@ -31,7 +31,7 @@
  */
 
 import { CSS2DObject } from 'three/addons/renderers/CSS2DRenderer.js'
-import * as THREE from 'three'
+import * as Three from 'three'
 
 // ---------------------------------------------------------------------------
 // label
@@ -44,7 +44,7 @@ import * as THREE from 'three'
  * CSS2DRenderer.  The returned handle lets you update text and opacity or
  * detach the label entirely.
  *
- * @param {THREE.Object3D} obj         Object to attach the label to
+ * @param {Three.Object3D} obj         Object to attach the label to
  * @param {string}         text        Initial label text
  * @param {object}         [options]
  * @param {string}  [options.color='#ffffff']        CSS colour of the text

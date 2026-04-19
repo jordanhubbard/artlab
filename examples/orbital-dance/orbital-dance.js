@@ -14,7 +14,7 @@ const PLANET_DATA = [
 ];
 
 export function setup(ctx) {
-  const { THREE, sphere, mesh, ambient, point } = ctx;
+  const { Three, sphere, mesh, ambient, point } = ctx;
 
   ctx.camera.position.set(0, 12, 20);
   ctx.camera.lookAt(0, 0, 0);
@@ -26,7 +26,7 @@ export function setup(ctx) {
   const sunMesh = mesh(sphere(0.9, 16), {
     color: 0xfffbe8, roughness: 1.0, metalness: 0.0
   });
-  sunMesh.material.emissive = new THREE.Color(0xffcc44);
+  sunMesh.material.emissive = new Three.Color(0xffcc44);
   ctx.add(sunMesh);
 
   // Sun light
@@ -39,14 +39,14 @@ export function setup(ctx) {
   for (let pi = 0; pi < PLANET_COUNT; pi++) {
     const pd = PLANET_DATA[pi];
     const planetMesh = mesh(sphere(0.28, 12), { color: pd.color, roughness: 0.4, metalness: 0.7 });
-    planetMesh.material.emissive = new THREE.Color(pd.emissive);
+    planetMesh.material.emissive = new Three.Color(pd.emissive);
     planetMesh.position.set(pd.radius, 0, 0);
     ctx.add(planetMesh);
 
     const trail = [];
     for (let ti = 0; ti < TRAIL_LEN; ti++) {
       const ghost = mesh(sphere(0.08, 6), { color: 0x000000, roughness: 1.0, metalness: 0.0 });
-      ghost.material.emissive = new THREE.Color(pd.trailEmissive);
+      ghost.material.emissive = new Three.Color(pd.trailEmissive);
       ghost.position.set(pd.radius, 0, 0);
       ctx.add(ghost);
       trail.push(ghost);

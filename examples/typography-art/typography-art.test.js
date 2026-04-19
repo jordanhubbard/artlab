@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import * as THREE from 'three'
+import * as Three from 'three'
 
 vi.mock('three', async () => await vi.importActual('three'))
 
@@ -61,7 +61,7 @@ function makeMockCtx(overrides = {}) {
     children: [],
   }
   const camera = {
-    position: new THREE.Vector3(0, 0, 50),
+    position: new Three.Vector3(0, 0, 50),
     lookAt: vi.fn(),
     aspect: 1,
     updateProjectionMatrix: vi.fn(),
@@ -70,7 +70,7 @@ function makeMockCtx(overrides = {}) {
   const controls = {
     update: vi.fn(),
     enableDamping: true,
-    target: new THREE.Vector3(),
+    target: new Three.Vector3(),
   }
   const renderer = {
     domElement: document.createElement('canvas'),
@@ -81,18 +81,18 @@ function makeMockCtx(overrides = {}) {
   }
 
   function plane(w = 1, h = 1) {
-    return new THREE.PlaneGeometry(w, h)
+    return new Three.PlaneGeometry(w, h)
   }
   function mesh(geometry, options = {}) {
     const { color = 0xffffff, roughness = 0.7, metalness = 0.0 } = options
-    return new THREE.Mesh(geometry, new THREE.MeshStandardMaterial({ color, roughness, metalness }))
+    return new Three.Mesh(geometry, new Three.MeshStandardMaterial({ color, roughness, metalness }))
   }
   function ambient(color = 0x404040, intensity = 1) {
-    return new THREE.AmbientLight(color, intensity)
+    return new Three.AmbientLight(color, intensity)
   }
 
   const ctx = {
-    THREE,
+    Three,
     scene,
     camera,
     renderer,

@@ -1,4 +1,4 @@
-import * as THREE from 'three'
+import * as Three from 'three'
 import { ArtlabTextureLoader } from './TextureLoader.js'
 import { AudioAssetLoader } from './AudioAssetLoader.js'
 
@@ -124,7 +124,7 @@ export class AssetManager {
    * Get a previously-loaded asset synchronously.
    * Returns null if not yet loaded or failed.
    * @param {string} path
-   * @returns {THREE.Texture|AudioBuffer|string|null}
+   * @returns {Three.Texture|AudioBuffer|string|null}
    */
   get(path) {
     const entry = this._registry.get(path)

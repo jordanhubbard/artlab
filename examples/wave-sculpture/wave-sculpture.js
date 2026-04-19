@@ -17,7 +17,7 @@ function colorFromY(y) {
 }
 
 export function setup(ctx) {
-  const { THREE, sphere, mesh, directional, point, ambient } = ctx;
+  const { Three, sphere, mesh, directional, point, ambient } = ctx;
 
   ctx.camera.position.set(0, 8, 20);
   ctx.camera.lookAt(0, 0, 0);
@@ -40,7 +40,7 @@ export function setup(ctx) {
       const xpos = (col - HALF_N) * SPACING;
       const zpos = (row - HALF_N) * SPACING;
       const ball = mesh(geo, { color: 0x00aaff, roughness: 0.3, metalness: 0.6 });
-      ball.material.emissive = new THREE.Color(0x001133);
+      ball.material.emissive = new Three.Color(0x001133);
       ball.position.set(xpos, 0, zpos);
       ball.userData.col = col;
       ball.userData.row = row;

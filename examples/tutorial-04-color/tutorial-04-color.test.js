@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import * as THREE from 'three'
+import * as Three from 'three'
 import { setup, update, teardown } from './tutorial-04-color.js'
 
 vi.mock('three', async () => await vi.importActual('three'))
@@ -11,17 +11,17 @@ function makeMockCtx() {
 
   const scene = { add: vi.fn(), remove: vi.fn(), children: [] }
   const camera = {
-    position: new THREE.Vector3(0, 2, 9),
+    position: new Three.Vector3(0, 2, 9),
     lookAt: vi.fn(),
     fov: 60,
     aspect: 1,
     updateProjectionMatrix: vi.fn(),
-    projectionMatrix: new THREE.Matrix4(),
-    matrixWorldInverse: new THREE.Matrix4(),
+    projectionMatrix: new Three.Matrix4(),
+    matrixWorldInverse: new Three.Matrix4(),
   }
 
   return {
-    THREE,
+    Three,
     scene,
     camera,
     renderer: {
@@ -29,7 +29,7 @@ function makeMockCtx() {
       shadowMap: { enabled: false },
       setSize: vi.fn(),
     },
-    controls: { update: vi.fn(), target: new THREE.Vector3(), enabled: true },
+    controls: { update: vi.fn(), target: new Three.Vector3(), enabled: true },
     labelRenderer: {
       render: vi.fn(),
       setSize: vi.fn(),

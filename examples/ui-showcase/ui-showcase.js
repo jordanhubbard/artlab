@@ -2,7 +2,7 @@
 // Demonstrates: canvas-relative panels, buttons, sliders, hover tooltips,
 // live stat readout — all positioned within the canvas container.
 
-import * as THREE from 'three'
+import * as Three from 'three'
 
 const OBJECTS = [
   { name: 'Sphere',   color: 0x4466ff },
@@ -136,11 +136,11 @@ function buildUI(container, ctx) {
 
 function _makeGeo(shape) {
   switch (shape) {
-    case 'box':      return new THREE.BoxGeometry(1, 1, 1)
-    case 'torus':    return new THREE.TorusGeometry(0.5, 0.2, 16, 40)
-    case 'cylinder': return new THREE.CylinderGeometry(0.4, 0.4, 1, 32)
-    case 'cone':     return new THREE.ConeGeometry(0.5, 1, 32)
-    default:         return new THREE.SphereGeometry(0.6, 28, 16)
+    case 'box':      return new Three.BoxGeometry(1, 1, 1)
+    case 'torus':    return new Three.TorusGeometry(0.5, 0.2, 16, 40)
+    case 'cylinder': return new Three.CylinderGeometry(0.4, 0.4, 1, 32)
+    case 'cone':     return new Three.ConeGeometry(0.5, 1, 32)
+    default:         return new Three.SphereGeometry(0.6, 28, 16)
   }
 }
 
@@ -151,12 +151,12 @@ function _rebuildMeshes(ctx) {
   const geo = _makeGeo(_shape)
   for (let i = 0; i < OBJECTS.length; i++) {
     const { name, color } = OBJECTS[i]
-    const mat = new THREE.MeshStandardMaterial({
+    const mat = new Three.MeshStandardMaterial({
       color, roughness: 0.35, metalness: 0.2,
-      emissive: new THREE.Color(color).multiplyScalar(0.12),
+      emissive: new Three.Color(color).multiplyScalar(0.12),
       wireframe: _wireframe,
     })
-    const m = new THREE.Mesh(geo, mat)
+    const m = new Three.Mesh(geo, mat)
     m.userData.label = name
     m.userData.hex = '#' + color.toString(16).padStart(6, '0')
     const angle = (i / OBJECTS.length) * Math.PI * 2
@@ -172,11 +172,11 @@ export function setup(ctx) {
   ctx.camera.position.set(0, 4, 10)
   ctx.camera.lookAt(0, 0, 0)
 
-  ctx.add(new THREE.AmbientLight(0x223355, 0.7))
-  const sun = new THREE.DirectionalLight(0xffffff, 1.3)
+  ctx.add(new Three.AmbientLight(0x223355, 0.7))
+  const sun = new Three.DirectionalLight(0xffffff, 1.3)
   sun.position.set(5, 8, 6)
   ctx.add(sun)
-  const rim = new THREE.PointLight(0x4466ff, 1.0, 30)
+  const rim = new Three.PointLight(0x4466ff, 1.0, 30)
   rim.position.set(-6, 4, -5)
   ctx.add(rim)
 
@@ -186,8 +186,8 @@ export function setup(ctx) {
   buildUI(container, ctx)
 
   // Raycasting for tooltip
-  _raycaster = new THREE.Raycaster()
-  _mouse = new THREE.Vector2(-9, -9)
+  _raycaster = new Three.Raycaster()
+  _mouse = new Three.Vector2(-9, -9)
 
   _onMove = (e) => {
     const rect = ctx.renderer.domElement.getBoundingClientRect()

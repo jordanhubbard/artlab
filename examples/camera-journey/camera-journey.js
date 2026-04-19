@@ -25,7 +25,7 @@ const ORBITER_DATA = [
 ]
 
 export function setup(ctx) {
-  const { THREE, sphere, torus, mesh, ambient, point } = ctx
+  const { Three, sphere, torus, mesh, ambient, point } = ctx
 
   ctx.setBloom(1.0)
   ctx.controls.enabled = false
@@ -43,7 +43,7 @@ export function setup(ctx) {
 
   // Core sphere — large glowing emissive
   const coreMesh = mesh(sphere(1.2, 48), { color: 0xffffff, roughness: 0.15, metalness: 0.2 })
-  coreMesh.material.emissive = new THREE.Color(0xffffff)
+  coreMesh.material.emissive = new Three.Color(0xffffff)
   coreMesh.material.emissiveIntensity = 0.9
   ctx.add(coreMesh)
   ctx._core = coreMesh
@@ -57,7 +57,7 @@ export function setup(ctx) {
   ctx._rings = []
   for (const rd of RING_DATA) {
     const ringMesh = mesh(torus(rd.radius, rd.tube, 16, 80), { color: rd.color, roughness: 0.3, metalness: 0.5 })
-    ringMesh.material.emissive = new THREE.Color(rd.color)
+    ringMesh.material.emissive = new Three.Color(rd.color)
     ringMesh.material.emissiveIntensity = 0.7
     ringMesh.rotation.x = rd.tiltX
     ringMesh.rotation.z = rd.tiltZ
@@ -69,7 +69,7 @@ export function setup(ctx) {
   ctx._orbiters = []
   for (const od of ORBITER_DATA) {
     const orbMesh = mesh(sphere(od.radius, 12), { color: od.color, roughness: 0.4, metalness: 0.6 })
-    orbMesh.material.emissive = new THREE.Color(od.emissive)
+    orbMesh.material.emissive = new Three.Color(od.emissive)
     orbMesh.material.emissiveIntensity = 0.5
     ctx.add(orbMesh)
     ctx._orbiters.push({ mesh: orbMesh, ...od })

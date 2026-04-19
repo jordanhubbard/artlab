@@ -37,7 +37,7 @@ function rand(seed) {
 }
 
 export function setup(ctx) {
-  const { THREE, sphere, plane, mesh, ambient, point } = ctx;
+  const { Three, sphere, plane, mesh, ambient, point } = ctx;
 
   ctx.camera.position.set(0, 1.5, 0);
   ctx.controls.target.set(0, 6, -16);
@@ -57,7 +57,7 @@ export function setup(ctx) {
 
   // Ground plane
   const groundMesh = mesh(plane(80, 80), { color: 0x050808, roughness: 1.0, metalness: 0.0 });
-  groundMesh.material.emissive = new THREE.Color(0x020404);
+  groundMesh.material.emissive = new Three.Color(0x020404);
   groundMesh.rotation.x = -Math.PI / 2;
   ctx.add(groundMesh);
 
@@ -73,10 +73,10 @@ export function setup(ctx) {
     const sz = Math.sin(theta) * Math.sin(phi) * dome_r - 20;
 
     const col = starColor(i);
-    const mat = new THREE.MeshStandardMaterial({
+    const mat = new Three.MeshStandardMaterial({
       color: col, emissive: col, roughness: 1.0, metalness: 0.0
     });
-    const star = new THREE.Mesh(starGeo, mat);
+    const star = new Three.Mesh(starGeo, mat);
     const ss = 0.3 + rand(i * 5.5) * 1.4;
     star.scale.set(ss, ss, ss);
     star.position.set(sx, sy, sz);
@@ -97,12 +97,12 @@ export function setup(ctx) {
     for (let seg = 0; seg < CURTAIN_SEGS; seg++) {
       const base_y = 2.0 + seg * segH + segH * 0.5;
       const panelGeo = plane(CURTAIN_WIDTH, segH);
-      const mat = new THREE.MeshStandardMaterial({
+      const mat = new Three.MeshStandardMaterial({
         color: 0x000000,
-        emissive: new THREE.Color(emissiveBase),
+        emissive: new Three.Color(emissiveBase),
         roughness: 1.0, metalness: 0.0
       });
-      const panel = new THREE.Mesh(panelGeo, mat);
+      const panel = new Three.Mesh(panelGeo, mat);
       panel.position.set(cx, base_y, cz);
       panel.rotation.y = arcAngle + Math.PI / 2;
       panel.rotation.z = tilt;

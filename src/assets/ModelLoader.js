@@ -1,4 +1,4 @@
-import * as THREE from 'three'
+import * as Three from 'three'
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js'
 import { OBJLoader } from 'three/addons/loaders/OBJLoader.js'
 import { DRACOLoader } from 'three/addons/loaders/DRACOLoader.js'
@@ -15,7 +15,7 @@ export class ModelLoader {
   }
 
   /**
-   * Load a GLTF/GLB or OBJ from a URL — returns a Promise of THREE.Group.
+   * Load a GLTF/GLB or OBJ from a URL — returns a Promise of Three.Group.
    * Format is detected from the file extension (.glb, .gltf → GLTF; .obj → OBJ).
    *
    * @param {string} url
@@ -23,7 +23,7 @@ export class ModelLoader {
    * @param {boolean} [options.castShadow=false]
    * @param {boolean} [options.receiveShadow=false]
    * @param {number}  [options.scale]  uniform scale applied after loading
-   * @returns {Promise<THREE.Group>}
+   * @returns {Promise<Three.Group>}
    */
   async loadURL(url, options = {}) {
     if (this._cache.has(url)) return this._cache.get(url).clone()
@@ -56,7 +56,7 @@ export class ModelLoader {
    * @param {boolean} [options.castShadow=false]
    * @param {boolean} [options.receiveShadow=false]
    * @param {number}  [options.scale]  uniform scale applied after loading
-   * @returns {Promise<THREE.Group>}
+   * @returns {Promise<Three.Group>}
    */
   async loadPackage(reader, path, options = {}) {
     if (this._cache.has(path)) return this._cache.get(path).clone()
@@ -89,17 +89,17 @@ export class ModelLoader {
    * The model is scaled so its largest dimension equals targetSize, then
    * repositioned so its bounding-box center sits at the origin.
    *
-   * @param {THREE.Group} group
+   * @param {Three.Group} group
    * @param {number} [targetSize=1]
-   * @returns {THREE.Group}
+   * @returns {Three.Group}
    */
   normalize(group, targetSize = 1) {
-    const box = new THREE.Box3().setFromObject(group)
-    const size = new THREE.Vector3()
+    const box = new Three.Box3().setFromObject(group)
+    const size = new Three.Vector3()
     box.getSize(size)
     const maxDim = Math.max(size.x, size.y, size.z)
     group.scale.setScalar(targetSize / maxDim)
-    const center = new THREE.Vector3()
+    const center = new Three.Vector3()
     box.getCenter(center)
     group.position.sub(center.multiplyScalar(targetSize / maxDim))
     return group

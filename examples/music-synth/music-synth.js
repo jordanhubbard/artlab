@@ -3,7 +3,7 @@
 // Four voices: bass pad, arp melody, chord synth, snare/hit accents.
 
 import * as Tone from 'tone'
-import * as THREE from 'three'
+import * as Three from 'three'
 import {
   scale, chord, progression, sequencer, reverb, delay,
 } from '../../src/stdlib/audio.js'
@@ -111,12 +111,12 @@ function _build3D(ctx) {
   // Ring array — one per chord in progression
   _rings = []
   for (let ci = 0; ci < PROG.length; ci++) {
-    const geo = new THREE.TorusGeometry(2 + ci * 1.4, 0.06, 8, 80)
-    const mat = new THREE.MeshStandardMaterial({
-      color: CHORD_COLORS[ci], emissive: new THREE.Color(CHORD_COLORS[ci]),
+    const geo = new Three.TorusGeometry(2 + ci * 1.4, 0.06, 8, 80)
+    const mat = new Three.MeshStandardMaterial({
+      color: CHORD_COLORS[ci], emissive: new Three.Color(CHORD_COLORS[ci]),
       emissiveIntensity: 0.3, roughness: 0.4, metalness: 0.6,
     })
-    const ring = new THREE.Mesh(geo, mat)
+    const ring = new Three.Mesh(geo, mat)
     ring.rotation.x = (ci * 0.4)
     ctx.add(ring)
     _rings.push(ring)
@@ -133,17 +133,17 @@ function _build3D(ctx) {
     pos[i*3+1] = r * Math.sin(phi) * Math.sin(theta)
     pos[i*3+2] = r * Math.cos(phi)
   }
-  const pgeo = new THREE.BufferGeometry()
-  pgeo.setAttribute('position', new THREE.BufferAttribute(pos, 3))
-  _particles = new THREE.Points(pgeo, new THREE.PointsMaterial({
+  const pgeo = new Three.BufferGeometry()
+  pgeo.setAttribute('position', new Three.BufferAttribute(pos, 3))
+  _particles = new Three.Points(pgeo, new Three.PointsMaterial({
     color: 0x4488cc, size: 0.07, transparent: true, opacity: 0.6,
   }))
   ctx.add(_particles)
 
   // Beat flash sphere (center)
-  _beatFlash = new THREE.Mesh(
-    new THREE.SphereGeometry(0.55, 32, 16),
-    new THREE.MeshStandardMaterial({ color: 0xffffff, emissive: 0x8899ff, emissiveIntensity: 0.5, roughness: 0.2 })
+  _beatFlash = new Three.Mesh(
+    new Three.SphereGeometry(0.55, 32, 16),
+    new Three.MeshStandardMaterial({ color: 0xffffff, emissive: 0x8899ff, emissiveIntensity: 0.5, roughness: 0.2 })
   )
   ctx.add(_beatFlash)
 
@@ -164,8 +164,8 @@ export function setup(ctx) {
   ctx.camera.position.set(0, 3, 16)
   ctx.camera.lookAt(0, 0, 0)
 
-  ctx.add(new THREE.AmbientLight(0x111122, 0.6))
-  const pt = new THREE.PointLight(0xffffff, 1.5, 60, 2)
+  ctx.add(new Three.AmbientLight(0x111122, 0.6))
+  const pt = new Three.PointLight(0xffffff, 1.5, 60, 2)
   pt.position.set(0, 8, 6)
   ctx.add(pt)
 
@@ -216,10 +216,10 @@ export function update(ctx, dt) {
       const mat = _rings[i].material
       mat.emissiveIntensity += (targetEI - mat.emissiveIntensity) * 0.12
       if (isActive) {
-        const col = new THREE.Color(CHORD_COLORS[i])
+        const col = new Three.Color(CHORD_COLORS[i])
         mat.emissive.lerp(col, 0.15)
       } else {
-        mat.emissive.lerp(new THREE.Color(CHORD_COLORS[i]).multiplyScalar(0.3), 0.08)
+        mat.emissive.lerp(new Three.Color(CHORD_COLORS[i]).multiplyScalar(0.3), 0.08)
       }
     }
   }
@@ -227,7 +227,7 @@ export function update(ctx, dt) {
   // Particle shimmer — arp-driven
   if (_particles && isPlaying) {
     const melFrac = _melodyIdx / MELODY.length
-    const col = new THREE.Color().setHSL(melFrac * 0.5 + 0.5, 0.8, 0.6)
+    const col = new Three.Color().setHSL(melFrac * 0.5 + 0.5, 0.8, 0.6)
     _particles.material.color.lerp(col, 0.05)
     _particles.rotation.y += 0.003 * dt * 60
   }

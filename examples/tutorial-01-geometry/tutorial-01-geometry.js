@@ -1,12 +1,12 @@
 // Tutorial 01 — Geometry & Materials: five primitives, slowly rotating.
-import * as THREE from 'three';
+import * as Three from 'three';
 
 const SHAPES = [
-  { label: 'sphere',   geo: () => new THREE.SphereGeometry(0.6, 32, 16),        color: 0x4466ff, pos: -4 },
-  { label: 'box',      geo: () => new THREE.BoxGeometry(1.0, 1.0, 1.0),          color: 0xff6644, pos: -2 },
-  { label: 'torus',    geo: () => new THREE.TorusGeometry(0.55, 0.22, 16, 48),   color: 0x44dd88, pos:  0 },
-  { label: 'cylinder', geo: () => new THREE.CylinderGeometry(0.4, 0.4, 1.1, 32), color: 0xffcc22, pos:  2 },
-  { label: 'cone',     geo: () => new THREE.ConeGeometry(0.5, 1.1, 32),          color: 0xcc44ff, pos:  4 },
+  { label: 'sphere',   geo: () => new Three.SphereGeometry(0.6, 32, 16),        color: 0x4466ff, pos: -4 },
+  { label: 'box',      geo: () => new Three.BoxGeometry(1.0, 1.0, 1.0),          color: 0xff6644, pos: -2 },
+  { label: 'torus',    geo: () => new Three.TorusGeometry(0.55, 0.22, 16, 48),   color: 0x44dd88, pos:  0 },
+  { label: 'cylinder', geo: () => new Three.CylinderGeometry(0.4, 0.4, 1.1, 32), color: 0xffcc22, pos:  2 },
+  { label: 'cone',     geo: () => new Three.ConeGeometry(0.5, 1.1, 32),          color: 0xcc44ff, pos:  4 },
 ];
 
 function makeLabelEl(text) {
@@ -21,18 +21,18 @@ function makeLabelEl(text) {
 }
 
 export function setup(ctx) {
-  const { THREE: T, scene, camera, renderer } = ctx;
+  const { Three: T, scene, camera, renderer } = ctx;
 
   camera.position.set(0, 2, 9);
   camera.lookAt(0, 0, 0);
 
-  ctx.add(new THREE.AmbientLight(0x223355, 0.8));
+  ctx.add(new Three.AmbientLight(0x223355, 0.8));
 
-  const sun = new THREE.DirectionalLight(0xffffff, 1.4);
+  const sun = new Three.DirectionalLight(0xffffff, 1.4);
   sun.position.set(5, 8, 6);
   ctx.add(sun);
 
-  const rim = new THREE.PointLight(0x4466ff, 1.2, 30);
+  const rim = new Three.PointLight(0x4466ff, 1.2, 30);
   rim.position.set(-6, 4, -4);
   ctx.add(rim);
 
@@ -42,13 +42,13 @@ export function setup(ctx) {
 
   for (const def of SHAPES) {
     const geo = def.geo();
-    const mat = new THREE.MeshStandardMaterial({
+    const mat = new Three.MeshStandardMaterial({
       color: def.color,
       roughness: 0.35,
       metalness: 0.15,
-      emissive: new THREE.Color(def.color).multiplyScalar(0.08),
+      emissive: new Three.Color(def.color).multiplyScalar(0.08),
     });
-    const m = new THREE.Mesh(geo, mat);
+    const m = new Three.Mesh(geo, mat);
     m.position.set(def.pos, 0, 0);
     ctx.add(m);
     ctx._meshes.push(m);

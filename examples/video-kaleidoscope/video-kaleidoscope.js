@@ -2,7 +2,7 @@
 // Press K to cycle symmetry segments (3 → 4 → 6 → 8 → 12 → 3...)
 // Press R to reset the accumulated rotation offset.
 
-import * as THREE from 'three'
+import * as Three from 'three'
 import { webcam } from '../../src/stdlib/video.js'
 
 // ── Constants ────────────────────────────────────────────────────────────────
@@ -85,7 +85,7 @@ export async function setup(ctx) {
 
   _cam = webcam({ width: 1280, height: 720 })
 
-  _mat = new THREE.ShaderMaterial({
+  _mat = new Three.ShaderMaterial({
     uniforms: {
       map:      { value: _cam.texture },
       time:     { value: 0 },
@@ -93,11 +93,11 @@ export async function setup(ctx) {
     },
     vertexShader:   VERT,
     fragmentShader: FRAG,
-    side: THREE.DoubleSide,
+    side: Three.DoubleSide,
   })
 
-  const geo = new THREE.PlaneGeometry(PLANE_W, PLANE_H)
-  _mesh = new THREE.Mesh(geo, _mat)
+  const geo = new Three.PlaneGeometry(PLANE_W, PLANE_H)
+  _mesh = new Three.Mesh(geo, _mat)
   ctx.add(_mesh)
 
   _hud = _buildHud(container)

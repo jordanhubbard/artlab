@@ -1,12 +1,12 @@
-import * as THREE from 'three'
+import * as Three from 'three'
 
 export class SceneManager {
   constructor() {
-    this.scene = new THREE.Scene()
-    this.scene.background = new THREE.Color(0x000005)
+    this.scene = new Three.Scene()
+    this.scene.background = new Three.Color(0x000005)
 
     // Minimal ambient — only just enough to see dark sides
-    this.ambient = new THREE.AmbientLight(0x0a1020, 0.08)
+    this.ambient = new Three.AmbientLight(0x0a1020, 0.08)
     this.scene.add(this.ambient)
   }
 

@@ -1,5 +1,5 @@
 // audio-pulse — microphone-reactive central sphere + satellite ring, basic audio example.
-import * as THREE from 'three';
+import * as Three from 'three';
 
 const SAT_COUNT  = 8;
 const SAT_RADIUS = 8;
@@ -17,28 +17,28 @@ export function setup(ctx) {
   ctx.camera.position.set(0, 0, 20);
   ctx.camera.lookAt(0, 0, 0);
 
-  ctx.add(new THREE.AmbientLight(0x111122, 0.5));
-  const pt = new THREE.PointLight(0xffffff, 2, 80, 2);
+  ctx.add(new Three.AmbientLight(0x111122, 0.5));
+  const pt = new Three.PointLight(0xffffff, 2, 80, 2);
   pt.position.set(0, 10, 10);
   ctx.add(pt);
 
-  const coreMat = new THREE.MeshStandardMaterial({
-    color: 0x1a0044, emissive: new THREE.Color(0x3311aa),
+  const coreMat = new Three.MeshStandardMaterial({
+    color: 0x1a0044, emissive: new Three.Color(0x3311aa),
     emissiveIntensity: 1.2, roughness: 0.4, metalness: 0.3,
   });
-  const core = new THREE.Mesh(new THREE.SphereGeometry(4, 48, 48), coreMat);
+  const core = new Three.Mesh(new Three.SphereGeometry(4, 48, 48), coreMat);
   ctx.add(core);
   ctx._core = core;
 
   ctx._sats = [];
-  const satGeo = new THREE.SphereGeometry(0.55, 20, 20);
+  const satGeo = new Three.SphereGeometry(0.55, 20, 20);
   for (let i = 0; i < SAT_COUNT; i++) {
     const angle = (i / SAT_COUNT) * Math.PI * 2;
-    const mat = new THREE.MeshStandardMaterial({
-      color: 0x2244ff, emissive: new THREE.Color(0x112288), emissiveIntensity: 1.0,
+    const mat = new Three.MeshStandardMaterial({
+      color: 0x2244ff, emissive: new Three.Color(0x112288), emissiveIntensity: 1.0,
       roughness: 0.3, metalness: 0.5,
     });
-    const sat = new THREE.Mesh(satGeo, mat);
+    const sat = new Three.Mesh(satGeo, mat);
     sat.position.set(Math.cos(angle) * SAT_RADIUS, 0, Math.sin(angle) * SAT_RADIUS);
     sat.userData.angle = angle;
     ctx.add(sat);

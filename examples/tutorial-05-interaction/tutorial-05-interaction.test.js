@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
-import * as THREE from 'three'
+import * as Three from 'three'
 import { setup, update, teardown } from './tutorial-05-interaction.js'
 
 vi.mock('three', async () => await vi.importActual('three'))
@@ -10,13 +10,13 @@ function makeMockCtx() {
   canvas.getBoundingClientRect = () => ({ left: 0, top: 0, width: 800, height: 600 })
 
   const scene = { add: vi.fn(), remove: vi.fn(), children: [] }
-  const camera = new THREE.PerspectiveCamera(60, 800 / 600, 0.1, 1000)
+  const camera = new Three.PerspectiveCamera(60, 800 / 600, 0.1, 1000)
   camera.position.set(0, 6, 12)
   camera.lookAt(0, 0, 0)
   camera.updateMatrixWorld()
 
   return {
-    THREE,
+    Three,
     scene,
     camera,
     renderer: {
@@ -24,7 +24,7 @@ function makeMockCtx() {
       shadowMap: { enabled: false },
       setSize: vi.fn(),
     },
-    controls: { update: vi.fn(), target: new THREE.Vector3(), enabled: true },
+    controls: { update: vi.fn(), target: new Three.Vector3(), enabled: true },
     labelRenderer: {
       render: vi.fn(),
       setSize: vi.fn(),

@@ -1,13 +1,13 @@
 // @vitest-environment jsdom
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import * as THREE from 'three'
+import * as Three from 'three'
 
 vi.mock('three', async () => await vi.importActual('three'))
 
 function makeMockCtx(overrides = {}) {
   const scene = { add: vi.fn(), remove: vi.fn(), children: [] }
-  const camera = { position: new THREE.Vector3(0,0,0), lookAt: vi.fn(), quaternion: new THREE.Quaternion() }
-  const controls = { update: vi.fn(), target: new THREE.Vector3(), enabled: true }
+  const camera = { position: new Three.Vector3(0,0,0), lookAt: vi.fn(), quaternion: new Three.Quaternion() }
+  const controls = { update: vi.fn(), target: new Three.Vector3(), enabled: true }
   const renderer = {
     domElement: Object.assign(document.createElement('canvas'), {
       getBoundingClientRect: () => ({ left:0, top:0, width:800, height:600 })
@@ -15,18 +15,18 @@ function makeMockCtx(overrides = {}) {
     shadowMap: { enabled: false }, setSize: vi.fn(), render: vi.fn(),
   }
   return {
-    THREE, scene, camera, controls, renderer,
+    Three, scene, camera, controls, renderer,
     labelRenderer: { render: vi.fn(), setSize: vi.fn(), domElement: document.createElement('div') },
     add: vi.fn(obj => { scene.children.push(obj); return obj }),
     remove: vi.fn(),
     setBloom: vi.fn(),
     elapsed: 0,
-    sphere: (r=1,s=32) => new THREE.SphereGeometry(r,s,s),
-    box: (w=1,h=1,d=1) => new THREE.BoxGeometry(w,h,d),
-    torus: (r=1,t=0.4,rs=8,ts=32) => new THREE.TorusGeometry(r,t,rs,ts),
-    mesh: (geo, opts={}) => new THREE.Mesh(geo, new THREE.MeshStandardMaterial(opts)),
-    ambient: (c=0x404040,i=1) => new THREE.AmbientLight(c,i),
-    point: (c=0xffffff,i=1,d=0,dc=2) => new THREE.PointLight(c,i,d,dc),
+    sphere: (r=1,s=32) => new Three.SphereGeometry(r,s,s),
+    box: (w=1,h=1,d=1) => new Three.BoxGeometry(w,h,d),
+    torus: (r=1,t=0.4,rs=8,ts=32) => new Three.TorusGeometry(r,t,rs,ts),
+    mesh: (geo, opts={}) => new Three.Mesh(geo, new Three.MeshStandardMaterial(opts)),
+    ambient: (c=0x404040,i=1) => new Three.AmbientLight(c,i),
+    point: (c=0xffffff,i=1,d=0,dc=2) => new Three.PointLight(c,i,d,dc),
     ...overrides,
   }
 }

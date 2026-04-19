@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import * as THREE from 'three'
+import * as Three from 'three'
 
 // ── Browser API stubs ────────────────────────────────────────────────────────
 
@@ -39,11 +39,11 @@ function makeMockCtx() {
 
   const scene = { add: vi.fn(), remove: vi.fn(), children: [] }
   return {
-    THREE,
+    Three,
     scene,
-    camera:        { position: new THREE.Vector3(0, 0, 11), fov: 60, aspect: 1, updateProjectionMatrix: vi.fn(), projectionMatrix: new THREE.Matrix4(), matrixWorldInverse: new THREE.Matrix4(), matrixWorld: new THREE.Matrix4() },
+    camera:        { position: new Three.Vector3(0, 0, 11), fov: 60, aspect: 1, updateProjectionMatrix: vi.fn(), projectionMatrix: new Three.Matrix4(), matrixWorldInverse: new Three.Matrix4(), matrixWorld: new Three.Matrix4() },
     renderer:      { domElement: canvas, shadowMap: { enabled: false }, setSize: vi.fn() },
-    controls:      { update: vi.fn(), target: new THREE.Vector3(), enableDamping: true },
+    controls:      { update: vi.fn(), target: new Three.Vector3(), enableDamping: true },
     labelRenderer: { render: vi.fn(), setSize: vi.fn(), domElement: document.createElement('div') },
     add:           vi.fn(obj => { scene.add(obj); return obj }),
     remove:        vi.fn(),

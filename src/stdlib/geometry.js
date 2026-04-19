@@ -5,7 +5,7 @@
  * mesh() and add() helpers for quick scene assembly.
  */
 
-import * as THREE from 'three'
+import * as Three from 'three'
 
 // ---------------------------------------------------------------------------
 // Geometry factories
@@ -13,58 +13,58 @@ import * as THREE from 'three'
 
 /** Sphere geometry. */
 export function sphere(radius = 1, detail = 32) {
-  return new THREE.SphereGeometry(radius, detail, detail)
+  return new Three.SphereGeometry(radius, detail, detail)
 }
 
 /** Box geometry. */
 export function box(w = 1, h = 1, d = 1) {
-  return new THREE.BoxGeometry(w, h, d)
+  return new Three.BoxGeometry(w, h, d)
 }
 
 /** Cylinder geometry (top radius, bottom radius, height, segments). */
 export function cylinder(rt = 1, rb = 1, h = 2, segs = 32) {
-  return new THREE.CylinderGeometry(rt, rb, h, segs)
+  return new Three.CylinderGeometry(rt, rb, h, segs)
 }
 
 /** Torus geometry (major radius, tube radius, tubular segments, radial segments). */
 export function torus(R = 1, r = 0.3, ts = 64, rs = 16) {
-  return new THREE.TorusGeometry(R, r, rs, ts)
+  return new Three.TorusGeometry(R, r, rs, ts)
 }
 
 /** Plane geometry. */
 export function plane(w = 1, h = 1, ws = 1, hs = 1) {
-  return new THREE.PlaneGeometry(w, h, ws, hs)
+  return new Three.PlaneGeometry(w, h, ws, hs)
 }
 
 /** Ring geometry (inner radius, outer radius, segments). */
 export function ring(iR = 0.5, oR = 1, segs = 64) {
-  return new THREE.RingGeometry(iR, oR, segs)
+  return new Three.RingGeometry(iR, oR, segs)
 }
 
 /** Cone geometry (radius, height, segments). */
 export function cone(r = 1, h = 2, segs = 32) {
-  return new THREE.ConeGeometry(r, h, segs)
+  return new Three.ConeGeometry(r, h, segs)
 }
 
 // ---------------------------------------------------------------------------
 // Mesh helpers
 // ---------------------------------------------------------------------------
 
-const _loader = new THREE.TextureLoader()
+const _loader = new Three.TextureLoader()
 function _tex(v) { return typeof v === 'string' ? _loader.load(v) : v }
 
-const _SIDE = { front: THREE.FrontSide, back: THREE.BackSide, double: THREE.DoubleSide }
+const _SIDE = { front: Three.FrontSide, back: Three.BackSide, double: Three.DoubleSide }
 
 /**
  * Wrap a geometry in a MeshStandardMaterial mesh.
  *
  * options support all common MeshStandardMaterial properties:
  *   color, roughness, metalness, wireframe, transparent, opacity,
- *   side ('front'|'back'|'double' or THREE constant),
+ *   side ('front'|'back'|'double' or Three constant),
  *   emissive (hex), emissiveIntensity, emissiveMap, map, alphaMap,
  *   normalMap, roughnessMap, metalnessMap, depthWrite, blending
  *
- * Texture properties accept a URL string or a THREE.Texture instance.
+ * Texture properties accept a URL string or a Three.Texture instance.
  */
 export function mesh(geometry, options = {}) {
   const {
@@ -84,10 +84,10 @@ export function mesh(geometry, options = {}) {
   if (emissiveIntensity !== undefined) matOpts.emissiveIntensity = emissiveIntensity
 
   if (side !== undefined)
-    matOpts.side = (typeof side === 'string') ? (_SIDE[side] ?? THREE.FrontSide) : side
+    matOpts.side = (typeof side === 'string') ? (_SIDE[side] ?? Three.FrontSide) : side
 
   if (emissive !== undefined)
-    matOpts.emissive = (typeof emissive === 'number') ? new THREE.Color(emissive) : emissive
+    matOpts.emissive = (typeof emissive === 'number') ? new Three.Color(emissive) : emissive
 
   if (map          !== undefined) matOpts.map          = _tex(map)
   if (emissiveMap  !== undefined) matOpts.emissiveMap  = _tex(emissiveMap)
@@ -96,7 +96,7 @@ export function mesh(geometry, options = {}) {
   if (roughnessMap !== undefined) matOpts.roughnessMap = _tex(roughnessMap)
   if (metalnessMap !== undefined) matOpts.metalnessMap = _tex(metalnessMap)
 
-  return new THREE.Mesh(geometry, new THREE.MeshStandardMaterial(matOpts))
+  return new Three.Mesh(geometry, new Three.MeshStandardMaterial(matOpts))
 }
 
 /**

@@ -13,7 +13,7 @@ const QUOTES = [
 const QUOTE_INTERVAL = 4.0;
 
 export function setup(ctx) {
-  const { THREE, plane, mesh, ambient } = ctx;
+  const { Three, plane, mesh, ambient } = ctx;
 
   ctx.camera.position.set(0, 0, 5);
 
@@ -21,7 +21,7 @@ export function setup(ctx) {
 
   // Dark backdrop plane
   const bg = mesh(plane(20, 12), { color: 0x060608, roughness: 1.0, metalness: 0.0 });
-  bg.material.emissive = new THREE.Color(0x060608);
+  bg.material.emissive = new Three.Color(0x060608);
   bg.position.set(0, 0, -1);
   ctx.add(bg);
 
@@ -29,7 +29,7 @@ export function setup(ctx) {
   for (let row = 0; row < 13; row++) {
     const y = row - 6.0;
     const line = mesh(plane(20, 0.01), { color: 0x000000, roughness: 1.0, metalness: 0.0 });
-    line.material.emissive = new THREE.Color(0x0a1a2a);
+    line.material.emissive = new Three.Color(0x0a1a2a);
     line.position.set(0, y, -0.5);
     ctx.add(line);
   }
@@ -38,7 +38,7 @@ export function setup(ctx) {
   for (let col = 0; col < 21; col++) {
     const x = col - 10.0;
     const line = mesh(plane(0.01, 12), { color: 0x000000, roughness: 1.0, metalness: 0.0 });
-    line.material.emissive = new THREE.Color(0x0a1a2a);
+    line.material.emissive = new Three.Color(0x0a1a2a);
     line.position.set(x, 0, -0.5);
     ctx.add(line);
   }
@@ -50,15 +50,15 @@ export function setup(ctx) {
   ctx._canvas   = canvas;
   ctx._canvasCtx = canvas.getContext('2d');
 
-  const texture = new THREE.CanvasTexture(canvas);
+  const texture = new Three.CanvasTexture(canvas);
   ctx._texture  = texture;
 
   // Full-screen quad in front of scene to display canvas artwork
   const quadGeo = plane(20, 11.25);
-  const quadMat = new THREE.MeshBasicMaterial({
+  const quadMat = new Three.MeshBasicMaterial({
     map: texture, transparent: true, depthWrite: false
   });
-  const quad = new THREE.Mesh(quadGeo, quadMat);
+  const quad = new Three.Mesh(quadGeo, quadMat);
   quad.position.set(0, 0, 0.5);
   ctx.add(quad);
 

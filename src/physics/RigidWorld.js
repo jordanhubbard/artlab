@@ -17,7 +17,7 @@ export class RigidWorld extends IPhysicsWorld {
     this._rapier = null  // loaded lazily via initRapier()
     this._world = null
     console.warn('[RigidWorld] Rapier.js not yet installed. Run: npm install @dimforge/rapier3d-compat')
-    // When Rapier IS available, initialize: await RAPIER.init(); this._world = new RAPIER.World({x:0,y:-9.81,z:0})
+    // When Rapier IS available, initialize: await Rapier.init(); this._world = new Rapier.World({x:0,y:-9.81,z:0})
   }
 
   addBody(id, desc) {
@@ -63,10 +63,10 @@ export class RigidWorld extends IPhysicsWorld {
   /** Future: call this after npm install @dimforge/rapier3d-compat */
   async initRapier() {
     try {
-      const RAPIER = await import('@dimforge/rapier3d-compat')
-      await RAPIER.init()
-      this._rapier = RAPIER
-      this._world = new RAPIER.World({ x: 0, y: 0, z: 0 })
+      const Rapier = await import('@dimforge/rapier3d-compat')
+      await Rapier.init()
+      this._rapier = Rapier
+      this._world = new Rapier.World({ x: 0, y: 0, z: 0 })
       console.info('[RigidWorld] Rapier.js initialized')
     } catch (e) {
       console.error('[RigidWorld] Failed to initialize Rapier:', e.message)

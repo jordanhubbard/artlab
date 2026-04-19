@@ -1,4 +1,4 @@
-import * as THREE from 'three'
+import * as Three from 'three'
 import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js'
 import { RenderPass } from 'three/addons/postprocessing/RenderPass.js'
 import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js'
@@ -12,7 +12,7 @@ export class WebGL2Backend extends IRenderer {
   constructor(canvas) {
     super()
 
-    this._renderer = new THREE.WebGLRenderer({
+    this._renderer = new Three.WebGLRenderer({
       canvas,
       antialias: true,
       alpha: false,
@@ -21,11 +21,11 @@ export class WebGL2Backend extends IRenderer {
 
     this._renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2))
     this._renderer.setSize(window.innerWidth, window.innerHeight)
-    this._renderer.toneMapping = THREE.ACESFilmicToneMapping
+    this._renderer.toneMapping = Three.ACESFilmicToneMapping
     this._renderer.toneMappingExposure = 0.75
-    this._renderer.outputColorSpace = THREE.SRGBColorSpace
+    this._renderer.outputColorSpace = Three.SRGBColorSpace
     this._renderer.shadowMap.enabled = true
-    this._renderer.shadowMap.type = THREE.PCFSoftShadowMap
+    this._renderer.shadowMap.type = Three.PCFSoftShadowMap
 
     // Post-processing state — initialized lazily when render() is first called
     // with a scene+camera, or explicitly via setPostProcessing()
@@ -59,8 +59,8 @@ export class WebGL2Backend extends IRenderer {
    * Render a frame.  On the first call the EffectComposer is initialised with
    * the supplied scene and camera so post-processing works correctly.
    *
-   * @param {THREE.Scene}  scene
-   * @param {THREE.Camera} camera
+   * @param {Three.Scene}  scene
+   * @param {Three.Camera} camera
    */
   render(scene, camera) {
     // Lazily initialise (or re-initialise when scene/camera change)
@@ -138,7 +138,7 @@ export class WebGL2Backend extends IRenderer {
       composer.addPass(new RenderPass(scene, camera))
 
       const bloom = new UnrealBloomPass(
-        new THREE.Vector2(window.innerWidth, window.innerHeight),
+        new Three.Vector2(window.innerWidth, window.innerHeight),
         this._bloomStrengthPending, // strength
         0.25,                       // radius
         0.85                        // threshold

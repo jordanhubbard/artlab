@@ -235,7 +235,7 @@ export function pad(options = {}) {
  * @param {number}     [options.rolloffFactor=1]   rate of attenuation
  * @param {string}     [options.panningModel='HRTF'] 'HRTF' or 'equalpower'
  * @param {string}     [options.distanceModel='inverse'] Web Audio distance model
- * @returns {{ update: (obj: THREE.Object3D) => void, disconnect: () => void }}
+ * @returns {{ update: (obj: Three.Object3D) => void, disconnect: () => void }}
  */
 export function spatialize(audioNode, options = {}) {
   const {

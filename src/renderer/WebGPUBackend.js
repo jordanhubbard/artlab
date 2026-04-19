@@ -1,6 +1,6 @@
 import { WebGPURenderer, PostProcessing, pass, uniform } from 'three/webgpu'
 import { bloom } from 'three/addons/tsl/display/BloomNode.js'
-import * as THREE from 'three'
+import * as Three from 'three'
 import { IRenderer } from './IRenderer.js'
 
 export class WebGPUBackend extends IRenderer {
@@ -16,7 +16,7 @@ export class WebGPUBackend extends IRenderer {
 
     this._renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2))
     this._renderer.setSize(window.innerWidth, window.innerHeight)
-    this._renderer.toneMapping = THREE.ACESFilmicToneMapping
+    this._renderer.toneMapping = Three.ACESFilmicToneMapping
     this._renderer.toneMappingExposure = 0.75
 
     this._postProcessing = null
@@ -64,8 +64,8 @@ export class WebGPUBackend extends IRenderer {
    * Store the scene/camera and set up post-processing on first call.
    * Actual GPU work happens in the setAnimationLoop callback.
    *
-   * @param {THREE.Scene}  scene
-   * @param {THREE.Camera} camera
+   * @param {Three.Scene}  scene
+   * @param {Three.Camera} camera
    */
   render(scene, camera) {
     if (scene !== this._scene || camera !== this._camera) {

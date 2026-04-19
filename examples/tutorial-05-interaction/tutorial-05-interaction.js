@@ -1,5 +1,5 @@
 // Tutorial 05 — Interaction: raycasting, hover, click, and keyboard events on a 5x5 cube grid.
-import * as THREE from 'three';
+import * as Three from 'three';
 
 const GRID = 5, SPACING = 1.8;
 const COL_BASE   = 0x2244aa;
@@ -7,29 +7,29 @@ const COL_HOVER  = 0xffdd44;
 const COL_CLICK  = 0xff4422;
 
 export function setup(ctx) {
-  const { THREE: T, scene } = ctx;
+  const { Three: T, scene } = ctx;
 
   ctx.camera.position.set(0, 6, 12);
   ctx.camera.lookAt(0, 0, 0);
 
-  ctx.add(new THREE.AmbientLight(0x223355, 0.8));
-  const d = new THREE.DirectionalLight(0xffffff, 1.2);
+  ctx.add(new Three.AmbientLight(0x223355, 0.8));
+  const d = new Three.DirectionalLight(0xffffff, 1.2);
   d.position.set(5, 10, 6);
   ctx.add(d);
-  const rim = new THREE.PointLight(0x4466ff, 1.0, 30);
+  const rim = new Three.PointLight(0x4466ff, 1.0, 30);
   rim.position.set(-6, 4, -4);
   ctx.add(rim);
 
-  const geo = new THREE.BoxGeometry(1.1, 1.1, 1.1);
+  const geo = new Three.BoxGeometry(1.1, 1.1, 1.1);
   ctx._cubes = [];
 
   for (let r = 0; r < GRID; r++) {
     for (let c = 0; c < GRID; c++) {
-      const mat = new THREE.MeshStandardMaterial({
+      const mat = new Three.MeshStandardMaterial({
         color: COL_BASE, roughness: 0.4, metalness: 0.2,
-        emissive: new THREE.Color(0x112244),
+        emissive: new Three.Color(0x112244),
       });
-      const mesh = new THREE.Mesh(geo, mat);
+      const mesh = new Three.Mesh(geo, mat);
       const x = (c - (GRID - 1) / 2) * SPACING;
       const z = (r - (GRID - 1) / 2) * SPACING;
       mesh.position.set(x, 0, z);
@@ -41,8 +41,8 @@ export function setup(ctx) {
     }
   }
 
-  ctx._raycaster = new THREE.Raycaster();
-  ctx._mouse = new THREE.Vector2(-9, -9);
+  ctx._raycaster = new Three.Raycaster();
+  ctx._mouse = new Three.Vector2(-9, -9);
   ctx._hovered = null;
   ctx._gridHelper = null;
   ctx._showGrid = false;
@@ -79,7 +79,7 @@ export function setup(ctx) {
     if (e.key === 'g' || e.key === 'G') {
       ctx._showGrid = !ctx._showGrid;
       if (ctx._showGrid) {
-        ctx._gridHelper = new THREE.GridHelper(20, 20, 0x334466, 0x223355);
+        ctx._gridHelper = new Three.GridHelper(20, 20, 0x334466, 0x223355);
         ctx._gridHelper.position.y = -0.56;
         ctx.add(ctx._gridHelper);
       } else if (ctx._gridHelper) {

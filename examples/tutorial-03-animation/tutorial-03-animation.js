@@ -1,5 +1,5 @@
 // Tutorial 03 — Animation patterns: sine oscillation, linear sawtooth, and easeInOut, live.
-import * as THREE from 'three';
+import * as Three from 'three';
 
 function easeInOut(t) {
   return t < 0.5 ? 2 * t * t : -1 + (4 - 2 * t) * t;
@@ -27,8 +27,8 @@ export function setup(ctx) {
   ctx.camera.position.set(0, 2.5, 9);
   ctx.camera.lookAt(0, 0, 0);
 
-  ctx.add(new THREE.AmbientLight(0x223355, 0.8));
-  const d = new THREE.DirectionalLight(0xffffff, 1.3);
+  ctx.add(new Three.AmbientLight(0x223355, 0.8));
+  const d = new Three.DirectionalLight(0xffffff, 1.3);
   d.position.set(4, 8, 5);
   ctx.add(d);
 
@@ -42,14 +42,14 @@ export function setup(ctx) {
   ctx._objs = [];
   for (const d of defs) {
     let geo;
-    if (d.shape === 'sphere') geo = new THREE.SphereGeometry(0.55, 32, 16);
-    else if (d.shape === 'box') geo = new THREE.BoxGeometry(0.9, 0.9, 0.9);
-    else geo = new THREE.TorusGeometry(0.45, 0.18, 16, 40);
-    const mat = new THREE.MeshStandardMaterial({
+    if (d.shape === 'sphere') geo = new Three.SphereGeometry(0.55, 32, 16);
+    else if (d.shape === 'box') geo = new Three.BoxGeometry(0.9, 0.9, 0.9);
+    else geo = new Three.TorusGeometry(0.45, 0.18, 16, 40);
+    const mat = new Three.MeshStandardMaterial({
       color: d.color, roughness: 0.35, metalness: 0.15,
-      emissive: new THREE.Color(d.color).multiplyScalar(0.1),
+      emissive: new Three.Color(d.color).multiplyScalar(0.1),
     });
-    const m = new THREE.Mesh(geo, mat);
+    const m = new Three.Mesh(geo, mat);
     m.position.set(d.x, 0, 0);
     ctx.add(m);
     const lel = makeLabelEl(d.label, '#' + d.color.toString(16).padStart(6, '0'));
