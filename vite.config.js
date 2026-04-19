@@ -1,13 +1,13 @@
 import { defineConfig } from 'vite'
 
 export default defineConfig({
-  // Multi-page: root index.html (solar system) + ide.html (IDE)
+  // Multi-page: root index.html (IDE) + solar-system.html (standalone demo)
   build: {
     target: 'esnext',
     rollupOptions: {
       input: {
-        main: 'index.html',
-        ide:  'ide.html',
+        main:        'index.html',
+        solarSystem: 'solar-system.html',
       },
       output: {
         manualChunks: {

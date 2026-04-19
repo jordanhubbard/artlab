@@ -129,6 +129,30 @@ export class PreviewPane {
 
   async reload(pkg) { return this.run(pkg) }
 
+  /**
+   * Run an already-imported ES module directly, skipping the blob URL step.
+   * Used by the Examples gallery to load built-in examples that have real URLs
+   * and may use relative imports (which blob URLs would break).
+   * @param {object} mod — an ES module object with optional setup/update/teardown exports
+   */
+  async runFromModule(mod) {
+    this._unloadModule()
+    this._currentMod = mod
+    this._elapsed    = 0
+    this._ctx        = this._makeContext()
+    this._running    = true
+    this._clearUserObjects()
+    if (typeof mod.setup === 'function') {
+      try {
+        await mod.setup(this._ctx)
+      } catch (err) {
+        this._showError(`setup() threw:\n${err.message}\n${err.stack ?? ''}`)
+        return
+      }
+    }
+    this._clock.start()
+  }
+
   dispose() {
     this._running = false
     cancelAnimationFrame(this._animationId)
@@ -207,6 +231,11 @@ export class PreviewPane {
 
       // ── Time ────────────────────────────────────────────────────────────────
       elapsed: 0,
+
+      // ── Post-processing stubs ───────────────────────────────────────────────
+      // PreviewPane has no bloom composer, but packages may call these.
+      // Provided as no-ops so examples run without errors.
+      setBloom(/* strength */) {},
 
       _added:    added,
       _userVars: {},

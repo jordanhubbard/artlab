@@ -3,72 +3,764 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Solar System — ArtLab</title>
+  <title>Artlab IDE</title>
   <style>
+    /* ── Reset ───────────────────────────────────────────────────────────── */
     *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
-    html, body { width: 100%; height: 100%; overflow: hidden; background: #000005; }
-    canvas { display: block; width: 100% !important; height: 100% !important; }
 
-    #loading {
-      position: fixed; inset: 0; background: #000005;
-      display: flex; flex-direction: column; align-items: center; justify-content: center;
-      color: #fff; font-family: 'Courier New', monospace; z-index: 100; gap: 24px;
+    /* ── Design tokens ───────────────────────────────────────────────────── */
+    :root {
+      --bg:          #0f0f1a;
+      --bg-panel:    #141428;
+      --bg-surface:  #1a1a32;
+      --bg-elevated: #202040;
+      --bg-input:    #0a0a14;
+      --bg-hover:    rgba(255,255,255,0.04);
+      --bg-active:   rgba(80,140,255,0.12);
+      --bg-selected: rgba(80,140,255,0.20);
+
+      --border:      rgba(90,120,200,0.16);
+      --border-hi:   rgba(80,140,255,0.5);
+
+      --text:        #c8d8f0;
+      --text-dim:    #6a84a8;
+      --text-muted:  #344060;
+      --text-accent: #5a8cff;
+      --text-ok:     #50e8a0;
+      --text-warn:   #f0c050;
+      --text-err:    #ff5a5a;
+      --text-info:   #70c8ff;
+
+      --mono:        'JetBrains Mono', 'Fira Code', 'Cascadia Code', monospace;
+      --ui:          'Inter', system-ui, -apple-system, sans-serif;
+      --sz-sm:       11px;
+      --sz:          13px;
+
+      --toolbar-h:   38px;
+      --status-h:    22px;
+      --tab-h:       30px;
+      --sidebar-w:   220px;
+      --canvas-w:    45%;
+      --output-h:    140px;
+      --handle-w:    5px;
+      --radius:      3px;
+      --trans:       120ms ease;
     }
-    #loading-title {
-      font-size: 22px; letter-spacing: 0.4em; color: #aaddff;
+
+    html, body {
+      width: 100%; height: 100%; overflow: hidden;
+      background: var(--bg);
+      color: var(--text);
+      font-family: var(--ui);
+      font-size: var(--sz);
+      user-select: none;
+    }
+
+    /* ── App shell ───────────────────────────────────────────────────────── */
+    #app {
+      display: grid;
+      grid-template-rows: var(--toolbar-h) 1fr var(--status-h);
+      width: 100vw; height: 100vh;
+    }
+
+    /* ── Toolbar ─────────────────────────────────────────────────────────── */
+    #toolbar {
+      display: flex;
+      align-items: center;
+      gap: 2px;
+      padding: 0 10px;
+      background: var(--bg-surface);
+      border-bottom: 1px solid var(--border);
+      flex-shrink: 0;
+    }
+
+    .tb-logo {
+      font-family: var(--mono);
+      font-size: 11px;
+      letter-spacing: 0.35em;
+      color: var(--text-accent);
+      text-transform: uppercase;
+      padding-right: 14px;
+      margin-right: 6px;
+      border-right: 1px solid var(--border);
+      flex-shrink: 0;
+    }
+
+    .tb-sep { width: 1px; height: 18px; background: var(--border); margin: 0 6px; flex-shrink: 0; }
+
+    .tb-btn {
+      display: flex; align-items: center; gap: 5px;
+      background: transparent;
+      border: 1px solid transparent;
+      border-radius: var(--radius);
+      color: var(--text-dim);
+      font-family: var(--ui);
+      font-size: 12px;
+      padding: 4px 10px;
+      cursor: pointer;
+      white-space: nowrap;
+      transition: color var(--trans), border-color var(--trans), background var(--trans);
+    }
+    .tb-btn:hover { color: var(--text); border-color: var(--border-hi); background: var(--bg-hover); }
+    .tb-btn.accent {
+      background: rgba(80,140,255,0.14);
+      border-color: rgba(80,140,255,0.35);
+      color: var(--text-accent);
+    }
+    .tb-btn.accent:hover { background: rgba(80,140,255,0.24); border-color: var(--text-accent); }
+    .tb-btn.danger:hover { color: var(--text-err); border-color: var(--text-err); }
+    .tb-btn:disabled { opacity: 0.35; cursor: default; pointer-events: none; }
+
+    .tb-icon { font-size: 14px; line-height: 1; }
+
+    #tb-build {
+      margin-left: auto;
+      font-family: var(--mono);
+      font-size: var(--sz-sm);
+      letter-spacing: 0.07em;
+      color: var(--text-muted);
+      padding: 0 4px;
+      transition: color var(--trans);
+    }
+    #tb-build.ok      { color: var(--text-ok);   }
+    #tb-build.error   { color: var(--text-err);  }
+    #tb-build.building{ color: var(--text-warn); }
+
+    /* ── Workspace ───────────────────────────────────────────────────────── */
+    #workspace {
+      display: flex;
+      min-height: 0;
+      overflow: hidden;
+    }
+
+    /* ── Resize handle ───────────────────────────────────────────────────── */
+    .v-handle {
+      width: var(--handle-w);
+      background: var(--border);
+      cursor: col-resize;
+      flex-shrink: 0;
+      transition: background var(--trans);
+      position: relative;
+      z-index: 5;
+    }
+    .v-handle:hover, .v-handle.dragging { background: var(--border-hi); }
+
+    .h-handle {
+      height: var(--handle-w);
+      background: var(--border);
+      cursor: row-resize;
+      flex-shrink: 0;
+      transition: background var(--trans);
+    }
+    .h-handle:hover, .h-handle.dragging { background: var(--border-hi); }
+
+    /* ── Sidebar ─────────────────────────────────────────────────────────── */
+    #sidebar {
+      width: var(--sidebar-w);
+      min-width: 120px;
+      max-width: 400px;
+      display: flex;
+      flex-direction: column;
+      background: var(--bg-panel);
+      border-right: 1px solid var(--border);
+      flex-shrink: 0;
+      overflow: hidden;
+    }
+
+    #sidebar-header {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      height: var(--tab-h);
+      padding: 0 10px;
+      background: var(--bg-surface);
+      border-bottom: 1px solid var(--border);
+      flex-shrink: 0;
+    }
+
+    #pkg-name {
+      font-family: var(--mono);
+      font-size: var(--sz-sm);
+      color: var(--text-dim);
+      letter-spacing: 0.06em;
+      flex: 1;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    #pkg-name.loaded { color: var(--text-accent); }
+
+    .icon-btn {
+      background: transparent; border: none;
+      color: var(--text-muted); cursor: pointer;
+      padding: 2px 4px; border-radius: 2px;
+      font-size: 13px; line-height: 1;
+      transition: color var(--trans), background var(--trans);
+    }
+    .icon-btn:hover { color: var(--text); background: var(--bg-hover); }
+
+    /* File tree */
+    #file-tree {
+      flex: 1;
+      overflow-y: auto;
+      padding: 6px 0;
+    }
+
+    /* Thin scrollbars everywhere */
+    *::-webkit-scrollbar { width: 5px; height: 5px; }
+    *::-webkit-scrollbar-track { background: transparent; }
+    *::-webkit-scrollbar-thumb { background: var(--text-muted); border-radius: 3px; }
+
+    .tree-drop-zone {
+      margin: 8px;
+      padding: 14px 10px;
+      border: 1px dashed var(--border);
+      border-radius: var(--radius);
+      text-align: center;
+      font-family: var(--mono);
+      font-size: var(--sz-sm);
+      color: var(--text-muted);
+      letter-spacing: 0.05em;
+      cursor: pointer;
+      transition: border-color var(--trans), color var(--trans);
+      line-height: 1.7;
+    }
+    .tree-drop-zone:hover { border-color: var(--border-hi); color: var(--text-dim); }
+    #sidebar.drag-over .tree-drop-zone { border-color: var(--text-accent); color: var(--text-accent); }
+
+    .tree-section-label {
+      padding: 8px 12px 2px;
+      font-size: 10px;
+      font-family: var(--mono);
+      letter-spacing: 0.16em;
+      text-transform: uppercase;
+      color: var(--text-muted);
+    }
+
+    .tree-row {
+      display: flex;
+      align-items: center;
+      gap: 5px;
+      padding: 4px 10px 4px 12px;
+      cursor: pointer;
+      font-family: var(--mono);
+      font-size: var(--sz-sm);
+      color: var(--text-dim);
+      transition: background var(--trans), color var(--trans);
+      position: relative;
+    }
+    .tree-row:hover { background: var(--bg-hover); color: var(--text); }
+    .tree-row.active { background: var(--bg-selected); color: var(--text-accent); }
+    .tree-row.entry .tree-icon { color: var(--text-ok); }
+    .tree-row.manifest .tree-icon { color: var(--text-warn); }
+
+    .tree-icon { font-size: 10px; flex-shrink: 0; width: 14px; text-align: center; }
+    .tree-name { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .tree-actions { display: none; gap: 2px; }
+    .tree-row:hover .tree-actions { display: flex; }
+    .tree-action-btn {
+      background: transparent; border: none;
+      color: var(--text-muted); cursor: pointer;
+      padding: 1px 3px; border-radius: 2px; font-size: 11px;
+      transition: color var(--trans);
+    }
+    .tree-action-btn:hover { color: var(--text); }
+    .tree-action-btn.del:hover { color: var(--text-err); }
+
+    /* Sidebar bottom strip */
+    #sidebar-actions {
+      display: flex;
+      gap: 4px;
+      padding: 6px 8px;
+      border-top: 1px solid var(--border);
+      flex-shrink: 0;
+    }
+    #sidebar-actions .tb-btn { flex: 1; justify-content: center; font-size: 11px; padding: 4px 6px; }
+
+    /* ── Editor zone ─────────────────────────────────────────────────────── */
+    #editor-zone {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      min-width: 0;
+      min-height: 0;
+      overflow: hidden;
+    }
+
+    /* Tab strip */
+    #tab-strip {
+      display: flex;
+      align-items: stretch;
+      height: var(--tab-h);
+      background: var(--bg-surface);
+      border-bottom: 1px solid var(--border);
+      overflow-x: auto;
+      flex-shrink: 0;
+      gap: 0;
+    }
+    #tab-strip::-webkit-scrollbar { height: 2px; }
+    #tab-strip::-webkit-scrollbar-thumb { background: var(--border); }
+
+    .tab {
+      display: flex; align-items: center; gap: 6px;
+      padding: 0 12px 0 14px;
+      cursor: pointer;
+      font-family: var(--mono);
+      font-size: var(--sz-sm);
+      color: var(--text-muted);
+      border-right: 1px solid var(--border);
+      white-space: nowrap;
+      transition: color var(--trans), background var(--trans);
+      min-width: 0;
+      position: relative;
+    }
+    .tab:hover { color: var(--text-dim); background: var(--bg-hover); }
+    .tab.active { color: var(--text); background: var(--bg); border-bottom: 1px solid var(--bg); }
+    .tab.dirty .tab-name::after { content: '●'; font-size: 7px; color: var(--text-accent); vertical-align: super; margin-left: 3px; }
+    .tab-close {
+      background: transparent; border: none;
+      color: var(--text-muted); cursor: pointer;
+      font-size: 13px; line-height: 1; padding: 0 2px;
+      border-radius: 2px; opacity: 0;
+      transition: color var(--trans), opacity var(--trans);
+    }
+    .tab:hover .tab-close { opacity: 1; }
+    .tab-close:hover { color: var(--text-err); opacity: 1; }
+
+    #tab-new {
+      display: flex; align-items: center;
+      padding: 0 12px;
+      cursor: pointer;
+      color: var(--text-muted);
+      font-size: 16px; line-height: 1;
+      flex-shrink: 0;
+      transition: color var(--trans), background var(--trans);
+    }
+    #tab-new:hover { color: var(--text); background: var(--bg-hover); }
+
+    /* Monaco wrapper */
+    #monaco-wrap {
+      flex: 1;
+      min-height: 0;
+      position: relative;
+      overflow: hidden;
+    }
+
+    #monaco-loading {
+      position: absolute; inset: 0;
+      display: flex; align-items: center; justify-content: center;
+      background: var(--bg);
+      font-family: var(--mono); font-size: var(--sz-sm);
+      color: var(--text-muted); letter-spacing: 0.1em;
+      z-index: 10;
+    }
+
+    #editor-placeholder {
+      position: absolute; inset: 0;
+      display: none;
+      flex-direction: column;
+      align-items: center; justify-content: center;
+      gap: 10px;
+      color: var(--text-muted);
+      font-family: var(--mono); font-size: var(--sz-sm);
+      pointer-events: none;
+    }
+    .ph-wordmark {
+      font-size: 24px; letter-spacing: 0.5em;
+      color: rgba(80,140,255,0.1);
       text-transform: uppercase;
     }
-    #loading-bar-outer { width: 280px; height: 1px; background: #1a2030; }
-    #loading-bar { width: 0%; height: 100%; background: linear-gradient(90deg, #336699, #aaddff); transition: width 0.4s ease; }
-    #loading-text { font-size: 11px; color: #445566; letter-spacing: 0.2em; text-transform: uppercase; }
+    .ph-hint { color: var(--text-muted); font-size: 11px; letter-spacing: 0.05em; }
 
-    #start-btn {
+    /* Monaco fills its container */
+    .monaco-editor-wrapper { position: absolute; inset: 0; }
+
+    /* Output panel */
+    #output-panel {
+      flex-shrink: 0;
+      display: flex;
+      flex-direction: column;
+      border-top: 1px solid var(--border);
+      background: var(--bg-panel);
+      height: var(--output-h);
+      min-height: 60px;
+      max-height: 50vh;
+      overflow: hidden;
+    }
+
+    #output-tabs {
+      display: flex;
+      align-items: stretch;
+      height: 26px;
+      background: var(--bg-surface);
+      border-bottom: 1px solid var(--border);
+      flex-shrink: 0;
+    }
+
+    .output-tab {
+      display: flex; align-items: center; gap: 5px;
+      padding: 0 12px;
+      font-family: var(--mono); font-size: var(--sz-sm);
+      color: var(--text-muted);
+      cursor: pointer;
+      border-right: 1px solid var(--border);
+      transition: color var(--trans), background var(--trans);
+    }
+    .output-tab:hover { color: var(--text-dim); }
+    .output-tab.active { color: var(--text); background: var(--bg-panel); }
+    .output-badge {
+      background: var(--text-err); color: #fff;
+      font-size: 9px; padding: 0 4px; border-radius: 8px;
+      min-width: 14px; text-align: center; line-height: 14px;
+    }
+    .output-badge:empty { display: none; }
+
+    .output-collapse-btn {
+      margin-left: auto;
+      background: transparent; border: none;
+      color: var(--text-muted); cursor: pointer;
+      padding: 0 10px; font-size: 13px;
+      transition: color var(--trans);
+    }
+    .output-collapse-btn:hover { color: var(--text); }
+
+    .output-body {
+      flex: 1; position: relative; overflow: hidden;
+    }
+
+    .output-pane {
+      position: absolute; inset: 0;
+      overflow-y: auto;
+      padding: 4px 0;
       display: none;
-      position: fixed; bottom: 48px; left: 50%; transform: translateX(-50%);
-      background: transparent;
-      border: 1px solid rgba(100, 170, 255, 0.4);
-      color: #aaddff; padding: 14px 44px; cursor: pointer; font-size: 12px;
-      border-radius: 2px; z-index: 50; font-family: 'Courier New', monospace;
-      letter-spacing: 0.3em; text-transform: uppercase;
-      transition: border-color 0.3s, color 0.3s, background 0.3s;
     }
-    #start-btn:hover {
-      border-color: #aaddff; color: #fff;
-      background: rgba(100, 170, 255, 0.08);
+    .output-pane.active { display: block; }
+
+    /* Error rows */
+    .diag-row {
+      display: flex; align-items: flex-start; gap: 8px;
+      padding: 5px 12px;
+      cursor: pointer;
+      border-bottom: 1px solid rgba(255,255,255,0.03);
+      transition: background var(--trans);
+    }
+    .diag-row:hover { background: var(--bg-hover); }
+    .diag-icon { font-size: 11px; margin-top: 1px; flex-shrink: 0; }
+    .diag-icon.err  { color: var(--text-err); }
+    .diag-icon.warn { color: var(--text-warn); }
+    .diag-icon.info { color: var(--text-info); }
+    .diag-content { flex: 1; min-width: 0; }
+    .diag-msg { font-family: var(--mono); font-size: var(--sz-sm); color: var(--text); line-height: 1.4; }
+    .diag-loc { font-family: var(--mono); font-size: 10px; color: var(--text-muted); margin-top: 1px; }
+
+    /* Log rows */
+    .log-row {
+      display: flex; align-items: baseline; gap: 8px;
+      padding: 3px 12px;
+      font-family: var(--mono); font-size: var(--sz-sm);
+      border-bottom: 1px solid rgba(255,255,255,0.02);
+    }
+    .log-time { color: var(--text-muted); font-size: 10px; flex-shrink: 0; }
+    .log-level { font-size: 9px; padding: 1px 5px; border-radius: 3px; flex-shrink: 0; }
+    .log-level.info  { background: rgba(80,200,255,0.14); color: var(--text-info); }
+    .log-level.warn  { background: rgba(240,192,80,0.14); color: var(--text-warn); }
+    .log-level.error { background: rgba(255,90,90,0.14);  color: var(--text-err);  }
+    .log-msg { color: var(--text-dim); flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+    .output-empty {
+      padding: 16px 12px;
+      font-family: var(--mono); font-size: var(--sz-sm);
+      color: var(--text-muted); letter-spacing: 0.05em;
     }
 
-    #ide-btn {
-      position: fixed; top: 20px; right: 100px;
-      background: transparent;
-      border: 1px solid rgba(90,120,200,0.3);
-      color: rgba(120,160,240,0.5); padding: 5px 14px; cursor: pointer;
-      font-family: 'Courier New', monospace; font-size: 9px;
-      letter-spacing: 0.2em; text-transform: uppercase;
-      border-radius: 2px; z-index: 50;
-      text-decoration: none; display: flex; align-items: center;
-      transition: border-color 0.2s, color 0.2s;
+    /* ── Canvas zone ─────────────────────────────────────────────────────── */
+    #canvas-zone {
+      display: flex;
+      flex-direction: column;
+      width: var(--canvas-w);
+      min-width: 200px;
+      border-left: 1px solid var(--border);
+      flex-shrink: 0;
+      background: #0a0a12;
+      overflow: hidden;
     }
-    #ide-btn:hover { border-color: rgba(90,140,255,0.7); color: rgba(160,200,255,0.9); }
 
-    #webgpu-badge {
-      position: fixed; top: 20px; right: 24px;
-      font-family: 'Courier New', monospace; font-size: 9px;
-      letter-spacing: 0.15em; text-transform: uppercase;
-      color: rgba(100, 255, 150, 0.4);
-      pointer-events: none; z-index: 50;
+    #canvas-toolbar {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      height: var(--tab-h);
+      padding: 0 10px;
+      background: var(--bg-surface);
+      border-bottom: 1px solid var(--border);
+      flex-shrink: 0;
     }
+
+    .canvas-title {
+      font-family: var(--mono);
+      font-size: var(--sz-sm);
+      color: var(--text-dim);
+      letter-spacing: 0.08em;
+      flex: 1;
+    }
+
+    #fps-counter {
+      font-family: var(--mono);
+      font-size: 10px;
+      color: var(--text-muted);
+      letter-spacing: 0.04em;
+      min-width: 52px;
+      text-align: right;
+    }
+    #fps-counter.ok   { color: var(--text-ok); }
+    #fps-counter.warn { color: var(--text-warn); }
+    #fps-counter.bad  { color: var(--text-err); }
+
+    .canvas-btn {
+      background: transparent;
+      border: 1px solid transparent;
+      border-radius: var(--radius);
+      color: var(--text-dim);
+      cursor: pointer;
+      padding: 2px 8px;
+      font-size: 12px;
+      line-height: 1.6;
+      transition: color var(--trans), border-color var(--trans);
+    }
+    .canvas-btn:hover { color: var(--text); border-color: var(--border-hi); }
+    .canvas-btn.active { color: var(--text-accent); border-color: rgba(80,140,255,0.4); background: var(--bg-active); }
+
+    #canvas-container {
+      flex: 1;
+      position: relative;
+      overflow: hidden;
+    }
+
+    /* ── Status bar ──────────────────────────────────────────────────────── */
+    #status-bar {
+      display: flex;
+      align-items: center;
+      height: var(--status-h);
+      background: var(--bg-elevated);
+      border-top: 1px solid var(--border);
+      font-family: var(--mono);
+      font-size: 11px;
+      color: var(--text-muted);
+      overflow: hidden;
+    }
+
+    .status-cell {
+      padding: 0 10px;
+      height: 100%;
+      display: flex; align-items: center; gap: 5px;
+      border-right: 1px solid var(--border);
+      white-space: nowrap;
+    }
+    .status-cell.accent { color: var(--text-accent); }
+    .status-cell.fill   { flex: 1; border-right: none; }
+    .status-cell.right  { margin-left: auto; border-right: none; border-left: 1px solid var(--border); }
+    .status-cell.right.ok    { color: var(--text-ok); }
+    .status-cell.right.error { color: var(--text-err); }
+    .status-cell.right.building { color: var(--text-warn); }
+
+    /* ── Toast ───────────────────────────────────────────────────────────── */
+    #toast {
+      position: fixed;
+      bottom: 34px;
+      left: 50%;
+      transform: translateX(-50%) translateY(8px);
+      background: var(--bg-elevated);
+      border: 1px solid var(--border-hi);
+      border-radius: var(--radius);
+      color: var(--text);
+      font-family: var(--mono);
+      font-size: var(--sz-sm);
+      padding: 7px 16px;
+      pointer-events: none;
+      opacity: 0;
+      transition: opacity 200ms ease, transform 200ms ease;
+      z-index: 9999;
+      white-space: nowrap;
+    }
+    #toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+
+    /* ── Context menu ────────────────────────────────────────────────────── */
+    #ctx-menu {
+      position: fixed;
+      display: none;
+      flex-direction: column;
+      background: var(--bg-elevated);
+      border: 1px solid var(--border-hi);
+      border-radius: var(--radius);
+      padding: 4px 0;
+      z-index: 1000;
+      min-width: 150px;
+      box-shadow: 0 8px 24px rgba(0,0,0,0.5);
+    }
+    #ctx-menu.open { display: flex; }
+    .ctx-item {
+      padding: 6px 14px;
+      font-family: var(--ui);
+      font-size: 12px;
+      color: var(--text);
+      cursor: pointer;
+      transition: background var(--trans);
+    }
+    .ctx-item:hover { background: var(--bg-selected); }
+    .ctx-item.danger:hover { color: var(--text-err); }
+    .ctx-sep { height: 1px; background: var(--border); margin: 3px 0; }
+
+    /* hidden file input */
+    #file-input { display: none; }
   </style>
 </head>
 <body>
-  <div id="loading">
-    <div id="loading-title">Solar System</div>
-    <div id="loading-bar-outer"><div id="loading-bar"></div></div>
-    <div id="loading-text">Initializing renderer...</div>
+<div id="app">
+
+  <!-- ── Toolbar ─────────────────────────────────────────────────────────── -->
+  <div id="toolbar">
+    <span class="tb-logo">Artlab</span>
+
+    <button class="tb-btn" id="btn-open" title="Open .zip package">
+      <span class="tb-icon">📂</span> Open .zip
+    </button>
+    <button class="tb-btn" id="btn-open-dir" title="Open directory as package">
+      <span class="tb-icon">🗂</span> Open Folder
+    </button>
+    <button class="tb-btn" id="btn-new-pkg" title="Create new package">
+      <span class="tb-icon">✦</span> New
+    </button>
+    <button class="tb-btn" id="btn-examples" title="Browse built-in examples">
+      <span class="tb-icon">✦</span> Examples
+    </button>
+    <div class="tb-sep"></div>
+    <button class="tb-btn" id="btn-save" title="Save active file (Ctrl+S)" disabled>
+      <span class="tb-icon">💾</span> Save
+    </button>
+    <div class="tb-sep"></div>
+    <button class="tb-btn accent" id="btn-run" title="Compile + run (Ctrl+Enter)" disabled>
+      <span class="tb-icon">▶</span> Run
+    </button>
+    <div class="tb-sep"></div>
+    <button class="tb-btn" id="btn-export" title="Export package as .zip" disabled>
+      <span class="tb-icon">📦</span> Export
+    </button>
+
+    <span id="tb-build">—</span>
   </div>
-  <button id="start-btn">Begin Journey</button>
-  <a id="ide-btn" href="/ide.html" target="_blank">IDE ↗</a>
-  <div id="webgpu-badge"></div>
-  <canvas id="canvas"></canvas>
-  <script type="module" src="/src/main.js"></script>
+
+  <!-- ── Workspace ───────────────────────────────────────────────────────── -->
+  <div id="workspace">
+
+    <!-- Sidebar -->
+    <div id="sidebar">
+      <div id="sidebar-header">
+        <span id="pkg-name">no package</span>
+        <button class="icon-btn" id="btn-new-file" title="New file" disabled>+</button>
+      </div>
+      <div id="file-tree">
+        <div class="tree-drop-zone" id="drop-zone">
+          Drop .zip here<br>or Open .zip / Open Folder
+        </div>
+      </div>
+      <div id="sidebar-actions">
+        <button class="tb-btn" id="btn-sa-open">Open .zip</button>
+        <button class="tb-btn" id="btn-sa-open-dir">Open Folder</button>
+        <button class="tb-btn" id="btn-sa-new">New pkg</button>
+        <button class="tb-btn" id="btn-sa-export" disabled>Export</button>
+      </div>
+    </div>
+
+    <!-- Sidebar ↔ editor handle -->
+    <div class="v-handle" id="handle-left"></div>
+
+    <!-- Editor zone -->
+    <div id="editor-zone">
+      <div id="tab-strip">
+        <div id="tab-new" title="New file">+</div>
+      </div>
+
+      <div id="monaco-wrap">
+        <div id="monaco-loading">Loading Monaco…</div>
+        <div id="editor-placeholder">
+          <div class="ph-wordmark">Artlab</div>
+          <div class="ph-hint">open or create a package to start</div>
+        </div>
+      </div>
+
+      <!-- Output handle -->
+      <div class="h-handle" id="handle-output"></div>
+
+      <!-- Output panel -->
+      <div id="output-panel">
+        <div id="output-tabs">
+          <div class="output-tab active" data-out="errors">
+            Errors <span class="output-badge" id="error-badge"></span>
+          </div>
+          <div class="output-tab" data-out="log">Log</div>
+          <div class="output-tab" data-out="compile">Compile</div>
+          <button class="output-collapse-btn" id="btn-collapse-output" title="Collapse output">▾</button>
+        </div>
+        <div class="output-body">
+          <div class="output-pane active" id="out-errors">
+            <div class="output-empty">No diagnostics.</div>
+          </div>
+          <div class="output-pane" id="out-log">
+            <div class="output-empty">No log output.</div>
+          </div>
+          <div class="output-pane" id="out-compile">
+            <div class="output-empty">No compile output.</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Editor ↔ canvas handle -->
+    <div class="v-handle" id="handle-right"></div>
+
+    <!-- Canvas zone -->
+    <div id="canvas-zone">
+      <div id="canvas-toolbar">
+        <span class="canvas-title">Preview</span>
+        <button class="canvas-btn" id="btn-pause" title="Pause render loop">⏸</button>
+        <button class="canvas-btn" id="btn-fullscreen" title="Fullscreen canvas">⛶</button>
+        <span id="fps-counter">— fps</span>
+      </div>
+      <div id="canvas-container"></div>
+    </div>
+
+  </div>
+
+  <!-- ── Status bar ──────────────────────────────────────────────────────── -->
+  <div id="status-bar">
+    <div class="status-cell accent" id="st-pkg">Artlab IDE</div>
+    <div class="status-cell" id="st-file">no file open</div>
+    <div class="status-cell" id="st-cursor">Ln 1, Col 1</div>
+    <div class="status-cell fill"></div>
+    <div class="status-cell right" id="st-build">—</div>
+  </div>
+</div>
+
+<!-- Context menu -->
+<div id="ctx-menu"></div>
+
+<!-- Toast -->
+<div id="toast"></div>
+
+<!-- Hidden file input -->
+<input type="file" id="file-input" accept=".zip,.js">
+
+<!-- Examples gallery modal -->
+<div id="examples-modal" style="display:none; position:fixed; inset:0; background:rgba(5,5,15,0.92); z-index:500; overflow-y:auto; padding:40px;">
+  <div style="max-width:900px; margin:0 auto;">
+    <div style="display:flex; align-items:center; margin-bottom:24px;">
+      <h2 style="font-family:monospace; font-size:14px; letter-spacing:.3em; color:#5a8cff; text-transform:uppercase; flex:1;">Examples</h2>
+      <button id="close-examples" style="background:transparent; border:1px solid rgba(90,120,200,.3); color:#6a84a8; padding:4px 12px; cursor:pointer; font-family:monospace; font-size:11px; border-radius:3px;">Close</button>
+    </div>
+    <div id="examples-grid" style="display:grid; grid-template-columns:repeat(auto-fill,minmax(240px,1fr)); gap:12px;"></div>
+  </div>
+</div>
+
+<script type="module" src="/src/ide/index.js"></script>
 </body>
 </html>

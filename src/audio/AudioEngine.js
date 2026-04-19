@@ -77,6 +77,49 @@ export class AudioEngine {
     }
   }
 
+  // ── Teardown ───────────────────────────────────────────────────────────────
+
+  /**
+   * Fully tear down the audio engine.
+   * Disposes all Tone.js nodes, stops the Transport, closes the AudioContext,
+   * then installs a fresh Tone.Context so the next scene starts clean.
+   *
+   * Call this before loading a new example / package.
+   */
+  async stop() {
+    if (!this._Tone || !this.started) return
+    const Tone = this._Tone
+
+    // 1. Stop the Transport and clear any scheduled events.
+    Tone.Transport.stop()
+    Tone.Transport.cancel()
+
+    // 2. Dispose master chain nodes (order: leaf → root).
+    try { this.master?.dispose()  } catch (_) {}
+    try { this.delay?.dispose()   } catch (_) {}
+    try { this.reverb?.dispose()  } catch (_) {}
+    try { this.limiter?.dispose() } catch (_) {}
+
+    this.master  = null
+    this.delay   = null
+    this.reverb  = null
+    this.limiter = null
+
+    // 3. Close the AudioContext — the only call that truly frees OS resources.
+    //    suspend() only pauses; close() is required for a real release.
+    try {
+      await Tone.context.close()
+    } catch (_) {}
+
+    // 4. Give Tone.js a fresh context so the next scene can call start() again.
+    try {
+      Tone.setContext(new Tone.Context())
+    } catch (_) {}
+
+    this.started = false
+    console.info('[audio] AudioEngine stopped and context released')
+  }
+
   // ── Helpers ────────────────────────────────────────────────────────────────
 
   /**

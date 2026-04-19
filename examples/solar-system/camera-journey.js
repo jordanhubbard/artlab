@@ -1,23 +1,47 @@
-// Camera journey — a 55-second guided tour of the solar system.
-//
-// Distances match AU_SCALE = 100 (1 AU = 100 Three.js units).
-// Each segment uses a smooth easeInOut lerp so arrivals feel weighted.
-// Call startJourney(ctx) from a user gesture; then tick via updateJourney(ctx, dt).
+// Camera journey — an 8-minute cinematic grand tour of the solar system (AU_SCALE = 100).
 
 const WAYPOINTS = [
-  { t:  0, pos: [    0,  80,  200], look: [   0,  0,    0] },
-  { t:  5, pos: [    0,  20,   50], look: [   0,  0,    0] },
-  { t: 10, pos: [   42,   8,   12], look: [38.7, 0,    0] },
-  { t: 16, pos: [   76,  10,   18], look: [72.3, 0,    0] },
-  { t: 22, pos: [  105,   6,   14], look: [100,  0,    0] },
-  { t: 27, pos: [  110,  20,   30], look: [100,  0,    0] },
-  { t: 31, pos: [  158,   8,   20], look: [152.4, 0,   0] },
-  { t: 36, pos: [  270,  15,   40], look: [270,  0,    0] },
-  { t: 40, pos: [  545,  50,   80], look: [520.4, 0,   0] },
-  { t: 44, pos: [  978,   4,   60], look: [953.7, 0,   0] },
-  { t: 47, pos: [ 1940,  30,   90], look: [1919.1, 0,  0] },
-  { t: 50, pos: [ 3030,  40,  100], look: [3006.9, 0,  0] },
-  { t: 55, pos: [    0, 800, 2000], look: [   0,  0,    0] },
+  { t:   0, pos: [ 108,    3,   12], look: [ 100,   0,    0] },
+  { t:  12, pos: [ 103,    6,   18], look: [ 100,   0,    2] },
+  { t:  24, pos: [  92,   18,   40], look: [ 100,   2,    0] },
+  { t:  40, pos: [  60,   30,   90], look: [  72,   0,    0] },
+  { t:  55, pos: [  42,    8,   18], look: [38.7,   0,    2] },
+  { t:  68, pos: [  36,   14,   22], look: [38.7,   1,    0] },
+  { t:  80, pos: [  70,   12,   24], look: [72.3,   0,    2] },
+  { t:  95, pos: [  78,   20,   35], look: [72.3,   2,    0] },
+  { t: 112, pos: [ 104,    5,   14], look: [ 100,   0,    3] },
+  { t: 130, pos: [ 107,   10,   28], look: [ 100,   1,    0] },
+  { t: 148, pos: [ 100,   22,   55], look: [  96,   0,    0] },
+  { t: 165, pos: [ 152,   35,   50], look: [152.4,  0,    4] },
+  { t: 180, pos: [ 156,    6,   18], look: [152.4,  0,    2] },
+  { t: 198, pos: [ 148,   20,   60], look: [  90,   5,    0] },
+  { t: 215, pos: [ 240,   25,   70], look: [ 200,   4,    0] },
+  { t: 232, pos: [ 350,   10,   55], look: [ 300,   0,    0] },
+  { t: 250, pos: [ 530,   60,  110], look: [520.4,  0,    5] },
+  { t: 275, pos: [ 492,   20,   60], look: [520.4,  8,    0] },
+  { t: 295, pos: [ 505,   80,  200], look: [520.4,  0,    0] },
+  { t: 320, pos: [ 960,  120,  200], look: [953.7,  0,    8] },
+  { t: 348, pos: [ 953,  -12,   80], look: [953.7,  0,    4] },
+  { t: 370, pos: [ 953,    2,  100], look: [953.7, 10,    0] },
+  { t: 392, pos: [1925,   40,  120], look: [1919.1, 0,    6] },
+  { t: 412, pos: [3020,   50,  130], look: [3006.9, 0,    8] },
+  { t: 435, pos: [3006,   80,  300], look: [3006.9, 0,    0] },
+  { t: 455, pos: [1600, 1200, 3200], look: [   0,   0,    0] },
+  { t: 468, pos: [ 800, 2400, 5000], look: [   0,   0,    0] },
+  { t: 480, pos: [ 200, 3000, 6500], look: [   0,   0,    0] },
+];
+
+const PLANET_RANGES = [
+  { name: 'earth',   start:   0, end:  40 },
+  { name: 'mercury', start:  40, end:  80 },
+  { name: 'venus',   start:  80, end: 112 },
+  { name: 'earth',   start: 112, end: 165 },
+  { name: 'mars',    start: 165, end: 215 },
+  { name: null,      start: 215, end: 250 },
+  { name: 'jupiter', start: 250, end: 320 },
+  { name: 'saturn',  start: 320, end: 392 },
+  { name: 'uranus',  start: 392, end: 412 },
+  { name: 'neptune', start: 412, end: 480 },
 ];
 
 function easeInOut(t) {
@@ -50,7 +74,6 @@ export function updateJourney(ctx, dt) {
     j.done = true;
   }
 
-  // Find surrounding waypoints
   let from = WAYPOINTS[0];
   let to   = WAYPOINTS[WAYPOINTS.length - 1];
   for (let i = 0; i < WAYPOINTS.length - 1; i++) {
@@ -80,4 +103,13 @@ export function journeyProgress(ctx) {
 
 export function journeyDone(ctx) {
   return ctx._journey ? ctx._journey.done : false;
+}
+
+export function currentPlanet(ctx) {
+  if (!ctx._journey) return null;
+  const t = ctx._journey.time;
+  for (const range of PLANET_RANGES) {
+    if (t >= range.start && t < range.end) return range.name;
+  }
+  return null;
 }

@@ -76,6 +76,30 @@ interface ArtlabContext {
 declare const ctx: ArtlabContext;
 `
 
+// ── Built-in examples ──────────────────────────────────────────────────────────
+
+const EXAMPLES = [
+  { name: 'hello-cube',             entry: 'hello-cube.js',             description: 'A glowing rotating cube — the canonical first example' },
+  { name: 'aurora',                 entry: 'aurora.js',                 description: 'A dome of stars beneath undulating aurora curtains' },
+  { name: 'color-fields',           entry: 'color-fields.js',           description: 'A 20×20 animated grid creating a flowing color wave' },
+  { name: 'wave-sculpture',         entry: 'wave-sculpture.js',         description: 'A 15×15 grid of spheres animated into a flowing wave' },
+  { name: 'particle-storm',         entry: 'particle-storm.js',         description: '500 glowing embers spiraling outward' },
+  { name: 'orbital-dance',          entry: 'orbital-dance.js',          description: 'Five colored spheres orbit a luminous sun' },
+  { name: 'typography-art',         entry: 'typography-art.js',         description: 'Neon ARTLAB logotype with cycling quote subtitles' },
+  { name: 'audio-pulse',            entry: 'audio-pulse.js',            description: 'Microphone-reactive sphere and satellite ring' },
+  { name: 'camera-journey',         entry: 'camera-journey.js',         description: 'Cinematic path camera touring a pillar grid' },
+  { name: 'canvas-2d',              entry: 'canvas-2d.js',              description: 'Canvas 2D generative art rendered as a live 3D texture' },
+  { name: 'ui-showcase',            entry: 'ui-showcase.js',            description: 'HUD panels, 3D labels, progress bars and tooltips' },
+  { name: 'physics-particles',      entry: 'physics-particles.js',      description: 'Interactive particle fountain' },
+  { name: 'video-fx',               entry: 'video-fx.js',               description: 'Live webcam with pixelate, glitch, chroma key effects' },
+  { name: 'solar-system',           entry: 'solar-system.js',           description: 'Audio-reactive 3D solar system — the reference demo' },
+  { name: 'tutorial-01-geometry',   entry: 'tutorial-01-geometry.js',   description: 'Tutorial 01 — Geometry primitives and materials' },
+  { name: 'tutorial-02-lights',     entry: 'tutorial-02-lights.js',     description: 'Tutorial 02 — Five lighting modes demonstrated live' },
+  { name: 'tutorial-03-animation',  entry: 'tutorial-03-animation.js',  description: 'Tutorial 03 — Time-based animation patterns' },
+  { name: 'tutorial-04-color',      entry: 'tutorial-04-color.js',      description: 'Tutorial 04 — Color spaces and PBR material parameters' },
+  { name: 'tutorial-05-interaction',entry: 'tutorial-05-interaction.js',description: 'Tutorial 05 — Mouse interaction and raycasting' },
+]
+
 // ── Constants ─────────────────────────────────────────────────────────────────
 
 const MONACO_CDN  = 'https://cdn.jsdelivr.net/npm/monaco-editor@0.50.0/min/vs/loader.js'
@@ -194,6 +218,7 @@ export class IDE {
     this._initOutputTabs()
     this._initOutputHandle()
     this._bindToolbar()
+    this._bindExamples()
     this._bindDrop()
     this._bindCanvasControls()
 
@@ -1161,6 +1186,7 @@ export class IDE {
     wire('btn-sa-open-dir', () => this.loadDirectory())
     wire('btn-new-pkg',  () => this.newPackage())
     wire('btn-sa-new',   () => this.newPackage())
+    wire('btn-examples', () => this._openExamplesGallery())
     wire('btn-save',     () => this.saveActive())
     wire('btn-run',      () => this.compile())
     wire('btn-export',   () => this.exportPackage())
@@ -1178,6 +1204,86 @@ export class IDE {
       if ((e.ctrlKey || e.metaKey) && e.key === 's') { e.preventDefault(); this.saveActive() }
       if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') { e.preventDefault(); this.compile() }
     })
+  }
+
+  // ── Examples gallery ────────────────────────────────────────────────────────
+
+  _bindExamples() {
+    const modal = document.getElementById('examples-modal')
+    if (!modal) return
+
+    document.getElementById('close-examples')?.addEventListener('click', () => {
+      modal.style.display = 'none'
+    })
+
+    document.addEventListener('keydown', e => {
+      if (e.key === 'Escape' && modal.style.display !== 'none') {
+        modal.style.display = 'none'
+      }
+    })
+  }
+
+  _openExamplesGallery() {
+    const modal = document.getElementById('examples-modal')
+    const grid  = document.getElementById('examples-grid')
+    if (!modal || !grid) return
+
+    // Populate the grid (idempotent — only build once)
+    if (!grid.dataset.built) {
+      grid.dataset.built = '1'
+      for (const ex of EXAMPLES) {
+        const card = document.createElement('div')
+        card.style.cssText = 'background:#141428; border:1px solid rgba(90,120,200,.16); border-radius:3px; padding:16px; cursor:pointer; transition:border-color .12s;'
+        card.addEventListener('mouseenter', () => { card.style.borderColor = 'rgba(80,140,255,.5)' })
+        card.addEventListener('mouseleave', () => { card.style.borderColor = 'rgba(90,120,200,.16)' })
+
+        const nameEl = document.createElement('div')
+        nameEl.style.cssText = 'font-family:monospace; font-size:11px; color:#5a8cff; letter-spacing:.1em; margin-bottom:6px;'
+        nameEl.textContent = ex.name
+
+        const descEl = document.createElement('div')
+        descEl.style.cssText = 'font-size:11px; color:#6a84a8; line-height:1.5;'
+        descEl.textContent = ex.description
+
+        card.appendChild(nameEl)
+        card.appendChild(descEl)
+
+        card.addEventListener('click', () => {
+          modal.style.display = 'none'
+          this._loadExample(ex)
+        })
+
+        grid.appendChild(card)
+      }
+    }
+
+    modal.style.display = 'block'
+  }
+
+  async _loadExample(ex) {
+    const url = `/examples/${ex.name}/${ex.entry}`
+    let mod
+    try {
+      mod = await import(/* @vite-ignore */ url)
+    } catch (err) {
+      console.error('[IDE] Failed to load example:', err)
+      toast(`Failed to load example: ${ex.name}`, 4000)
+      return
+    }
+
+    // Update sidebar UI to show the example name
+    const pkgNameEl = document.getElementById('pkg-name')
+    if (pkgNameEl) {
+      pkgNameEl.textContent = ex.name
+      pkgNameEl.classList.add('loaded')
+    }
+
+    // Run via PreviewPane (skips blob URL — real URL preserves relative imports)
+    if (this.preview) {
+      this.preview.runFromModule(mod)
+    }
+
+    toast(`Loaded example: ${ex.name}`)
   }
 
   // ── Drop zone ───────────────────────────────────────────────────────────────

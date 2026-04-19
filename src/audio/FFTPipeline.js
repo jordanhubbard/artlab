@@ -96,6 +96,22 @@ export class FFTPipeline {
     }
   }
 
+  // ── Teardown ───────────────────────────────────────────────────────────────
+
+  /**
+   * Disconnect and dispose FFT and Meter nodes.
+   * Call this before stopping the AudioEngine so the nodes are released
+   * before the AudioContext is closed.
+   */
+  dispose() {
+    try { this._fft?.dispose()   } catch (_) {}
+    try { this._meter?.dispose() } catch (_) {}
+    this._fft   = null
+    this._meter = null
+    this.data   = { bass: 0, mid: 0, treble: 0, amplitude: 0 }
+    console.info('[audio] FFTPipeline disposed')
+  }
+
   // ── EventBus integration ───────────────────────────────────────────────────
 
   _emitFFT(rawData) {
