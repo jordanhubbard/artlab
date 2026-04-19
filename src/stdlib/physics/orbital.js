@@ -25,7 +25,7 @@ import { keplerPosition, degToRad } from '../../utils/MathUtils.js'
 import { AU_SCALE, TIME_YEAR_SECS } from '../../utils/constants.js'
 
 // Re-export planet data so DSL programs can read it without a separate import
-export { PLANET_DATA, PLANET_ORDER } from '../../orbital/planetData.js'
+export { PLANET_DATA, PLANET_ORDER } from './planetData.js'
 
 // ---------------------------------------------------------------------------
 // Constants
@@ -181,5 +181,5 @@ export function solarOrbit(planetName) {
 // consumer calls solarOrbit().
 // ---------------------------------------------------------------------------
 
-import { PLANET_DATA as _PD } from '../../orbital/planetData.js'
+import { PLANET_DATA as _PD } from './planetData.js'
 let _planetDataCache = _PD

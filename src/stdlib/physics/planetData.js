@@ -1,7 +1,7 @@
-import { AU_SCALE, PLANET_SCALE, TIME_YEAR_SECS } from '../utils/constants.js'
+import { AU_SCALE, PLANET_SCALE, TIME_YEAR_SECS } from '../../utils/constants.js'
 
 /**
- * Planetary data.
+ * Planetary data for our solar system.
  * radius: Earth radii (Earth = 1.0)
  * semiMajorAxis: AU
  * eccentricity: 0..1
@@ -28,9 +28,6 @@ export const PLANET_DATA = {
     metalness: 0.05,
     toneNote: 'B5',
     toneOctave: 5,
-    textures: {
-      map: '/textures/mercury/mercury_map.jpg',
-    },
   },
   venus: {
     name: 'Venus',
@@ -48,9 +45,6 @@ export const PLANET_DATA = {
     metalness: 0.0,
     toneNote: 'G4',
     toneOctave: 4,
-    textures: {
-      map: '/textures/venus/venus_atmosphere.jpg',
-    },
   },
   earth: {
     name: 'Earth',
@@ -68,13 +62,6 @@ export const PLANET_DATA = {
     metalness: 0.0,
     toneNote: 'C4',
     toneOctave: 4,
-    textures: {
-      map:       '/textures/earth/earth_daymap.jpg',
-      night:     '/textures/earth/earth_nightmap.jpg',
-      clouds:    '/textures/earth/earth_clouds.jpg',
-      specular:  '/textures/earth/earth_specular.jpg',
-      normal:    '/textures/earth/earth_normal.jpg',
-    },
   },
   mars: {
     name: 'Mars',
@@ -92,9 +79,6 @@ export const PLANET_DATA = {
     metalness: 0.0,
     toneNote: 'F3',
     toneOctave: 3,
-    textures: {
-      map: '/textures/mars/mars_map.jpg',
-    },
   },
   jupiter: {
     name: 'Jupiter',
@@ -111,9 +95,6 @@ export const PLANET_DATA = {
     metalness: 0.0,
     toneNote: 'A2',
     toneOctave: 2,
-    textures: {
-      map: '/textures/jupiter/jupiter_map.jpg',
-    },
   },
   saturn: {
     name: 'Saturn',
@@ -125,17 +106,13 @@ export const PLANET_DATA = {
     rotationPeriod: 0.444,
     axialTilt: 26.73,
     hasRings: true,
-    ringInner: 1.11,   // relative to Saturn radius
+    ringInner: 1.11,
     ringOuter: 2.27,
     color: 0xEAD6A5,
     roughness: 0.85,
     metalness: 0.0,
     toneNote: 'E2',
     toneOctave: 2,
-    textures: {
-      map:  '/textures/saturn/saturn_map.jpg',
-      ring: '/textures/saturn/saturn_rings.png',
-    },
   },
   uranus: {
     name: 'Uranus',
@@ -153,9 +130,6 @@ export const PLANET_DATA = {
     metalness: 0.0,
     toneNote: 'D2',
     toneOctave: 2,
-    textures: {
-      map: '/textures/uranus/uranus_map.jpg',
-    },
   },
   neptune: {
     name: 'Neptune',
@@ -173,9 +147,6 @@ export const PLANET_DATA = {
     metalness: 0.0,
     toneNote: 'A1',
     toneOctave: 1,
-    textures: {
-      map: '/textures/neptune/neptune_map.jpg',
-    },
   },
 }
 
@@ -184,10 +155,9 @@ export const PLANET_ORDER = ['mercury', 'venus', 'earth', 'mars', 'jupiter', 'sa
 
 /** Moon data */
 export const MOON_DATA = {
-  radius: 0.273,           // Earth radii
-  semiMajorAxis: 0.00257,  // AU (= 384,400 km)
-  orbitalPeriod: 0.0748,   // Earth years (= 27.3 days)
+  radius: 0.273,
+  semiMajorAxis: 0.00257,
+  orbitalPeriod: 0.0748,
   color: 0xAAAAAA,
   roughness: 0.95,
-  textures: { map: '/textures/moon/moon_map.jpg' },
 }
