@@ -24,6 +24,7 @@ import { OrbitControls }    from 'three/addons/controls/OrbitControls.js'
 import { EffectComposer }   from 'three/addons/postprocessing/EffectComposer.js'
 import { RenderPass }       from 'three/addons/postprocessing/RenderPass.js'
 import { UnrealBloomPass }  from 'three/addons/postprocessing/UnrealBloomPass.js'
+import { OutputPass }       from 'three/addons/postprocessing/OutputPass.js'
 import { CSS2DRenderer }    from 'three/addons/renderers/CSS2DRenderer.js'
 import * as _geo    from '../stdlib/geometry.js'
 import * as _lights from '../stdlib/lights.js'
@@ -41,8 +42,10 @@ export class PreviewPane {
     this._renderer = new Three.WebGLRenderer({ canvas: this.canvas, antialias: true, alpha: false })
     this._renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2))
     this._renderer.setClearColor(0x0a0a12, 1)
-    this._renderer.outputColorSpace = Three.SRGBColorSpace
-    this._renderer.shadowMap.enabled = true
+    this._renderer.outputColorSpace    = Three.SRGBColorSpace
+    this._renderer.toneMapping         = Three.ACESFilmicToneMapping
+    this._renderer.toneMappingExposure = 0.75
+    this._renderer.shadowMap.enabled   = true
 
     this._scene  = new Three.Scene()
     this._camera = new Three.PerspectiveCamera(60, 1, 0.01, 100000)
@@ -62,6 +65,7 @@ export class PreviewPane {
     this._composer  = new EffectComposer(this._renderer)
     this._composer.addPass(new RenderPass(this._scene, this._camera))
     this._composer.addPass(this._bloomPass)
+    this._composer.addPass(new OutputPass())
 
     // CSS2D label renderer — absolute overlay inside the canvas container
     this._css2DRenderer = new CSS2DRenderer()

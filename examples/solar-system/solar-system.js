@@ -130,10 +130,10 @@ export async function setup(ctx) {
     CSS2DObject = m.CSS2DObject
   } catch {}
 
-  // Camera
-  ctx.camera.position.set(0, 80, 200)
-  ctx.camera.lookAt(0, 0, 0)
-  ctx.controls.target.set(0, 0, 0)
+  // Camera — start near Earth (matches journey's first waypoint at t=0)
+  ctx.camera.position.set(108, 5, 18)
+  ctx.camera.lookAt(100, 0, 0)
+  ctx.controls.target.set(100, 0, 0)
   ctx.controls.minDistance = 20
   ctx.controls.maxDistance = 5000
 
@@ -326,8 +326,23 @@ export async function setup(ctx) {
   }
   ctx.renderer.domElement.addEventListener('click', ctx._onClick)
 
-  // Start button — positioned relative to canvas container
+  // Navigation hint — drag/zoom/click instructions in bottom-left
   const _btnContainer = ctx.renderer.domElement.parentElement
+  _btnContainer.style.position = 'relative'
+  let hint = _btnContainer.querySelector('#ss-nav-hint')
+  if (!hint) {
+    hint = document.createElement('div')
+    hint.id = 'ss-nav-hint'
+    hint.style.cssText =
+      'position:absolute;bottom:14px;left:14px;pointer-events:none;z-index:10;' +
+      'font-family:"Courier New",monospace;font-size:10px;line-height:1.9;' +
+      'color:rgba(160,210,255,0.45);letter-spacing:0.14em;text-transform:uppercase'
+    hint.innerHTML = 'drag to orbit<br>scroll to zoom<br>click planet to focus'
+    _btnContainer.appendChild(hint)
+  }
+  ctx._ssHint = hint
+
+  // Begin Journey button — bottom-centre of canvas container
   let btn = _btnContainer.querySelector('#start-btn')
   if (!btn) {
     btn = document.createElement('button')
@@ -438,6 +453,7 @@ export function teardown(ctx) {
   if (ctx._onKey)   window.removeEventListener('keydown', ctx._onKey)
   if (ctx._onClick) ctx.renderer?.domElement.removeEventListener('click', ctx._onClick)
   ctx.renderer?.domElement.parentElement.querySelector('#start-btn')?.remove()
+  ctx._ssHint?.remove()
 }
 
 // ── Private ────────────────────────────────────────────────────────────────────

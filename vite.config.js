@@ -22,6 +22,8 @@ const copyExamplesPlugin = {
     if (existsSync('examples'))     copyDir('examples',     'dist/examples')
     if (existsSync('src/stdlib'))   copyDir('src/stdlib',   'dist/src/stdlib')
     if (existsSync('src/physics'))  copyDir('src/physics',  'dist/src/physics')
+    if (existsSync('src/audio'))    copyDir('src/audio',    'dist/src/audio')
+    if (existsSync('src/assets'))   copyDir('src/assets',   'dist/src/assets')
 
     // Build standalone vendor ESM bundles that examples load via importmap.
     // Vite's internal chunks use minified export aliases, so they cannot be

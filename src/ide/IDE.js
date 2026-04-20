@@ -17,6 +17,7 @@
  */
 
 import { PreviewPane } from './PreviewPane.js'
+import { lint, THREE_TYPES_DTS, TONE_TYPES_DTS } from './ArtlabLinter.js'
 
 // Monaco uses 'javascript' language for all .js files
 const JS_LANG = 'javascript'
@@ -329,6 +330,9 @@ export class IDE {
 
     // Inject Artlab context types — gives autocomplete on ctx.sphere(), ctx.Three, etc.
     jsDefaults.addExtraLib(ARTLAB_TYPES_DTS, 'artlab://types/artlab-context.d.ts')
+    // Inject Three.js + Tone.js type declarations for deeper autocomplete
+    jsDefaults.addExtraLib(THREE_TYPES_DTS, 'artlab://types/three.d.ts')
+    jsDefaults.addExtraLib(TONE_TYPES_DTS, 'artlab://types/tone.d.ts')
   }
 
   _defineTheme(monaco) {
@@ -399,12 +403,16 @@ export class IDE {
       if (el) el.textContent = `Ln ${ln}, Col ${col}`
     })
 
+    // Debounced lint (faster than compile — purely static, no blob import)
+    const lintDebounced = debounce(() => this._lintActive(), 220)
+
     // Auto-compile on change
     this.editor.onDidChangeModelContent(() => {
       if (this._activeFile) {
         this._dirty.add(this._activeFile)
         this._renderTabs()
       }
+      lintDebounced()
       this._compile()
     })
 
@@ -743,6 +751,35 @@ export class IDE {
       this._setErrors(diags)
       this._logCompile(`[${ts()}] Error: ${err.message}`)
     }
+  }
+
+  // ── Live linting ─────────────────────────────────────────────────────────────
+
+  _lintActive() {
+    if (!this._activeFile || !this.editor || !this._monaco) return
+    const filename = this._activeFile
+    if (!filename.endsWith('.js')) return
+
+    const source = this.editor.getValue()
+    const diags  = lint(source, filename)
+
+    const model = this.editor.getModel()
+    if (!model) return
+
+    const MS = this._monaco.MarkerSeverity
+    const markers = diags.map(d => ({
+      severity:        d.severity === 'error' ? MS.Error
+                     : d.severity === 'warn'  ? MS.Warning
+                     : MS.Info,
+      message:         d.message,
+      startLineNumber: d.line  ?? 1,
+      endLineNumber:   d.line  ?? 1,
+      startColumn:     d.col   ?? 1,
+      endColumn:       (d.col ?? 1) + 80,
+      source:          'artlab',
+    }))
+
+    this._monaco.editor.setModelMarkers(model, 'artlab', markers)
   }
 
   // ── localStorage project persistence ────────────────────────────────────────
