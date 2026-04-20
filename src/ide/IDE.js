@@ -234,6 +234,9 @@ export class IDE {
 
     // Debounced auto-compile
     this._compile = debounce(() => this.compile(), DEBOUNCE_MS)
+
+    // True while a built-in example is the active view (edits are not persisted)
+    this._fromExample = false
   }
 
   // ── Initialisation ─────────────────────────────────────────────────────────
@@ -275,14 +278,16 @@ export class IDE {
     this._buildExamplesNav()
     this._initTutorial()
 
-    // Deep-link: load the example named in the URL hash, if any
+    // Deep-link: load example from URL hash; fall back to saved project.
+    // Returns true if an example was loaded (hash takes priority over saved project).
     const _loadFromHash = () => {
       const name = location.hash.slice(1)
-      if (!name) return
+      if (!name) return false
       const ex = EXAMPLES.find(e => e.name === name)
-      if (ex) this._loadExample(ex)
+      if (ex) { this._loadExample(ex); return true }
+      return false
     }
-    _loadFromHash()
+    if (!_loadFromHash()) this._restoreProject()
     window.addEventListener('hashchange', _loadFromHash)
   }
 
@@ -448,6 +453,8 @@ export class IDE {
     const entryName = manifest.entry ?? [...this.artFiles.keys()].find(k => k.endsWith('.js'))
     if (entryName && this.artFiles.has(entryName)) this.openFile(entryName)
 
+    this._fromExample = false
+    history.replaceState(null, '', location.pathname + location.search)
     this._addProjectToNav(manifest.name)
     toast(`Opened ${manifest.name} (directory)`)
     await this.compile()
@@ -514,6 +521,8 @@ export class IDE {
     const entryName = manifest.entry ?? [...this.artFiles.keys()].find(k => k.endsWith('.js'))
     if (entryName && this.artFiles.has(entryName)) this.openFile(entryName)
 
+    this._fromExample = false
+    history.replaceState(null, '', location.pathname + location.search)
     this._addProjectToNav(manifest.name)
     toast(`Opened ${manifest.name} v${manifest.version}`)
     await this.compile()
@@ -727,12 +736,56 @@ export class IDE {
       this._setBuild('ok', '✓ OK')
       this._setErrors([])
       this._logCompile(`[${ts()}] Build OK`)
+      this._saveProject()
     } catch (err) {
       this._setBuild('error', '✗ Error')
       const diags = this._parseError(err.message)
       this._setErrors(diags)
       this._logCompile(`[${ts()}] Error: ${err.message}`)
     }
+  }
+
+  // ── localStorage project persistence ────────────────────────────────────────
+
+  _saveProject() {
+    if (!this.manifest || this._fromExample) return
+    try {
+      localStorage.setItem('artlab:project', JSON.stringify({
+        manifest:   this.manifest,
+        artFiles:   Object.fromEntries(this.artFiles),
+        activeFile: this._activeFile,
+      }))
+    } catch (e) {
+      console.warn('[IDE] localStorage save failed:', e.message)
+    }
+  }
+
+  _restoreProject() {
+    let data
+    try {
+      const raw = localStorage.getItem('artlab:project')
+      if (!raw) return
+      data = JSON.parse(raw)
+      if (!data?.manifest?.name || !data?.manifest?.entry) return
+    } catch (e) {
+      console.warn('[IDE] localStorage restore failed:', e.message)
+      return
+    }
+
+    this.manifest = data.manifest
+    this.artFiles = new Map(Object.entries(data.artFiles ?? {}))
+    this.assetFiles.clear()
+    this._fromExample = false
+
+    this._reset()
+    this._updatePkgLabel()
+    this._enablePkgButtons(true)
+    this._addProjectToNav(this.manifest.name)
+
+    const file = data.activeFile ?? this.manifest.entry
+    if (file && this.artFiles.has(file)) this.openFile(file)
+
+    this.compile()
   }
 
   _parseError(msg) {
@@ -1114,6 +1167,8 @@ export class IDE {
     this.artFiles.set('main.js', stub)
     this.artFiles.set('artlab.json', JSON.stringify(this.manifest, null, 2))
 
+    this._fromExample = false
+    history.replaceState(null, '', location.pathname + location.search)
     this._reset()
     this._updatePkgLabel()
     this._enablePkgButtons(true)
@@ -1318,6 +1373,7 @@ export class IDE {
   }
 
   async _loadExample(ex) {
+    this._fromExample = true
     // Clear previous runtime errors when switching examples
     this._setErrors([])
 
