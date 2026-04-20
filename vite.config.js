@@ -91,8 +91,7 @@ export default defineConfig({
     target: 'esnext',
     rollupOptions: {
       input: {
-        main:        'index.html',
-        solarSystem: 'solar-system.html',
+        main: 'index.html',
       },
       output: {
         manualChunks: {
