@@ -274,6 +274,16 @@ export class IDE {
 
     this._buildExamplesNav()
     this._initTutorial()
+
+    // Deep-link: load the example named in the URL hash, if any
+    const _loadFromHash = () => {
+      const name = location.hash.slice(1)
+      if (!name) return
+      const ex = EXAMPLES.find(e => e.name === name)
+      if (ex) this._loadExample(ex)
+    }
+    _loadFromHash()
+    window.addEventListener('hashchange', _loadFromHash)
   }
 
   // ── Monaco bootstrap ────────────────────────────────────────────────────────
@@ -1354,6 +1364,9 @@ export class IDE {
 
     toast(`Loaded example: ${ex.name}`)
     this._tut?.tryLoad(ex)
+
+    // Update the URL hash so this view is bookmarkable and shareable
+    history.replaceState(null, '', `#${ex.name}`)
   }
 
   // ── Project Navigator ────────────────────────────────────────────────────────
