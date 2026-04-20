@@ -1,0 +1,6 @@
+{
+  "name": "terrain-flyover",
+  "version": "1.0.0",
+  "entry": "terrain-flyover.js",
+  "description": "Procedural terrain with layered noise, altitude-based vertex colors, and a spline camera flyover swooping over mountains and valleys"
+}

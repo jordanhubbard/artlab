@@ -1,0 +1,8 @@
+{
+  "name": "reaction-diffusion",
+  "version": "1.0.0",
+  "entry": "reaction-diffusion.js",
+  "description": "Gray-Scott reaction-diffusion simulation evolving coral and maze patterns on a rotating sphere",
+  "category": "simulation",
+  "tags": ["reaction-diffusion", "gray-scott", "simulation", "texture", "sphere"]
+}

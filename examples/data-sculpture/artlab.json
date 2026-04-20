@@ -1,0 +1,6 @@
+{
+  "name": "data-sculpture",
+  "version": "1.0.0",
+  "entry": "data-sculpture.js",
+  "description": "Interactive 3D bar chart sculpture of monthly city temperatures with animated pulse and hover tooltips"
+}

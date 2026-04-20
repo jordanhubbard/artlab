@@ -1,0 +1,8 @@
+{
+  "name": "shader-gallery",
+  "version": "1.0.0",
+  "entry": "shader-gallery.js",
+  "description": "A virtual art gallery with five live shader paintings — pixelate, color waves, glitch, julia fractal, and animated noise — hung in a simple three-walled room with gallery lighting",
+  "category": "shaders",
+  "tags": ["shader", "glsl", "gallery", "fractal", "animation", "art", "3d"]
+}

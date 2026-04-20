@@ -1,0 +1,6 @@
+{
+  "name": "neon-city",
+  "version": "1.0.0",
+  "entry": "neon-city.js",
+  "description": "Synthwave cyberpunk cityscape with procedural buildings, reflective ground, and bloom"
+}
