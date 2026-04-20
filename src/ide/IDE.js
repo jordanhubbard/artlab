@@ -1396,7 +1396,7 @@ export class IDE {
     let mod
     try { mod = await import(/* @vite-ignore */ url) } catch (err) {
       console.error('[IDE] Example load failed:', err)
-      toast(`Failed to load example: ${ex.name}`, 4000)
+      this._runtimeError(`Failed to load '${ex.name}': ${err.message || String(err)}`)
       return
     }
     this.preview?.runFromModule(mod)

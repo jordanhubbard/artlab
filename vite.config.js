@@ -1,4 +1,5 @@
 import { defineConfig }                          from 'vite'
+import { build as esbuild }                       from 'esbuild'
 import { copyFileSync, mkdirSync, readdirSync,
          statSync, existsSync }                   from 'fs'
 import { join }                                   from 'path'
@@ -17,10 +18,30 @@ function copyDir(src, dest) {
 // so relative paths like ../../src/physics/Physics.js resolve in production.
 const copyExamplesPlugin = {
   name: 'copy-examples',
-  closeBundle() {
+  async closeBundle() {
     if (existsSync('examples'))     copyDir('examples',     'dist/examples')
     if (existsSync('src/stdlib'))   copyDir('src/stdlib',   'dist/src/stdlib')
     if (existsSync('src/physics'))  copyDir('src/physics',  'dist/src/physics')
+
+    // Build standalone vendor ESM bundles that examples load via importmap.
+    // Vite's internal chunks use minified export aliases, so they cannot be
+    // consumed by dynamically loaded example files via importmap.  Instead we
+    // produce self-contained bundles where the export names match the library's
+    // public API (AmbientLight, Synth, etc.).
+    mkdirSync('dist/vendors', { recursive: true })
+    // Three.js ships a pre-built ESM — copy it directly.
+    copyFileSync(
+      'node_modules/three/build/three.module.min.js',
+      'dist/vendors/three.esm.js',
+    )
+    // Tone.js only ships ESM sources, so we bundle them with esbuild.
+    await esbuild({
+      entryPoints: ['node_modules/tone/build/esm/index.js'],
+      bundle:      true,
+      format:      'esm',
+      minify:      true,
+      outfile:     'dist/vendors/tone.esm.js',
+    })
   },
 }
 
@@ -36,13 +57,10 @@ const importMapPlugin = {
     transform(html, ctx) {
       if (!ctx.bundle) return html
       const base = process.env.BASE_URL ?? '/'
-      const imports = {}
-      for (const [filename, chunk] of Object.entries(ctx.bundle)) {
-        if (chunk.type !== 'chunk') continue
-        if (chunk.name === 'three') imports['three'] = `${base}${filename}`
-        if (chunk.name === 'tone')  imports['tone']  = `${base}${filename}`
+      const imports = {
+        'three': `${base}vendors/three.esm.js`,
+        'tone':  `${base}vendors/tone.esm.js`,
       }
-      if (!Object.keys(imports).length) return html
       const tag = `<script type="importmap">\n${JSON.stringify({ imports }, null, 2)}\n</script>`
       return html.replace('<head>', `<head>\n    ${tag}`)
     },
@@ -67,7 +85,6 @@ export default defineConfig({
       output: {
         manualChunks: {
           three: ['three'],
-          tone:  ['tone'],
           gsap:  ['gsap'],
         },
       },

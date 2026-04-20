@@ -34,6 +34,7 @@ export class StandaloneRunner {
     this._renderer.outputColorSpace    = Three.SRGBColorSpace
     this._renderer.shadowMap.enabled   = true
     this._renderer.shadowMap.type      = Three.PCFSoftShadowMap
+    this._renderer.setClearColor(0x0a0a12, 1)
 
     // ── Scene + camera ───────────────────────────────────────────────────────────
     this._scene  = new Three.Scene()
