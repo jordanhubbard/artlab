@@ -1,0 +1,8 @@
+{
+  "name": "flocking-boids",
+  "version": "1.0.0",
+  "entry": "flocking-boids.js",
+  "description": "80 cone boids exhibiting emergent flocking via separation, alignment, and cohesion rules",
+  "category": "simulation",
+  "tags": ["boids", "flocking", "emergent", "ai"]
+}

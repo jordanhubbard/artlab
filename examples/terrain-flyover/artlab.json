@@ -1,0 +1,8 @@
+{
+  "name": "terrain-flyover",
+  "version": "1.0.0",
+  "entry": "terrain-flyover.js",
+  "description": "Infinite procedural terrain displaced with layered Perlin noise, colored by altitude, with a forward-flying camera",
+  "category": "generative",
+  "tags": ["terrain", "noise", "procedural", "flight"]
+}

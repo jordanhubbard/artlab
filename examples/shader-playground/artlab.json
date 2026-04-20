@@ -1,0 +1,8 @@
+{
+  "name": "shader-playground",
+  "version": "1.0.0",
+  "entry": "shader-playground.js",
+  "description": "A ShaderMaterial raymarching signed-distance functions — sphere, torus, and plane with smooth union and animated deformation",
+  "category": "shaders",
+  "tags": ["glsl", "raymarching", "sdf", "shader"]
+}

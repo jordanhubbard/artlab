@@ -1,0 +1,8 @@
+{
+  "name": "strange-attractor",
+  "version": "1.0.0",
+  "entry": "strange-attractor.js",
+  "description": "Lorenz strange attractor drawn in real time as a glowing BufferGeometry line with HSL color gradient",
+  "category": "math",
+  "tags": ["attractor", "chaos", "lorenz", "line"]
+}

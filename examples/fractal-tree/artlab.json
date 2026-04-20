@@ -1,0 +1,8 @@
+{
+  "name": "fractal-tree",
+  "version": "1.0.0",
+  "entry": "fractal-tree.js",
+  "description": "A recursive 3D fractal tree with cylinder branches swaying in a simulated wind",
+  "category": "generative",
+  "tags": ["fractal", "tree", "recursive", "wind"]
+}

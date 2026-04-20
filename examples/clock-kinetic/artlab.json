@@ -1,0 +1,8 @@
+{
+  "name": "clock-kinetic",
+  "version": "1.0.0",
+  "entry": "clock-kinetic.js",
+  "description": "A kinetic wall clock with cylinder hands encoding real time against a ring of glowing box hour markers",
+  "category": "animation",
+  "tags": ["clock", "time", "lighting"]
+}
