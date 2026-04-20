@@ -536,6 +536,17 @@
       overflow: hidden;
     }
 
+    /* iOS Safari fullscreen fallback (no Fullscreen API on non-video elements) */
+    #canvas-container.ios-fullscreen {
+      position: fixed !important;
+      top: 0; left: 0; right: 0; bottom: 0;
+      width: 100vw !important;
+      height: 100vh !important;
+      z-index: 999999;
+      background: #000;
+    }
+    body.ios-fullscreen-active { overflow: hidden; }
+
     /* ── Status bar ──────────────────────────────────────────────────────── */
     #status-bar {
       display: flex;

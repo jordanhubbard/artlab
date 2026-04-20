@@ -1555,9 +1555,47 @@ export class IDE {
 
     document.getElementById('btn-fullscreen')?.addEventListener('click', () => {
       const el = document.getElementById('canvas-container')
-      if (!document.fullscreenElement) el?.requestFullscreen?.()
-      else document.exitFullscreen?.()
+      if (!el) return
+
+      // iOS Safari doesn't support Fullscreen API on non-video elements.
+      // Detect via absence of requestFullscreen AND presence of webkit touch.
+      const fsElement = document.fullscreenElement || document.webkitFullscreenElement
+      const isFullscreen = !!fsElement || el.classList.contains('ios-fullscreen')
+
+      if (!isFullscreen) {
+        if (el.requestFullscreen) {
+          el.requestFullscreen()
+        } else if (el.webkitRequestFullscreen) {
+          // Older Safari desktop
+          el.webkitRequestFullscreen()
+        } else {
+          // iOS Safari fallback: CSS-based pseudo-fullscreen
+          el.classList.add('ios-fullscreen')
+          document.body.classList.add('ios-fullscreen-active')
+          // Scroll to top to maximize viewport
+          window.scrollTo(0, 0)
+        }
+      } else {
+        if (document.exitFullscreen) {
+          document.exitFullscreen()
+        } else if (document.webkitExitFullscreen) {
+          document.webkitExitFullscreen()
+        } else {
+          el.classList.remove('ios-fullscreen')
+          document.body.classList.remove('ios-fullscreen-active')
+        }
+      }
     })
+
+    // Listen for native fullscreen exit (Escape key, swipe, etc.)
+    const _onFsChange = () => {
+      if (!document.fullscreenElement && !document.webkitFullscreenElement) {
+        document.getElementById('canvas-container')?.classList.remove('ios-fullscreen')
+        document.body.classList.remove('ios-fullscreen-active')
+      }
+    }
+    document.addEventListener('fullscreenchange', _onFsChange)
+    document.addEventListener('webkitfullscreenchange', _onFsChange)
   }
 
   // ── Tutorial pane ────────────────────────────────────────────────────────────
