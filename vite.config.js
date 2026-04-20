@@ -42,6 +42,13 @@ const copyExamplesPlugin = {
       minify:      true,
       outfile:     'dist/vendors/tone.esm.js',
     })
+    // three/addons — copy only the specific addon files used by static assets
+    // (examples, stdlib, physics).  The importmap prefix "three/addons/" routes
+    // all such imports here.  Add new entries as needed when examples grow.
+    const jsm = 'node_modules/three/examples/jsm'
+    const addons = 'dist/vendors/three-addons'
+    mkdirSync(`${addons}/renderers`, { recursive: true })
+    copyFileSync(`${jsm}/renderers/CSS2DRenderer.js`, `${addons}/renderers/CSS2DRenderer.js`)
   },
 }
 
@@ -58,8 +65,11 @@ const importMapPlugin = {
       if (!ctx.bundle) return html
       const base = process.env.BASE_URL ?? '/'
       const imports = {
-        'three': `${base}vendors/three.esm.js`,
-        'tone':  `${base}vendors/tone.esm.js`,
+        'three':         `${base}vendors/three.esm.js`,
+        'tone':          `${base}vendors/tone.esm.js`,
+        // Prefix mapping: three/addons/X → vendors/three-addons/X
+        // CSS2DRenderer.js is the only addon currently needed by static assets.
+        'three/addons/': `${base}vendors/three-addons/`,
       }
       const tag = `<script type="importmap">\n${JSON.stringify({ imports }, null, 2)}\n</script>`
       return html.replace('<head>', `<head>\n    ${tag}`)
@@ -85,7 +95,6 @@ export default defineConfig({
       output: {
         manualChunks: {
           three: ['three'],
-          gsap:  ['gsap'],
         },
       },
     },
