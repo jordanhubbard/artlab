@@ -127,6 +127,8 @@ const TONE_KNOWN = new Set([
   'start','now','connect','disconnect','toDestination',
   'getContext','getDestination','getTransport','getDraw',
   'setContext','loaded',
+  // Top-level properties
+  'context','destination','transport','draw',
 ])
 
 // ── Import rules ───────────────────────────────────────────────────────────────
@@ -160,6 +162,9 @@ const SAFE_SRC_PREFIXES = [
  * @returns {Array<{severity:'error'|'warn'|'info', message:string, file:string, line:number, col:number}>}
  */
 export function lint(source, filename = 'script.js') {
+  // Test files are not Artlab entry points — skip all checks
+  if (filename.endsWith('.test.js') || filename.endsWith('.spec.js')) return []
+
   const diags = []
   const lines = source.split('\n')
 
@@ -191,10 +196,14 @@ export function lint(source, filename = 'script.js') {
 // ── Validators ────────────────────────────────────────────────────────────────
 
 function _checkExports(source, push) {
-  const hasSetup =
-    /export\s+(async\s+)?function\s+setup\b/.test(source) ||
-    /export\s+const\s+setup\s*=/.test(source)
-  if (!hasSetup) {
+  const hasSetup    = /export\s+(async\s+)?function\s+setup\b/.test(source)    || /export\s+const\s+setup\s*=/.test(source)
+  const hasUpdate   = /export\s+(async\s+)?function\s+update\b/.test(source)   || /export\s+const\s+update\s*=/.test(source)
+  const hasTeardown = /export\s+(async\s+)?function\s+teardown\b/.test(source) || /export\s+const\s+teardown\s*=/.test(source)
+
+  // Only flag missing setup() when the file already declares other Artlab
+  // lifecycle hooks (update/teardown). Helper modules that pass ctx as a
+  // parameter to utility functions are exempt — they're not entry points.
+  if (!hasSetup && (hasUpdate || hasTeardown)) {
     push('warn', 0, 0,
       "No setup(ctx) function exported. Every Artlab example must export at least: export function setup(ctx) { ... }")
   }
