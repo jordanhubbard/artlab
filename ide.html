@@ -142,6 +142,7 @@
       transition: background var(--trans);
       position: relative;
       z-index: 5;
+      touch-action: none;
     }
     .v-handle:hover, .v-handle.dragging { background: var(--border-hi); }
 
@@ -151,8 +152,21 @@
       cursor: row-resize;
       flex-shrink: 0;
       transition: background var(--trans);
+      touch-action: none;
     }
     .h-handle:hover, .h-handle.dragging { background: var(--border-hi); }
+
+    /* Bigger touch targets on coarse-pointer (phones, tablets) */
+    @media (pointer: coarse) {
+      :root { --handle-w: 16px; }
+      .v-handle::after, .h-handle::after {
+        content: '';
+        position: absolute;
+        inset: -8px;           /* expand hit area beyond visual bounds */
+      }
+      .v-handle { background-image: linear-gradient(0deg, transparent 30%, var(--border-hi) 30%, var(--border-hi) 35%, transparent 35%, transparent 65%, var(--border-hi) 65%, var(--border-hi) 70%, transparent 70%); }
+      .h-handle { background-image: linear-gradient(90deg, transparent 30%, var(--border-hi) 30%, var(--border-hi) 35%, transparent 35%, transparent 65%, var(--border-hi) 65%, var(--border-hi) 70%, transparent 70%); }
+    }
 
     /* ── Sidebar ─────────────────────────────────────────────────────────── */
     #sidebar {

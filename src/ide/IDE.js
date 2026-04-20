@@ -1253,30 +1253,42 @@ export class IDE {
 
     let startY = 0, startH = 0, dragging = false
 
-    handle.addEventListener('mousedown', e => {
-      e.preventDefault()
+    const beginDrag = (clientY) => {
       dragging = true
-      startY = e.clientY
+      startY = clientY
       startH = panel.clientHeight
       handle.classList.add('dragging')
-      window.addEventListener('mousemove', onMove)
-      window.addEventListener('mouseup', onUp)
-    })
 
-    const onMove = e => {
+      window.addEventListener('mousemove', onMouseMove)
+      window.addEventListener('mouseup', onMouseUp)
+      window.addEventListener('touchmove', onTouchMove, { passive: false })
+      window.addEventListener('touchend', onTouchUp)
+    }
+
+    handle.addEventListener('mousedown', e => { e.preventDefault(); beginDrag(e.clientY) })
+    handle.addEventListener('touchstart', e => { e.preventDefault(); beginDrag(e.touches[0].clientY) }, { passive: false })
+
+    const applyDrag = (clientY) => {
       if (!dragging) return
-      const dy  = startY - e.clientY
+      const dy  = startY - clientY
       const newH = Math.max(60, Math.min(window.innerHeight * 0.6, startH + dy))
       panel.style.height = newH + 'px'
       if (collapsed && dy > 10) { collapsed = false; colBtn && (colBtn.textContent = '▾') }
     }
 
-    const onUp = () => {
+    const endDrag = () => {
       dragging = false
       handle.classList.remove('dragging')
-      window.removeEventListener('mousemove', onMove)
-      window.removeEventListener('mouseup', onUp)
+      window.removeEventListener('mousemove', onMouseMove)
+      window.removeEventListener('mouseup', onMouseUp)
+      window.removeEventListener('touchmove', onTouchMove)
+      window.removeEventListener('touchend', onTouchUp)
     }
+
+    const onMouseMove = e => applyDrag(e.clientY)
+    const onMouseUp   = () => endDrag()
+    const onTouchMove = e => { e.preventDefault(); applyDrag(e.touches[0].clientY) }
+    const onTouchUp   = () => endDrag()
   }
 
   // ── Resize handles ─────────────────────────────────────────────────────────
@@ -1309,23 +1321,34 @@ export class IDE {
     if (!handle) return
     let lastX = 0
 
-    handle.addEventListener('mousedown', e => {
-      e.preventDefault()
-      lastX = e.clientX
+    const start = (clientX) => {
+      lastX = clientX
       handle.classList.add('dragging')
 
-      const onMove = e => {
-        onDrag(e.clientX - lastX)
-        lastX = e.clientX
+      const move = (clientX) => {
+        onDrag(clientX - lastX)
+        lastX = clientX
       }
-      const onUp = () => {
+      const up = () => {
         handle.classList.remove('dragging')
-        window.removeEventListener('mousemove', onMove)
-        window.removeEventListener('mouseup', onUp)
+        window.removeEventListener('mousemove', onMouseMove)
+        window.removeEventListener('mouseup', onMouseUp)
+        window.removeEventListener('touchmove', onTouchMove)
+        window.removeEventListener('touchend', onTouchEnd)
       }
-      window.addEventListener('mousemove', onMove)
-      window.addEventListener('mouseup', onUp)
-    })
+      const onMouseMove = e => move(e.clientX)
+      const onMouseUp   = () => up()
+      const onTouchMove = e => { e.preventDefault(); move(e.touches[0].clientX) }
+      const onTouchEnd  = () => up()
+
+      window.addEventListener('mousemove', onMouseMove)
+      window.addEventListener('mouseup', onMouseUp)
+      window.addEventListener('touchmove', onTouchMove, { passive: false })
+      window.addEventListener('touchend', onTouchEnd)
+    }
+
+    handle.addEventListener('mousedown', e => { e.preventDefault(); start(e.clientX) })
+    handle.addEventListener('touchstart', e => { e.preventDefault(); start(e.touches[0].clientX) }, { passive: false })
   }
 
   // ── Toolbar + sidebar button wiring ────────────────────────────────────────
