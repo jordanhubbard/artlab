@@ -1,0 +1,6 @@
+{
+  "name": "clock-3d",
+  "version": "1.0.0",
+  "entry": "clock-3d.js",
+  "description": "Elegant 3D analog clock with metallic bezel, gold hour markers, and smooth real-time hands"
+}

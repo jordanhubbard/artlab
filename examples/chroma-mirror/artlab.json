@@ -1,0 +1,6 @@
+{
+  "name": "chroma-mirror",
+  "version": "1.0.0",
+  "entry": "chroma-mirror.js",
+  "description": "Live webcam with chroma key compositing onto a rotating scene of glowing 3D shapes"
+}

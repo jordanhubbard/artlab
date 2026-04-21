@@ -2,7 +2,7 @@
   "name": "strange-attractor",
   "version": "1.0.0",
   "entry": "strange-attractor.js",
-  "description": "Lorenz strange attractor drawn in real time as a glowing BufferGeometry line with HSL color gradient",
+  "description": "Lorenz butterfly attractor animated in real-time with velocity-colored trail and glowing sphere follower",
   "category": "math",
   "tags": ["attractor", "chaos", "lorenz", "line"]
 }

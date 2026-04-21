@@ -1251,53 +1251,68 @@ export class IDE {
       }
     })
 
-    handle.addEventListener('pointerdown', e => {
-      e.preventDefault()
-      const startY = e.clientY
-      const startH = panel.clientHeight
-      handle.setPointerCapture(e.pointerId)
-      handle.classList.add('dragging')
-      document.body.style.userSelect = 'none'
+    let startY = 0, startH = 0, dragging = false
 
-      const onMove = e => {
-        const dy   = startY - e.clientY
-        const newH = Math.max(60, Math.min(window.innerHeight * 0.5, startH + dy))
-        panel.style.height = newH + 'px'
-        if (collapsed && dy > 10) { collapsed = false; colBtn && (colBtn.textContent = '▾') }
-        this._editor?.layout?.()
-      }
-      const onUp = () => {
-        handle.classList.remove('dragging')
-        document.body.style.userSelect = ''
-        handle.removeEventListener('pointermove', onMove)
-        handle.removeEventListener('pointerup', onUp)
-      }
-      handle.addEventListener('pointermove', onMove)
-      handle.addEventListener('pointerup', onUp)
-    })
+    const beginDrag = (clientY) => {
+      dragging = true
+      startY = clientY
+      startH = panel.clientHeight
+      handle.classList.add('dragging')
+
+      window.addEventListener('mousemove', onMouseMove)
+      window.addEventListener('mouseup', onMouseUp)
+      window.addEventListener('touchmove', onTouchMove, { passive: false })
+      window.addEventListener('touchend', onTouchUp)
+    }
+
+    handle.addEventListener('mousedown', e => { e.preventDefault(); beginDrag(e.clientY) })
+    handle.addEventListener('touchstart', e => { e.preventDefault(); beginDrag(e.touches[0].clientY) }, { passive: false })
+
+    const applyDrag = (clientY) => {
+      if (!dragging) return
+      const dy  = startY - clientY
+      const newH = Math.max(60, Math.min(window.innerHeight * 0.6, startH + dy))
+      panel.style.height = newH + 'px'
+      if (collapsed && dy > 10) { collapsed = false; colBtn && (colBtn.textContent = '▾') }
+    }
+
+    const endDrag = () => {
+      dragging = false
+      handle.classList.remove('dragging')
+      window.removeEventListener('mousemove', onMouseMove)
+      window.removeEventListener('mouseup', onMouseUp)
+      window.removeEventListener('touchmove', onTouchMove)
+      window.removeEventListener('touchend', onTouchUp)
+    }
+
+    const onMouseMove = e => applyDrag(e.clientY)
+    const onMouseUp   = () => endDrag()
+    const onTouchMove = e => { e.preventDefault(); applyDrag(e.touches[0].clientY) }
+    const onTouchUp   = () => endDrag()
   }
 
   // ── Resize handles ─────────────────────────────────────────────────────────
 
   _initResizeHandles() {
-    const sidebar = document.getElementById('sidebar')
-    const canvas  = document.getElementById('canvas-zone')
+    const workspace = document.getElementById('workspace')
+    const sidebar   = document.getElementById('sidebar')
+    const canvas    = document.getElementById('canvas-zone')
 
+    // Left handle: drag resizes sidebar width
     this._makeDraggable(
       document.getElementById('handle-left'),
       dx => {
-        const newW = Math.max(120, Math.min(400, sidebar.clientWidth + dx))
+        const newW = Math.max(120, Math.min(500, sidebar.clientWidth + dx))
         sidebar.style.width = newW + 'px'
-        this._onResizeDone()
       }
     )
 
+    // Right handle: drag resizes canvas width
     this._makeDraggable(
       document.getElementById('handle-right'),
       dx => {
         const newW = Math.max(200, Math.min(window.innerWidth * 0.75, canvas.clientWidth - dx))
         canvas.style.width = newW + 'px'
-        this._onResizeDone()
       }
     )
   }
@@ -1306,34 +1321,34 @@ export class IDE {
     if (!handle) return
     let lastX = 0
 
-    handle.addEventListener('pointerdown', e => {
-      e.preventDefault()
-      lastX = e.clientX
-      handle.setPointerCapture(e.pointerId)
+    const start = (clientX) => {
+      lastX = clientX
       handle.classList.add('dragging')
-      document.body.style.userSelect = 'none'
 
-      const onMove = e => {
-        onDrag(e.clientX - lastX)
-        lastX = e.clientX
+      const move = (clientX) => {
+        onDrag(clientX - lastX)
+        lastX = clientX
       }
-      const onUp = () => {
+      const up = () => {
         handle.classList.remove('dragging')
-        document.body.style.userSelect = ''
-        handle.removeEventListener('pointermove', onMove)
-        handle.removeEventListener('pointerup', onUp)
+        window.removeEventListener('mousemove', onMouseMove)
+        window.removeEventListener('mouseup', onMouseUp)
+        window.removeEventListener('touchmove', onTouchMove)
+        window.removeEventListener('touchend', onTouchEnd)
       }
-      handle.addEventListener('pointermove', onMove)
-      handle.addEventListener('pointerup', onUp)
-    })
-  }
+      const onMouseMove = e => move(e.clientX)
+      const onMouseUp   = () => up()
+      const onTouchMove = e => { e.preventDefault(); move(e.touches[0].clientX) }
+      const onTouchEnd  = () => up()
 
-  _onResizeDone() {
-    this._editor?.layout?.()
-    this.preview?.renderer?.setSize?.(
-      this.preview.renderer.domElement.parentElement?.clientWidth ?? 0,
-      this.preview.renderer.domElement.parentElement?.clientHeight ?? 0
-    )
+      window.addEventListener('mousemove', onMouseMove)
+      window.addEventListener('mouseup', onMouseUp)
+      window.addEventListener('touchmove', onTouchMove, { passive: false })
+      window.addEventListener('touchend', onTouchEnd)
+    }
+
+    handle.addEventListener('mousedown', e => { e.preventDefault(); start(e.clientX) })
+    handle.addEventListener('touchstart', e => { e.preventDefault(); start(e.touches[0].clientX) }, { passive: false })
   }
 
   // ── Toolbar + sidebar button wiring ────────────────────────────────────────
@@ -1561,24 +1576,49 @@ export class IDE {
       if (this.preview) this.preview._clock[this._paused ? 'stop' : 'start']?.()
     })
 
-    const fsBtn = document.getElementById('btn-fullscreen')
-    fsBtn?.addEventListener('click', () => {
+    document.getElementById('btn-fullscreen')?.addEventListener('click', () => {
       const el = document.getElementById('canvas-container')
-      const isFs = document.fullscreenElement || document.webkitFullscreenElement
-      if (!isFs) {
-        if (el?.requestFullscreen) el.requestFullscreen()
-        else el?.webkitRequestFullscreen?.()
+      if (!el) return
+
+      // iOS Safari doesn't support Fullscreen API on non-video elements.
+      // Detect via absence of requestFullscreen AND presence of webkit touch.
+      const fsElement = document.fullscreenElement || document.webkitFullscreenElement
+      const isFullscreen = !!fsElement || el.classList.contains('ios-fullscreen')
+
+      if (!isFullscreen) {
+        if (el.requestFullscreen) {
+          el.requestFullscreen()
+        } else if (el.webkitRequestFullscreen) {
+          // Older Safari desktop
+          el.webkitRequestFullscreen()
+        } else {
+          // iOS Safari fallback: CSS-based pseudo-fullscreen
+          el.classList.add('ios-fullscreen')
+          document.body.classList.add('ios-fullscreen-active')
+          // Scroll to top to maximize viewport
+          window.scrollTo(0, 0)
+        }
       } else {
-        if (document.exitFullscreen) document.exitFullscreen()
-        else document.webkitExitFullscreen?.()
+        if (document.exitFullscreen) {
+          document.exitFullscreen()
+        } else if (document.webkitExitFullscreen) {
+          document.webkitExitFullscreen()
+        } else {
+          el.classList.remove('ios-fullscreen')
+          document.body.classList.remove('ios-fullscreen-active')
+        }
       }
     })
-    const onFsChange = () => {
-      const isFs = document.fullscreenElement || document.webkitFullscreenElement
-      fsBtn?.classList.toggle('active', !!isFs)
+
+    // Listen for native fullscreen exit (Escape key, swipe, etc.)
+    const _onFsChange = () => {
+      if (!document.fullscreenElement && !document.webkitFullscreenElement) {
+        document.getElementById('canvas-container')?.classList.remove('ios-fullscreen')
+        document.body.classList.remove('ios-fullscreen-active')
+      }
     }
-    document.addEventListener('fullscreenchange', onFsChange)
-    document.addEventListener('webkitfullscreenchange', onFsChange)
+    document.addEventListener('fullscreenchange', _onFsChange)
+    document.addEventListener('webkitfullscreenchange', _onFsChange)
   }
 
   // ── Tutorial pane ────────────────────────────────────────────────────────────

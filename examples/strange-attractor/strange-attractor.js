@@ -1,108 +1,151 @@
-// strange-attractor — Lorenz attractor drawn live as a glowing BufferGeometry line.
-import * as Three from 'three'
+// strange-attractor.js — Lorenz butterfly attractor with animated vertex-colored trail
+import * as THREE from 'three'
 
-const MAX_PTS  = 5000
-const PTS_FRAME = 20
-const SIGMA = 10
-const RHO   = 28
-const BETA  = 8 / 3
-const DT    = 0.005
-const SCALE = 0.18
+const MAX_POINTS = 6000
+const SCALE = 0.3
+const DT = 0.005
+const PTS_PER_FRAME = 20
+const SIGMA = 10, RHO = 28, BETA = 8 / 3
 
-function lorenzStep(x, y, z) {
-  const dx = SIGMA * (y - x)
-  const dy = x * (RHO - z) - y
-  const dz = x * y - BETA * z
-  return [x + dx * DT, y + dy * DT, z + dz * DT]
-}
+// Lorenz integration state
+let lx, ly, lz
+let pointCount, phase, followIndex
 
-export function setup(ctx) {
-  ctx.camera.position.set(0, 0, 22)
-  ctx.setBloom(1.5)
+// Scene objects (kept for teardown)
+let trailGeo, trailMat, trailLine
+let followerMesh, followerLight, ambientLight, axesHelper
 
-  ctx.add(new Three.AmbientLight(0x050510, 1.0))
+// Pre-allocated typed arrays
+let posArray, colArray
 
-  ctx._state = [1.0, 1.0, 1.0]
-  ctx._pts   = []
+export async function setup(ctx) {
+  lx = 0.1; ly = 0; lz = 0
+  pointCount = 0; phase = 'growing'; followIndex = 0
 
-  // Pre-allocate buffer for MAX_PTS vertices
-  ctx._positions = new Float32Array(MAX_PTS * 3)
-  ctx._lineColors = new Float32Array(MAX_PTS * 3)
+  // Slightly above and angled to see both lobes of the butterfly
+  ctx.camera.position.set(10, 6, 20)
+  if (ctx.controls?.target) ctx.controls.target.set(0, 0, 0)
 
-  const geo = new Three.BufferGeometry()
-  ctx._posAttr = new Three.BufferAttribute(ctx._positions, 3)
-  ctx._colAttr = new Three.BufferAttribute(ctx._lineColors, 3)
-  ctx._posAttr.setUsage(Three.DynamicDrawUsage)
-  ctx._colAttr.setUsage(Three.DynamicDrawUsage)
-  geo.setAttribute('position', ctx._posAttr)
-  geo.setAttribute('color',    ctx._colAttr)
-  geo.setDrawRange(0, 0)
+  ctx.setBloom(1.4)
 
-  const mat = new Three.LineBasicMaterial({ vertexColors: true })
-  ctx._line = new Three.Line(geo, mat)
-  ctx.add(ctx._line)
+  ambientLight = new THREE.AmbientLight(0x080818, 1.0)
+  ctx.add(ambientLight)
 
-  ctx._lights = [ctx._line]
-  ctx._count = 0
+  // Skip the initial transient so the path starts on the attractor
+  for (let i = 0; i < 250; i++) {
+    const dx = SIGMA * (ly - lx), dy = lx * (RHO - lz) - ly, dz = lx * ly - BETA * lz
+    lx += dx * DT; ly += dy * DT; lz += dz * DT
+  }
 
-  // Slow orbit
-  ctx._camAngle = 0
+  posArray = new Float32Array(MAX_POINTS * 3)
+  colArray = new Float32Array(MAX_POINTS * 3)
+
+  trailGeo = new THREE.BufferGeometry()
+  trailGeo.setAttribute('position', new THREE.BufferAttribute(posArray, 3))
+  trailGeo.setAttribute('color',    new THREE.BufferAttribute(colArray,  3))
+  trailGeo.setDrawRange(0, 0)
+
+  trailMat = new THREE.LineBasicMaterial({ vertexColors: true })
+  trailLine = new THREE.Line(trailGeo, trailMat)
+  ctx.add(trailLine)
+
+  // Faint coordinate axes for spatial reference
+  axesHelper = new THREE.AxesHelper(4)
+  axesHelper.material.opacity = 0.12
+  axesHelper.material.transparent = true
+  ctx.add(axesHelper)
+
+  // Glowing sphere — hidden until the full attractor is traced
+  followerMesh = new THREE.Mesh(
+    new THREE.SphereGeometry(0.18, 16, 16),
+    new THREE.MeshStandardMaterial({
+      color: 0xffffff,
+      emissive: new THREE.Color(1, 1, 1),
+      emissiveIntensity: 4.0,
+      roughness: 0.0,
+      metalness: 0.0,
+    })
+  )
+  followerMesh.visible = false
+  ctx.add(followerMesh)
+
+  // Point light travels with the sphere for extra glow
+  followerLight = new THREE.PointLight(0xffffff, 3.0, 10)
+  followerLight.visible = false
+  ctx.add(followerLight)
 }
 
 export function update(ctx, dt) {
-  // Step attractor and record points
-  for (let i = 0; i < PTS_FRAME; i++) {
-    const [x, y, z] = ctx._state
-    const [nx, ny, nz] = lorenzStep(x, y, z)
-    ctx._state = [nx, ny, nz]
+  if (phase === 'growing') {
+    const toAdd = Math.min(PTS_PER_FRAME, MAX_POINTS - pointCount)
 
-    if (ctx._count < MAX_PTS) {
-      const idx = ctx._count
-      ctx._positions[idx * 3]     = nx * SCALE
-      ctx._positions[idx * 3 + 1] = (nz - 25) * SCALE
-      ctx._positions[idx * 3 + 2] = ny * SCALE
+    for (let i = 0; i < toAdd; i++) {
+      // Lorenz derivatives at current position
+      const dx = SIGMA * (ly - lx)
+      const dy = lx * (RHO - lz) - ly
+      const dz = lx * ly - BETA * lz
+      const speed = Math.sqrt(dx * dx + dy * dy + dz * dz)
 
-      // HSL gradient along trail (hue cycles 0→1 as points accumulate)
-      const t   = idx / MAX_PTS
-      const col = new Three.Color().setHSL(t, 1.0, 0.6)
-      ctx._lineColors[idx * 3]     = col.r
-      ctx._lineColors[idx * 3 + 1] = col.g
-      ctx._lineColors[idx * 3 + 2] = col.b
+      // Euler step
+      lx += dx * DT; ly += dy * DT; lz += dz * DT
 
-      ctx._count++
-    } else {
-      // Shift buffer left to create a scrolling trail
-      ctx._positions.copyWithin(0, 3)
-      ctx._lineColors.copyWithin(0, 3)
-      const idx = MAX_PTS - 1
-      ctx._positions[idx * 3]     = nx * SCALE
-      ctx._positions[idx * 3 + 1] = (nz - 25) * SCALE
-      ctx._positions[idx * 3 + 2] = ny * SCALE
-      // Recolor entire trail by position
-      for (let k = 0; k < MAX_PTS; k++) {
-        const hue = k / MAX_PTS
-        const c = new Three.Color().setHSL(hue, 1.0, 0.6)
-        ctx._lineColors[k * 3]     = c.r
-        ctx._lineColors[k * 3 + 1] = c.g
-        ctx._lineColors[k * 3 + 2] = c.b
+      // Velocity → color: slow=blue/purple, mid=hot pink, fast=orange
+      // Lorenz speeds range roughly 0–22 in these coords
+      const t = Math.min(1, speed / 22)
+      let r, g, b
+      if (t < 0.33) {
+        const s = t / 0.33
+        r = 0.15 + s * 0.35; g = 0;     b = 1
+      } else if (t < 0.66) {
+        const s = (t - 0.33) / 0.33
+        r = 0.5 + s * 0.5;   g = 0;     b = 1 - s * 0.7
+      } else {
+        const s = (t - 0.66) / 0.34
+        r = 1;                g = s * 0.55; b = 0.3 - s * 0.3
       }
+
+      // Map Lorenz coords → scene:
+      //   lx [-20..20]  → THREE x
+      //   lz [0..50], center ~25 → THREE y
+      //   ly [-30..30]  → THREE z
+      const i3 = pointCount * 3
+      posArray[i3]     = lx * SCALE
+      posArray[i3 + 1] = (lz - 25) * SCALE
+      posArray[i3 + 2] = ly * SCALE
+      colArray[i3]     = r; colArray[i3 + 1] = g; colArray[i3 + 2] = b
+      pointCount++
     }
+
+    trailGeo.attributes.position.needsUpdate = true
+    trailGeo.attributes.color.needsUpdate = true
+    trailGeo.setDrawRange(0, pointCount)
+
+    if (pointCount >= MAX_POINTS) {
+      phase = 'following'
+      followerMesh.visible = true
+      followerLight.visible = true
+    }
+  } else {
+    // Sphere traces the stored attractor path, 3 path-vertices per frame
+    followIndex = (followIndex + 3) % MAX_POINTS
+    const i3 = followIndex * 3
+
+    followerMesh.position.set(posArray[i3], posArray[i3 + 1], posArray[i3 + 2])
+    followerLight.position.copy(followerMesh.position)
+
+    // Tint the sphere and light to match the path color at this point
+    const r = colArray[i3], g = colArray[i3 + 1], b = colArray[i3 + 2]
+    followerMesh.material.emissive.setRGB(r, g, b)
+    followerLight.color.setRGB(r, g, b)
   }
-
-  ctx._posAttr.needsUpdate = true
-  ctx._colAttr.needsUpdate = true
-  ctx._line.geometry.setDrawRange(0, ctx._count)
-
-  // Orbit camera
-  ctx._camAngle += dt * 0.12
-  ctx.camera.position.set(
-    Math.sin(ctx._camAngle) * 22,
-    Math.sin(ctx._camAngle * 0.4) * 5,
-    Math.cos(ctx._camAngle) * 22,
-  )
-  ctx.camera.lookAt(0, 0, 0)
 }
 
 export function teardown(ctx) {
-  ctx.remove(ctx._line)
+  ctx.remove(ambientLight)
+  ctx.remove(trailLine)
+  ctx.remove(axesHelper)
+  ctx.remove(followerMesh)
+  ctx.remove(followerLight)
+  trailGeo.dispose()
+  trailMat.dispose()
 }

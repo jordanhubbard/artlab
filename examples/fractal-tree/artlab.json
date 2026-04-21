@@ -2,7 +2,7 @@
   "name": "fractal-tree",
   "version": "1.0.0",
   "entry": "fractal-tree.js",
-  "description": "A recursive 3D fractal tree with cylinder branches swaying in a simulated wind",
+  "description": "A recursive 3D L-system fractal tree that grows branch by branch from a seed over 10 seconds",
   "category": "generative",
-  "tags": ["fractal", "tree", "recursive", "wind"]
+  "tags": ["fractal", "l-system", "tree", "procedural", "animation"]
 }

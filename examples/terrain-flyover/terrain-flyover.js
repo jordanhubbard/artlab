@@ -1,115 +1,108 @@
-// terrain-flyover — infinite procedural terrain with noise displacement and a forward-flying camera.
-import * as Three from 'three'
-import { noise2 } from '../../src/stdlib/math.js'
+// terrain-flyover.js — procedural terrain with altitude vertex colors and spline camera flyover
+import * as THREE from 'three'
 
-const SEGS = 128
-const SIZE = 80
+let _terrain, _sun, _ambient, _spline, _cameraT
 
-function sampleHeight(x, z, offset) {
-  const sx = x * 0.07 + offset
-  const sz = z * 0.07
+// Multi-octave sin/cos noise — no external deps
+function noise2d(x, z) {
   return (
-    noise2(sx,           sz          ) * 3.2 +
-    noise2(sx * 2.1,     sz * 2.1    ) * 1.4 +
-    noise2(sx * 4.5,     sz * 4.5    ) * 0.55 +
-    noise2(sx * 9.8,     sz * 9.8    ) * 0.18
+    Math.cos(x * 0.15 + z * 0.12) * 6.0 +  // broad valleys / ridges
+    Math.cos(x * 0.40 - z * 0.30) * 3.0 +  // mid-scale hills
+    Math.sin(x * 0.30 + z * 0.20) * 4.0 +  // large rolling shapes
+    Math.sin(x * 0.70 - z * 0.50) * 2.0 +  // medium detail
+    Math.sin(x * 1.50 + z * 1.20) * 0.8 +  // small bumps
+    Math.sin(x * 3.00 - z * 2.50) * 0.3    // surface roughness
   )
 }
 
-function altColor(y) {
-  if (y < -1.0) return [0.06, 0.15, 0.55]          // deep water
-  if (y <  0.0) {
-    const t = (y + 1.0)
-    return [0.72 - t * 0.3, 0.62 - t * 0.1, 0.30 + t * 0.1]  // sandy shore
-  }
-  if (y <  2.0) {
-    const t = y / 2.0
-    return [0.18 - t * 0.07, 0.45 + t * 0.08, 0.14]            // green lowlands
-  }
-  if (y <  4.0) {
-    const t = (y - 2.0) / 2.0
-    return [0.38 + t * 0.12, 0.28 - t * 0.12, 0.15]            // brown mountains
-  }
-  const t = Math.min(1, (y - 4.0) / 2.0)
-  return [0.78 + t * 0.22, 0.78 + t * 0.22, 0.78 + t * 0.22]  // snow
+function altitudeColor(h) {
+  if (h < -1.0) return new THREE.Color(0x1a3a6e)  // deep water
+  if (h <  2.0) return new THREE.Color(0x2d6a2d)  // grass
+  if (h <  6.0) return new THREE.Color(0x7a5c3a)  // rock
+  return               new THREE.Color(0xeef0f5)  // snow
 }
 
-function displace(geo, offset) {
-  const pos = geo.attributes.position
-  const col = geo.attributes.color
+export async function setup(ctx) {
+  ctx.camera.position.set(-85, 22, -55)
 
-  for (let i = 0, n = pos.count; i < n; i++) {
-    const x = pos.getX(i)
-    const z = pos.getZ(i)
-    const y = sampleHeight(x, z, offset)
-    pos.setY(i, y)
-    const [r, g, b] = altColor(y)
-    col.setXYZ(i, r, g, b)
+  // ── Terrain geometry ──────────────────────────────────────────────────────
+  const geo = new THREE.PlaneGeometry(200, 200, 200, 200)
+  const pos = geo.attributes.position
+
+  // PlaneGeometry lies in XY plane (z=0). After mesh.rotation.x = -PI/2:
+  //   local X  → world X (unchanged)
+  //   local Y  → world -Z
+  //   local Z  → world Y (height)
+  // So we displace local Z using noise(localX, -localY).
+  for (let i = 0; i < pos.count; i++) {
+    const wx = pos.getX(i)
+    const wz = -pos.getY(i)
+    pos.setZ(i, noise2d(wx, wz))
   }
   pos.needsUpdate = true
-  col.needsUpdate = true
   geo.computeVertexNormals()
-}
 
-export function setup(ctx) {
-  ctx.setBloom(0.3)
+  // Vertex colors by altitude (local Z = world height after rotation)
+  const colArr = new Float32Array(pos.count * 3)
+  for (let i = 0; i < pos.count; i++) {
+    const c = altitudeColor(pos.getZ(i))
+    colArr[i * 3]     = c.r
+    colArr[i * 3 + 1] = c.g
+    colArr[i * 3 + 2] = c.b
+  }
+  geo.setAttribute('color', new THREE.BufferAttribute(colArr, 3))
 
-  ctx.scene.fog = new Three.FogExp2(0x0a1020, 0.022)
-  if (ctx.renderer.setClearColor) ctx.renderer.setClearColor(0x0a1020, 1)
-
-  const sun = new Three.DirectionalLight(0xffd080, 1.8)
-  sun.position.set(30, 50, -20)
-  ctx.add(sun)
-
-  const sky = new Three.AmbientLight(0x102040, 1.2)
-  ctx.add(sky)
-
-  ctx._lights = [sun, sky]
-
-  // Build terrain geometry (PlaneGeometry, rotated to XZ floor)
-  const geo = new Three.PlaneGeometry(SIZE, SIZE, SEGS, SEGS)
-  geo.rotateX(-Math.PI / 2)
-
-  // Add vertex color attribute
-  const count = geo.attributes.position.count
-  const colors = new Float32Array(count * 3)
-  geo.setAttribute('color', new Three.BufferAttribute(colors, 3))
-
-  const mat = new Three.MeshStandardMaterial({
+  const mat = new THREE.MeshStandardMaterial({
     vertexColors: true,
-    roughness:    0.88,
-    metalness:    0.0,
+    roughness: 0.88,
+    metalness: 0.0,
   })
 
-  ctx._terrain = new Three.Mesh(geo, mat)
-  ctx.add(ctx._terrain)
+  _terrain = new THREE.Mesh(geo, mat)
+  _terrain.rotation.x = -Math.PI / 2
+  ctx.add(_terrain)
 
-  ctx._offset  = 0
-  ctx._camT    = 0
+  // ── Lighting ──────────────────────────────────────────────────────────────
+  _sun = new THREE.DirectionalLight(0xfff4d6, 1.4)
+  _sun.position.set(80, 120, 60)
+  ctx.add(_sun)
 
-  ctx.camera.position.set(0, 8, 20)
-  ctx.camera.lookAt(0, 3, 5)
-  if (ctx.controls) ctx.controls.enabled = false
+  _ambient = new THREE.AmbientLight(0x5577aa, 0.45)
+  ctx.add(_ambient)
 
-  displace(geo, 0)
+  // ── Atmosphere ────────────────────────────────────────────────────────────
+  ctx.scene.fog = new THREE.FogExp2(0x89b3cc, 0.008)
+
+  // ── Camera spline ─────────────────────────────────────────────────────────
+  // Path swoops over mountains and dips into valleys for a cinematic feel
+  _spline = new THREE.CatmullRomCurve3([
+    new THREE.Vector3(-85, 22, -55),
+    new THREE.Vector3(-35, 16, -85),
+    new THREE.Vector3( 15, 28, -50),
+    new THREE.Vector3( 60, 20,  -5),
+    new THREE.Vector3( 80, 25,  45),
+    new THREE.Vector3( 30, 15,  82),
+    new THREE.Vector3(-25, 22,  82),
+    new THREE.Vector3(-75, 18,  42),
+  ], true)  // closed loop
+
+  _cameraT = 0
 }
 
 export function update(ctx, dt) {
-  const speed = 5.0
-  ctx._offset += speed * dt * 0.07
-  ctx._camT   += dt
+  _cameraT = (_cameraT + dt * 0.008) % 1.0
 
-  displace(ctx._terrain.geometry, ctx._offset)
+  const p = _spline.getPoint(_cameraT)
+  const aheadT = (_cameraT + 0.02) % 1.0
+  const look = _spline.getPoint(aheadT)
 
-  // Gentle lateral sway
-  const sway = Math.sin(ctx._camT * 0.25) * 3.5
-  ctx.camera.position.set(sway, 8, 20)
-  ctx.camera.lookAt(sway * 0.4, 3, 5)
+  ctx.camera.position.set(p.x, p.y, p.z)
+  ctx.camera.lookAt(look.x, look.y - 4, look.z)  // tilt gaze slightly down
 }
 
 export function teardown(ctx) {
-  ctx.remove(ctx._terrain)
-  for (const l of ctx._lights) ctx.remove(l)
+  ctx.remove(_terrain)
+  ctx.remove(_sun)
+  ctx.remove(_ambient)
   ctx.scene.fog = null
-  if (ctx.controls) ctx.controls.enabled = true
 }

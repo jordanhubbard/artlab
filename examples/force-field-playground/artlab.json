@@ -1,0 +1,8 @@
+{
+  "name": "force-field-playground",
+  "version": "1.0.0",
+  "entry": "force-field-playground.js",
+  "description": "Interactive physics demo where clicking places attractor and repulsor force fields that bend a streaming particle fountain",
+  "category": "physics",
+  "tags": ["particles", "physics", "interactive", "force-fields"]
+}

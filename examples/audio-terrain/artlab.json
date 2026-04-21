@@ -2,7 +2,7 @@
   "name": "audio-terrain",
   "version": "1.0.0",
   "entry": "audio-terrain.js",
-  "description": "A terrain mesh whose vertex heights follow live microphone FFT data, falling back to sine waves without mic access",
+  "description": "Microphone-driven terrain that deforms by audio band, with height-mapped vertex colors and reactive sparkle particles",
   "category": "audio",
   "tags": ["audio", "fft", "microphone", "terrain"]
 }
