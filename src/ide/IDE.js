@@ -1251,56 +1251,53 @@ export class IDE {
       }
     })
 
-    let startY = 0, startH = 0, dragging = false
-
-    handle.addEventListener('mousedown', e => {
+    handle.addEventListener('pointerdown', e => {
       e.preventDefault()
-      dragging = true
-      startY = e.clientY
-      startH = panel.clientHeight
+      const startY = e.clientY
+      const startH = panel.clientHeight
+      handle.setPointerCapture(e.pointerId)
       handle.classList.add('dragging')
-      window.addEventListener('mousemove', onMove)
-      window.addEventListener('mouseup', onUp)
+      document.body.style.userSelect = 'none'
+
+      const onMove = e => {
+        const dy   = startY - e.clientY
+        const newH = Math.max(60, Math.min(window.innerHeight * 0.5, startH + dy))
+        panel.style.height = newH + 'px'
+        if (collapsed && dy > 10) { collapsed = false; colBtn && (colBtn.textContent = '▾') }
+        this._editor?.layout?.()
+      }
+      const onUp = () => {
+        handle.classList.remove('dragging')
+        document.body.style.userSelect = ''
+        handle.removeEventListener('pointermove', onMove)
+        handle.removeEventListener('pointerup', onUp)
+      }
+      handle.addEventListener('pointermove', onMove)
+      handle.addEventListener('pointerup', onUp)
     })
-
-    const onMove = e => {
-      if (!dragging) return
-      const dy  = startY - e.clientY
-      const newH = Math.max(60, Math.min(window.innerHeight * 0.6, startH + dy))
-      panel.style.height = newH + 'px'
-      if (collapsed && dy > 10) { collapsed = false; colBtn && (colBtn.textContent = '▾') }
-    }
-
-    const onUp = () => {
-      dragging = false
-      handle.classList.remove('dragging')
-      window.removeEventListener('mousemove', onMove)
-      window.removeEventListener('mouseup', onUp)
-    }
   }
 
   // ── Resize handles ─────────────────────────────────────────────────────────
 
   _initResizeHandles() {
-    const workspace = document.getElementById('workspace')
-    const sidebar   = document.getElementById('sidebar')
-    const canvas    = document.getElementById('canvas-zone')
+    const sidebar = document.getElementById('sidebar')
+    const canvas  = document.getElementById('canvas-zone')
 
-    // Left handle: drag resizes sidebar width
     this._makeDraggable(
       document.getElementById('handle-left'),
       dx => {
-        const newW = Math.max(120, Math.min(500, sidebar.clientWidth + dx))
+        const newW = Math.max(120, Math.min(400, sidebar.clientWidth + dx))
         sidebar.style.width = newW + 'px'
+        this._onResizeDone()
       }
     )
 
-    // Right handle: drag resizes canvas width
     this._makeDraggable(
       document.getElementById('handle-right'),
       dx => {
         const newW = Math.max(200, Math.min(window.innerWidth * 0.75, canvas.clientWidth - dx))
         canvas.style.width = newW + 'px'
+        this._onResizeDone()
       }
     )
   }
@@ -1309,10 +1306,12 @@ export class IDE {
     if (!handle) return
     let lastX = 0
 
-    handle.addEventListener('mousedown', e => {
+    handle.addEventListener('pointerdown', e => {
       e.preventDefault()
       lastX = e.clientX
+      handle.setPointerCapture(e.pointerId)
       handle.classList.add('dragging')
+      document.body.style.userSelect = 'none'
 
       const onMove = e => {
         onDrag(e.clientX - lastX)
@@ -1320,12 +1319,21 @@ export class IDE {
       }
       const onUp = () => {
         handle.classList.remove('dragging')
-        window.removeEventListener('mousemove', onMove)
-        window.removeEventListener('mouseup', onUp)
+        document.body.style.userSelect = ''
+        handle.removeEventListener('pointermove', onMove)
+        handle.removeEventListener('pointerup', onUp)
       }
-      window.addEventListener('mousemove', onMove)
-      window.addEventListener('mouseup', onUp)
+      handle.addEventListener('pointermove', onMove)
+      handle.addEventListener('pointerup', onUp)
     })
+  }
+
+  _onResizeDone() {
+    this._editor?.layout?.()
+    this.preview?.renderer?.setSize?.(
+      this.preview.renderer.domElement.parentElement?.clientWidth ?? 0,
+      this.preview.renderer.domElement.parentElement?.clientHeight ?? 0
+    )
   }
 
   // ── Toolbar + sidebar button wiring ────────────────────────────────────────
@@ -1553,11 +1561,24 @@ export class IDE {
       if (this.preview) this.preview._clock[this._paused ? 'stop' : 'start']?.()
     })
 
-    document.getElementById('btn-fullscreen')?.addEventListener('click', () => {
+    const fsBtn = document.getElementById('btn-fullscreen')
+    fsBtn?.addEventListener('click', () => {
       const el = document.getElementById('canvas-container')
-      if (!document.fullscreenElement) el?.requestFullscreen?.()
-      else document.exitFullscreen?.()
+      const isFs = document.fullscreenElement || document.webkitFullscreenElement
+      if (!isFs) {
+        if (el?.requestFullscreen) el.requestFullscreen()
+        else el?.webkitRequestFullscreen?.()
+      } else {
+        if (document.exitFullscreen) document.exitFullscreen()
+        else document.webkitExitFullscreen?.()
+      }
     })
+    const onFsChange = () => {
+      const isFs = document.fullscreenElement || document.webkitFullscreenElement
+      fsBtn?.classList.toggle('active', !!isFs)
+    }
+    document.addEventListener('fullscreenchange', onFsChange)
+    document.addEventListener('webkitfullscreenchange', onFsChange)
   }
 
   // ── Tutorial pane ────────────────────────────────────────────────────────────
