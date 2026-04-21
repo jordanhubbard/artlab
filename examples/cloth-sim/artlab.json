@@ -1,0 +1,8 @@
+{
+  "name": "cloth-sim",
+  "version": "1.0.0",
+  "entry": "cloth-sim.js",
+  "description": "Verlet cloth simulation — a hanging fabric that responds to wind and mouse interaction",
+  "category": "simulation",
+  "tags": ["cloth", "verlet", "physics", "simulation", "interactive"]
+}

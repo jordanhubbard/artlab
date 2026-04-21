@@ -1,0 +1,8 @@
+{
+  "name": "synth-keyboard",
+  "version": "1.0.0",
+  "entry": "synth-keyboard.js",
+  "description": "On-screen piano keys that spawn colored particle fountains per note with reverb trails in 3D",
+  "category": "audio",
+  "tags": ["audio", "synth", "particles", "interaction"]
+}

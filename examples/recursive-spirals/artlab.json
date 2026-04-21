@@ -1,0 +1,8 @@
+{
+  "name": "recursive-spirals",
+  "version": "1.0.0",
+  "entry": "recursive-spirals.js",
+  "description": "Nested spirals of spirals — each arm of a golden spiral spawns smaller spirals at its tips, creating a fractal spiral galaxy",
+  "category": "generative",
+  "tags": ["spiral", "fractal", "recursive", "generative", "golden-ratio"]
+}

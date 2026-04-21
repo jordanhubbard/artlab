@@ -1,0 +1,8 @@
+{
+  "name": "penrose-tiles",
+  "version": "1.0.0",
+  "entry": "penrose-tiles.js",
+  "description": "Animated Penrose P3 tiling — aperiodic rhombus tiles with growing subdivision and rainbow fills",
+  "category": "geometry",
+  "tags": ["penrose", "tiling", "aperiodic", "math", "generative"]
+}

@@ -1,0 +1,8 @@
+{
+  "name": "marble-run",
+  "version": "1.0.0",
+  "entry": "marble-run.js",
+  "description": "Marble run contraption — balls roll down spiral ramps, bounce off platforms, and collect in a bowl at the bottom",
+  "category": "interactive",
+  "tags": ["physics", "marble", "ramp", "3d", "simulation"]
+}

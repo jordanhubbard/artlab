@@ -1,0 +1,8 @@
+{
+  "name": "pixel-sort",
+  "version": "1.0.0",
+  "entry": "pixel-sort.js",
+  "description": "Real-time pixel-sorting glitch art — a procedural image gets continuously sorted by brightness in horizontal bands, creating a glitchy waterfall effect",
+  "category": "interactive",
+  "tags": ["glitch", "pixel-sort", "generative", "shader", "datamosh"]
+}

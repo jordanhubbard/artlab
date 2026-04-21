@@ -1,0 +1,8 @@
+{
+  "name": "music-visualizer",
+  "version": "1.0.0",
+  "entry": "music-visualizer.js",
+  "description": "Beat-detected waveform rings pulsing with bass, mid, and treble FFT bands in 3D",
+  "category": "audio",
+  "tags": ["audio", "fft", "visualization", "bloom"]
+}

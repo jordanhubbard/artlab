@@ -1,0 +1,8 @@
+{
+  "name": "fluid-2d",
+  "version": "1.0.0",
+  "entry": "fluid-2d.js",
+  "description": "Navier-Stokes fluid simulation on a 2D grid rendered as a heatmap DataTexture with mouse-driven velocity injection",
+  "category": "simulation",
+  "tags": ["fluid", "navier-stokes", "simulation", "heatmap", "interactive"]
+}

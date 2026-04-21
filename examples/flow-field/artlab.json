@@ -1,0 +1,8 @@
+{
+  "name": "flow-field",
+  "version": "1.0.0",
+  "entry": "flow-field.js",
+  "description": "Perlin noise flow field with thousands of transparent particles tracing curl paths using additive blending",
+  "category": "art",
+  "tags": ["flow-field", "perlin", "particles", "generative", "curl"]
+}

@@ -1,0 +1,8 @@
+{
+  "name": "voronoi-shatter",
+  "version": "1.0.0",
+  "entry": "voronoi-shatter.js",
+  "description": "Click to drop seed points that shatter a plane into Voronoi cells tumbling apart with physics",
+  "category": "geometry",
+  "tags": ["voronoi", "physics", "interaction", "destruction"]
+}

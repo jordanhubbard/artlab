@@ -1,0 +1,8 @@
+{
+  "name": "mobius-strip",
+  "version": "1.0.0",
+  "entry": "mobius-strip.js",
+  "description": "Parametric Möbius strip with flowing color bands and orbiting particles tracing the one-sided surface",
+  "category": "geometry",
+  "tags": ["topology", "parametric", "3d", "math"]
+}

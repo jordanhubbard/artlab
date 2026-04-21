@@ -1,0 +1,8 @@
+{
+  "name": "n-body-gravity",
+  "version": "1.0.0",
+  "entry": "n-body-gravity.js",
+  "description": "Gravitational N-body simulation with trail lines, body merging, and click-to-spawn interaction",
+  "category": "simulation",
+  "tags": ["gravity", "n-body", "physics", "trails", "merge"]
+}
