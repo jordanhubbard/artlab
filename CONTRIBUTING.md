@@ -20,11 +20,13 @@ Open http://localhost:5173. The dev server hot-reloads on every save.
 ```
 src/
   stdlib/       Public API consumed by examples and packages
-  runtime/      StandaloneRunner, animation loop, event bus, scene loader
-  dsl/          Artlab DSL lexer → parser → semantic analyzer → code generator
+  physics/      Rapier3D wrappers (RigidWorld, OrbitalWorld, ParticleWorld, FluidWorld)
+  runtime/      StandaloneRunner — full-screen package execution
   ide/          IDE shell, Monaco integration, panel components, PreviewPane
+  audio/        Tone.js engine, FFT pipeline, synth pads
+  assets/       Texture, audio, and model loaders
 examples/       Reference packages ordered basic → intermediate → advanced
-docs/           Static HTML documentation (index, stdlib, language, tutorial)
+docs/           Static HTML documentation (index, stdlib, tutorial)
 bin/            artlab CLI entry point
 ```
 
@@ -32,12 +34,13 @@ bin/            artlab CLI entry point
 
 | Path | Purpose |
 |---|---|
-| `src/runtime/StandaloneRunner.js` | Full-screen runner used by `index.html` |
+| `src/runtime/StandaloneRunner.js` | Full-screen runner used by `solar-system.html` |
 | `src/ide/PreviewPane.js` | Sandboxed live preview inside the IDE |
 | `src/stdlib/geometry.js` | Geometry factories and `mesh()` helper |
 | `src/stdlib/lights.js` | Light factories |
 | `src/stdlib/math.js` | `lerp`, `clamp`, `map`, `smoothstep`, `rad`, `deg` |
-| `src/dsl/Transpiler.js` | Top-level DSL → JS entry point |
+| `src/stdlib/audio.js` | Audio playback, FFT bands, Tone.js synth helpers |
+| `src/stdlib/video.js` | Webcam, screen capture, video textures, shader effects |
 
 ---
 
@@ -218,7 +221,7 @@ npm run test:watch  # watch mode
 
 ### Example tests
 
-Every example needs a test at `examples/<name>/example.test.js`. Use a minimal
+Every example needs a test at `examples/<name>/<name>.test.js`. Use a minimal
 mock ctx so tests run without a DOM or WebGL context:
 
 ```js
@@ -274,13 +277,6 @@ describe('my-example', () => {
 Stdlib functions are pure utilities and do not need a mock ctx. Import and
 exercise them directly.
 
-### DSL tests
-
-`src/dsl/__tests__/`
-
-See `transpiler.test.js` for the existing pattern — parse a snippet, assert on
-the output JS.
-
 ---
 
 ## Issue tracking
@@ -322,6 +318,6 @@ Before opening a pull request, verify each item:
 
 - [ ] Example has a valid `artlab.json` with all required fields
 - [ ] Test file exists at `examples/<name>/example.test.js` and passes (`npm test`)
-- [ ] No direct `src/` imports in the example (stdlib path is `../../src/stdlib/` — runtime or IDE internals are off-limits)
+- [ ] No direct `src/` imports beyond stdlib and physics (paths `../../src/stdlib/` and `../../src/physics/` are allowed; runtime or IDE internals are off-limits)
 - [ ] All assets are loaded with the `new URL('./assets/...', import.meta.url).href` pattern
 - [ ] `teardown` removes any event listeners added during `setup`

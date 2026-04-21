@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Artlab — Tutorial: Hello Solar System</title>
+<title>Artlab — Tutorial</title>
 <style>
   *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
   :root {
@@ -118,14 +118,8 @@
     margin-bottom: 1rem;
     font-size: 0.87rem;
   }
-  pre.terminal {
-    border-left-color: var(--green);
-  }
+  pre.terminal { border-left-color: var(--green); }
   pre.terminal code { color: var(--green); }
-  pre.output {
-    border-left-color: var(--dim);
-  }
-  pre.output code { color: var(--dim); }
   code { color: #c9d1d9; }
   .kw  { color: var(--kw); }
   .ty  { color: var(--ty); }
@@ -164,29 +158,27 @@
 <header>
   <div class="logo"><a href="index.html" style="color:#fff;text-decoration:none">art<span>lab</span></a></div>
   <nav>
-    <a href="language.html">Language</a>
     <a href="stdlib.html">API</a>
     <a href="tutorial.html">Tutorial</a>
-    <a href="examples.html">Examples</a>
   </nav>
 </header>
 
 <div class="layout">
 
 <aside>
-  <div class="group">Tutorial</div>
+  <div class="group">Steps</div>
   <ul>
     <li><a href="#step1">1. Create a package</a></li>
     <li><a href="#step2">2. Rotating cube</a></li>
-    <li><a href="#step3">3. Lights and camera</a></li>
+    <li><a href="#step3">3. Lights</a></li>
     <li><a href="#step4">4. Audio reactivity</a></li>
-    <li><a href="#step5">5. Pack and share</a></li>
+    <li><a href="#step5">5. Export and share</a></li>
   </ul>
 </aside>
 
 <main>
-  <h1>Tutorial: Hello Solar System</h1>
-  <p class="subtitle">Build a rotating cube, add lights, a camera, hook it up to audio, and ship it — in 5 steps.</p>
+  <h1>Tutorial: Your first Artlab package</h1>
+  <p class="subtitle">Build a rotating cube, add lights, hook it up to audio, and export it &mdash; in 5 steps.</p>
 
   <!-- ── Step 1 ── -->
   <div class="step" id="step1">
@@ -195,121 +187,108 @@
       <div class="step-title">Create a new package</div>
     </div>
     <p>
-      Artlab scenes are self-contained packages: a directory with a manifest, DSL source files,
-      and any assets (textures, audio). The CLI scaffolds everything for you.
+      An Artlab package is a directory containing an <code>artlab.json</code> manifest and at least
+      one <code>.js</code> entry file. The simplest way to get started is to open the IDE and create
+      a new package from the file tree.
     </p>
 
-    <div class="label">Terminal</div>
-    <pre class="terminal"><code># Install the CLI if you haven't already
-npm install -g artlab-cli
+    <p>Start the dev server:</p>
+    <pre class="terminal"><code>git clone &lt;repo-url&gt; artlab
+cd artlab &amp;&amp; npm install &amp;&amp; npm run dev
+# open http://localhost:5173</code></pre>
 
-# Scaffold a new scene package called "my-scene"
-artlab create my-scene
+    <p>In the IDE, click <strong>+</strong> in the file tree to create a new directory under
+       <code>examples/</code>. Add two files:</p>
 
-# Start the development server with live reload
-artlab serve my-scene</code></pre>
+    <div class="label">artlab.json</div>
+    <pre><code>{
+  <span class="str">"name"</span>:        <span class="str">"my-scene"</span>,
+  <span class="str">"version"</span>:     <span class="str">"1.0.0"</span>,
+  <span class="str">"entry"</span>:       <span class="str">"my-scene.js"</span>,
+  <span class="str">"description"</span>: <span class="str">"A simple rotating cube"</span>
+}</code></pre>
 
-    <p>Open <code>http://localhost:4000</code> — you should see a black canvas with a default
-       environment. The package directory looks like this:</p>
+    <div class="label">my-scene.js</div>
+    <pre><code><span class="kw">export function</span> <span class="fn">setup</span>(ctx) {}
+<span class="kw">export function</span> <span class="fn">update</span>(ctx, dt) {}</code></pre>
 
-    <div class="label">Package layout</div>
-    <pre class="output"><code>my-scene/
-  artlab.json      # manifest (name, entry, assets, dependencies)
-  src/
-    main.art       # DSL entry point
-  assets/          # textures, audio, etc.
-  dist/            # compiled output (managed by CLI)</code></pre>
-
-    <p>Open <code>src/main.art</code> in any editor — changes are picked up automatically while
-       <code>artlab serve</code> is running.</p>
+    <p>Click the package in the sidebar to load it — you should see a black canvas in the preview pane.</p>
   </div>
 
   <!-- ── Step 2 ── -->
   <div class="step" id="step2">
     <div class="step-header">
       <div class="step-num">2</div>
-      <div class="step-title">Write a simple rotating cube</div>
+      <div class="step-title">Add a rotating cube</div>
     </div>
     <p>
-      Replace the contents of <code>src/main.art</code> with the following. Two functions are
-      special: <code>setup()</code> is called once when the scene loads, and <code>update(elapsed, dt)</code>
-      is called every frame.
+      The <code>ctx</code> object is injected by the runtime. It gives you <code>Three</code>
+      (the full three.js module), <code>scene</code>, <code>camera</code>, and <code>ctx.add()</code>
+      to add objects and track them for teardown.
     </p>
 
-    <div class="label">src/main.art</div>
-    <pre><code><span class="kw">use</span> <span class="str">"artlab/geometry"</span> <span class="kw">as</span> geo
+    <div class="label">my-scene.js</div>
+    <pre><code><span class="kw">let</span> cube
 
-<span class="cm"># Declare a module-level variable to hold the cube mesh</span>
-<span class="kw">let</span> cube: <span class="ty">mesh</span> = <span class="kw">null</span>
-
-<span class="kw">fn</span> <span class="fn">setup</span>() {
-  <span class="cm"># Create a 2x2x2 box and add it to the scene</span>
-  cube = geo.add(scene, geo.box(<span class="num">2</span>, <span class="num">2</span>, <span class="num">2</span>), {
-    color:     <span class="num">0x4488ff</span>,
-    roughness: <span class="num">0.4</span>,
-    metalness: <span class="num">0.1</span>,
-  })
+<span class="kw">export function</span> <span class="fn">setup</span>(ctx) {
+  <span class="kw">const</span> { Three } = ctx
+  cube = ctx.add(<span class="kw">new</span> Three.Mesh(
+    <span class="kw">new</span> Three.BoxGeometry(<span class="num">2</span>, <span class="num">2</span>, <span class="num">2</span>),
+    <span class="kw">new</span> Three.MeshStandardMaterial({ color: <span class="num">0x4488ff</span>, roughness: <span class="num">0.4</span> })
+  ))
+  ctx.camera.position.set(<span class="num">0</span>, <span class="num">2</span>, <span class="num">6</span>)
 }
 
-<span class="kw">fn</span> <span class="fn">update</span>(elapsed: <span class="ty">num</span>, dt: <span class="ty">num</span>) {
-  <span class="cm"># Rotate the cube around the Y axis at 0.5 rad/s</span>
-  cube.rotation.y = elapsed * <span class="num">0.5</span>
+<span class="kw">export function</span> <span class="fn">update</span>(ctx, dt) {
+  cube.rotation.y += dt * <span class="num">0.5</span>
 }</code></pre>
 
     <div class="callout">
-      <strong>What you should see:</strong> A blue-ish cube slowly rotating against a black
-      background. It appears flat because there are no lights yet.
+      <strong>What you should see:</strong> A blue cube slowly rotating. It looks flat because
+      there are no lights yet.
     </div>
 
-    <div class="label">How it compiles</div>
-    <pre class="output"><code>// DSL: geo.add(scene, geo.box(2,2,2), { color: 0x4488ff, ... })
-// JS:  const _geo = await import('/artlab/stdlib/geometry.js')
-//       _geo.add(scene, _geo.box(2, 2, 2), { color: 0x4488ff, roughness: 0.4, metalness: 0.1 })</code></pre>
+    <p>
+      <code>ctx.add(obj)</code> adds the object to the scene and returns it. Using <code>add()</code>
+      instead of <code>scene.add()</code> directly lets the IDE clean up automatically when the
+      package reloads.
+    </p>
   </div>
 
   <!-- ── Step 3 ── -->
   <div class="step" id="step3">
     <div class="step-header">
       <div class="step-num">3</div>
-      <div class="step-title">Add lights and a camera</div>
+      <div class="step-title">Add lights</div>
     </div>
     <p>
-      Import <code>artlab/lights</code> for scene illumination and <code>artlab/cameras</code> for
-      mouse-controlled orbit navigation.
+      Import the stdlib geometry and lights helpers for convenience, or use Three.js constructors
+      directly. Both work identically.
     </p>
 
-    <div class="label">src/main.art (updated)</div>
-    <pre><code><span class="kw">use</span> <span class="str">"artlab/geometry"</span> <span class="kw">as</span> geo
-<span class="kw">use</span> <span class="str">"artlab/lights"</span>   <span class="kw">as</span> L
-<span class="kw">use</span> <span class="str">"artlab/cameras"</span>  <span class="kw">as</span> cam
+    <div class="label">my-scene.js (updated)</div>
+    <pre><code><span class="kw">import</span> { sphere, mesh } <span class="kw">from</span> <span class="str">'../../src/stdlib/geometry.js'</span>
+<span class="kw">import</span> { directional, ambient } <span class="kw">from</span> <span class="str">'../../src/stdlib/lights.js'</span>
 
-<span class="kw">let</span> cube: <span class="ty">mesh</span>   = <span class="kw">null</span>
-<span class="kw">let</span> camera        = <span class="kw">null</span>
+<span class="kw">let</span> ball
 
-<span class="kw">fn</span> <span class="fn">setup</span>() {
-  <span class="cm"># Geometry</span>
-  cube = geo.add(scene, geo.box(<span class="num">2</span>, <span class="num">2</span>, <span class="num">2</span>), {
-    color:     <span class="num">0x4488ff</span>,
-    roughness: <span class="num">0.4</span>,
-    metalness: <span class="num">0.1</span>,
-  })
+<span class="kw">export function</span> <span class="fn">setup</span>(ctx) {
+  ball = ctx.add(mesh(sphere(<span class="num">1.5</span>, <span class="num">64</span>), { color: <span class="num">0x22aaff</span>, roughness: <span class="num">0.2</span>, metalness: <span class="num">0.7</span> }))
 
-  <span class="cm"># Lighting</span>
-  L.addLight(scene, L.directional(<span class="num">0xffffff</span>, <span class="num">2</span>), [<span class="num">10</span>, <span class="num">20</span>, <span class="num">10</span>])
-  L.addLight(scene, L.ambient(<span class="num">0x334466</span>, <span class="num">0.6</span>))
+  <span class="kw">const</span> sun = ctx.add(directional(<span class="num">0xffffff</span>, <span class="num">2</span>))
+  sun.position.set(<span class="num">10</span>, <span class="num">20</span>, <span class="num">10</span>)
+  ctx.add(ambient(<span class="num">0x334466</span>, <span class="num">0.6</span>))
 
-  <span class="cm"># Orbit camera — drag to rotate, scroll to zoom</span>
-  camera = cam.OrbitCamera(renderer)
+  ctx.camera.position.set(<span class="num">0</span>, <span class="num">2</span>, <span class="num">6</span>)
 }
 
-<span class="kw">fn</span> <span class="fn">update</span>(elapsed: <span class="ty">num</span>, dt: <span class="ty">num</span>) {
-  cube.rotation.y = elapsed * <span class="num">0.5</span>
-  camera.update(dt)
+<span class="kw">export function</span> <span class="fn">update</span>(ctx, dt) {
+  ball.rotation.y += dt * <span class="num">0.5</span>
 }</code></pre>
 
     <div class="callout">
-      <strong>What you should see:</strong> A properly lit blue cube with ambient fill.
-      Left-click drag to orbit, right-click drag to pan, scroll wheel to zoom.
+      <strong>What you should see:</strong> A properly lit metallic sphere.
+      Drag to orbit, scroll to zoom — orbit controls are wired up by default.
     </div>
   </div>
 
@@ -320,64 +299,54 @@ artlab serve my-scene</code></pre>
       <div class="step-title">Add audio reactivity</div>
     </div>
     <p>
-      Make the cube scale with the bass frequency of the microphone (or any audio source).
-      The <code>artlab/audio</code> module wraps the Web Audio API and Tone.js.
+      Import the <code>audio</code> stdlib module to access FFT band values. Audio requires a
+      user gesture before the context can start — attach it to a click.
     </p>
 
     <div class="callout">
-      <strong>Note:</strong> The Web Audio API requires a user gesture before the audio context
-      can start. We attach a click listener in <code>setup()</code>.
+      <strong>Note:</strong> Browsers block audio autoplay. Always call <code>audio.start()</code>
+      from a user-gesture handler (click, keydown).
     </div>
 
-    <div class="label">src/main.art (updated)</div>
-    <pre><code><span class="kw">use</span> <span class="str">"artlab/geometry"</span>  <span class="kw">as</span> geo
-<span class="kw">use</span> <span class="str">"artlab/lights"</span>    <span class="kw">as</span> L
-<span class="kw">use</span> <span class="str">"artlab/cameras"</span>   <span class="kw">as</span> cam
-<span class="kw">use</span> <span class="str">"artlab/audio"</span>    <span class="kw">as</span> audio
-<span class="kw">use</span> <span class="str">"artlab/animation"</span> <span class="kw">as</span> anim
+    <div class="label">my-scene.js (updated)</div>
+    <pre><code><span class="kw">import</span> { sphere, mesh } <span class="kw">from</span> <span class="str">'../../src/stdlib/geometry.js'</span>
+<span class="kw">import</span> { directional, ambient } <span class="kw">from</span> <span class="str">'../../src/stdlib/lights.js'</span>
+<span class="kw">import</span> * <span class="kw">as</span> audio <span class="kw">from</span> <span class="str">'../../src/stdlib/audio.js'</span>
 
-<span class="kw">let</span> cube:   <span class="ty">mesh</span> = <span class="kw">null</span>
-<span class="kw">let</span> camera        = <span class="kw">null</span>
+<span class="kw">let</span> ball
 
-<span class="kw">fn</span> <span class="fn">setup</span>() {
-  <span class="cm"># Geometry + material</span>
-  cube = geo.add(scene, geo.sphere(<span class="num">1.5</span>, <span class="num">64</span>), {
-    color:     <span class="num">0x22aaff</span>,
-    roughness: <span class="num">0.2</span>,
-    metalness: <span class="num">0.7</span>,
-  })
+<span class="kw">export function</span> <span class="fn">setup</span>(ctx) {
+  ball = ctx.add(mesh(sphere(<span class="num">1.5</span>, <span class="num">64</span>), { color: <span class="num">0x22aaff</span>, roughness: <span class="num">0.2</span>, metalness: <span class="num">0.7</span> }))
 
-  <span class="cm"># Lights</span>
-  L.addLight(scene, L.directional(<span class="num">0xffffff</span>, <span class="num">2.5</span>), [<span class="num">10</span>, <span class="num">20</span>, <span class="num">10</span>])
-  L.addLight(scene, L.hemisphere(<span class="num">0x88aaff</span>, <span class="num">0x221133</span>, <span class="num">0.8</span>))
+  <span class="kw">const</span> sun = ctx.add(directional(<span class="num">0xffffff</span>, <span class="num">2</span>))
+  sun.position.set(<span class="num">10</span>, <span class="num">20</span>, <span class="num">10</span>)
+  ctx.add(ambient(<span class="num">0x334466</span>, <span class="num">0.6</span>))
 
-  <span class="cm"># Camera</span>
-  camera = cam.OrbitCamera(renderer)
+  ctx.camera.position.set(<span class="num">0</span>, <span class="num">2</span>, <span class="num">6</span>)
 
-  <span class="cm"># Start audio on first click</span>
-  canvas.addEventListener(<span class="str">"click"</span>, fn() { audio.start() })
-
-  <span class="cm"># Bind bass band (0..1) to scale of the sphere, mapped to 0.8..2.5</span>
-  anim.audioReact(cube.scale, <span class="str">"x"</span>, <span class="str">"bass"</span>, { min: <span class="num">0.8</span>, max: <span class="num">2.5</span> })
-  anim.audioReact(cube.scale, <span class="str">"y"</span>, <span class="str">"bass"</span>, { min: <span class="num">0.8</span>, max: <span class="num">2.5</span> })
-  anim.audioReact(cube.scale, <span class="str">"z"</span>, <span class="str">"bass"</span>, { min: <span class="num">0.8</span>, max: <span class="num">2.5</span> })
+  <span class="cm">// unlock audio on first click</span>
+  ctx.renderer.domElement.addEventListener(<span class="str">'click'</span>, () =&gt; audio.start(), { once: <span class="kw">true</span> })
 }
 
-<span class="kw">fn</span> <span class="fn">update</span>(elapsed: <span class="ty">num</span>, dt: <span class="ty">num</span>) {
-  <span class="cm"># Slow Y rotation, faster on high frequencies</span>
-  <span class="kw">let</span> h = audio.band(<span class="str">"high"</span>)
-  cube.rotation.y = elapsed * (<span class="num">0.3</span> + h * <span class="num">1.5</span>)
-
-  <span class="cm"># Drive animation system and audio analysis</span>
+<span class="kw">export function</span> <span class="fn">update</span>(ctx, dt) {
   audio.update()
-  anim.animations.update(dt)
-  camera.update(dt)
+  <span class="kw">const</span> bass = audio.band(<span class="str">'bass'</span>)   <span class="cm">// 0..1</span>
+  <span class="kw">const</span> high = audio.band(<span class="str">'high'</span>)
+
+  <span class="cm">// pulse size with bass, spin faster with treble</span>
+  <span class="kw">const</span> s = <span class="num">1</span> + bass * <span class="num">1.5</span>
+  ball.scale.setScalar(s)
+  ball.rotation.y += dt * (<span class="num">0.3</span> + high * <span class="num">2</span>)
+}
+
+<span class="kw">export function</span> <span class="fn">teardown</span>(ctx) {
+  audio.stop()
 }</code></pre>
 
     <div class="callout">
-      <strong>What you should see:</strong> A metallic sphere that pulses in size with the
-      bass frequencies and spins faster during high-frequency moments. Click the canvas first
-      to unlock the audio context.
+      <strong>What you should see:</strong> A metallic sphere that pulses in size with bass
+      frequencies and spins faster during high-frequency moments. Click the canvas to unlock
+      the audio context first.
     </div>
   </div>
 
@@ -385,55 +354,27 @@ artlab serve my-scene</code></pre>
   <div class="step" id="step5">
     <div class="step-header">
       <div class="step-num">5</div>
-      <div class="step-title">Pack and share</div>
+      <div class="step-title">Export and share</div>
     </div>
     <p>
-      When you are happy with the scene, bundle it into a portable <code>.artpack.zip</code>.
-      The archive is self-contained — all source, compiled output, and assets are included.
+      Click the <strong>Export</strong> button in the IDE toolbar (the download icon) to download
+      your package as a <code>.zip</code>. The archive contains the manifest, all source files,
+      and any assets — everything needed to run the package.
     </p>
-
-    <div class="label">Terminal</div>
-    <pre class="terminal"><code># Build and pack the scene
-artlab pack my-scene
-
-# Output:
-#   Compiling my-scene...   done
-#   Bundling assets...      done
-#   Writing my-scene.artpack.zip
-#   Bundle size: 48 KB (gzip: 18 KB)</code></pre>
-
     <p>
-      The resulting <code>.artpack.zip</code> can be:
+      The <code>.zip</code> can be dragged back into the IDE to reload it, shared with teammates,
+      or run standalone via <code>StandaloneRunner</code>.
     </p>
-    <ul style="list-style: none; padding-left: 0; margin-bottom: 1rem;">
-      <li style="margin-bottom: 0.4rem; padding-left: 1.5rem; position: relative;">
-        <span style="position:absolute;left:0;color:var(--accent);">&rsaquo;</span>
-        Hosted on any static file server (the artlab player fetches and runs it).
-      </li>
-      <li style="margin-bottom: 0.4rem; padding-left: 1.5rem; position: relative;">
-        <span style="position:absolute;left:0;color:var(--accent);">&rsaquo;</span>
-        Shared as a URL: <code>https://artlab.run/play?src=https://you.example/my-scene.artpack.zip</code>
-      </li>
-      <li style="margin-bottom: 0.4rem; padding-left: 1.5rem; position: relative;">
-        <span style="position:absolute;left:0;color:var(--accent);">&rsaquo;</span>
-        Embedded in a page with the <code>&lt;artlab-player src="..."&gt;</code> web component.
-      </li>
-    </ul>
-
-    <div class="label">Embed in HTML</div>
-    <pre><code>&lt;script type="module" src="https://cdn.artlab.run/player.js"&gt;&lt;/script&gt;
-&lt;artlab-player src="./my-scene.artpack.zip" width="800" height="600"&gt;&lt;/artlab-player&gt;</code></pre>
-
     <p>
-      That's it. From here, explore the <a href="stdlib.html">Runtime API</a> to add orbital
-      physics, particle emitters, cinematic cameras, and more.
+      From here, explore the <a href="stdlib.html">Runtime API</a> to add physics, particle
+      emitters, video input, and more.
     </p>
   </div>
 
 </main>
 </div>
 
-<footer>Artlab &mdash; Tutorial &mdash; v1.0</footer>
+<footer>Artlab &mdash; Tutorial</footer>
 
 </body>
 </html>

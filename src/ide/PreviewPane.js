@@ -41,7 +41,7 @@ export class PreviewPane {
 
     this._renderer = new Three.WebGLRenderer({ canvas: this.canvas, antialias: true, alpha: false })
     this._renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2))
-    this._renderer.setClearColor(0x0a0a12, 1)
+    this._renderer.setClearColor(0x000000, 1)
     this._renderer.outputColorSpace    = Three.SRGBColorSpace
     this._renderer.toneMapping         = Three.ACESFilmicToneMapping
     this._renderer.toneMappingExposure = 0.75

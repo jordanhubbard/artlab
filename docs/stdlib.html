@@ -160,10 +160,8 @@
 <header>
   <div class="logo"><a href="index.html" style="color:#fff;text-decoration:none">art<span>lab</span></a></div>
   <nav>
-    <a href="language.html">Language</a>
     <a href="stdlib.html">API</a>
     <a href="tutorial.html">Tutorial</a>
-    <a href="examples.html">Examples</a>
   </nav>
 </header>
 
@@ -172,26 +170,24 @@
 <aside>
   <div class="group">Modules</div>
   <ul>
-    <li><a href="#math">artlab/math</a></li>
-    <li><a href="#geometry">artlab/geometry</a></li>
-    <li><a href="#lights">artlab/lights</a></li>
-    <li><a href="#cameras">artlab/cameras</a></li>
-    <li><a href="#animation">artlab/animation</a></li>
-    <li><a href="#audio">artlab/audio</a></li>
-    <li><a href="#orbital">artlab/physics/orbital</a></li>
-    <li><a href="#physics">artlab/physics/bindings</a></li>
-    <li><a href="#ui">artlab/ui</a></li>
+    <li><a href="#math">stdlib/math</a></li>
+    <li><a href="#geometry">stdlib/geometry</a></li>
+    <li><a href="#lights">stdlib/lights</a></li>
+    <li><a href="#audio">stdlib/audio</a></li>
+    <li><a href="#video">stdlib/video</a></li>
+    <li><a href="#physics">stdlib/physics/particles</a></li>
+    <li><a href="#ui">stdlib/ui</a></li>
   </ul>
 </aside>
 
 <main>
   <h1>Runtime API</h1>
-  <p class="subtitle">Standard library reference — all exports, signatures, and parameters.</p>
+  <p class="subtitle">Standard library reference &mdash; all exports, signatures, and parameters.</p>
 
-  <!-- ═══════════════════════════════════════════════════════ artlab/math -->
+  <!-- ═══════════════════════════════════════════════════════ stdlib/math -->
   <section id="math">
-    <h2>artlab/math</h2>
-    <div class="module-import">DSL: <code>use "artlab/math"</code></div>
+    <h2>stdlib/math</h2>
+    <div class="module-import"><code>import { lerp, clamp, ... } from '../../src/stdlib/math.js'</code></div>
 
     <h3>Constants</h3>
     <table>
@@ -202,74 +198,32 @@
       </tbody>
     </table>
 
-    <h3>Re-exports from Three.js</h3>
-    <p>The module re-exports <code>Vector2</code>, <code>Vector3</code>, <code>Vector4</code>,
+    <h3>Three.js re-exports</h3>
+    <p>Re-exports <code>Vector2</code>, <code>Vector3</code>, <code>Vector4</code>,
        <code>Matrix3</code>, <code>Matrix4</code>, <code>Quaternion</code>, and <code>MathUtils</code>
-       from Three.js, with short aliases <code>Vec2</code>, <code>Vec3</code>, <code>Vec4</code>,
+       from Three.js with short aliases <code>Vec2</code>, <code>Vec3</code>, <code>Vec4</code>,
        <code>Mat3</code>, <code>Mat4</code>, <code>Quat</code>.</p>
 
     <h3><span class="fn">deg</span>(r) <span class="ret">→ num</span></h3>
-    <table>
-      <thead><tr><th>Parameter</th><th>Type</th><th>Description</th></tr></thead>
-      <tbody><tr><td><code>r</code></td><td><code>num</code></td><td>Angle in radians.</td></tr></tbody>
-    </table>
     <p>Convert radians to degrees.</p>
 
     <h3><span class="fn">rad</span>(d) <span class="ret">→ num</span></h3>
-    <table>
-      <thead><tr><th>Parameter</th><th>Type</th><th>Description</th></tr></thead>
-      <tbody><tr><td><code>d</code></td><td><code>num</code></td><td>Angle in degrees.</td></tr></tbody>
-    </table>
     <p>Convert degrees to radians.</p>
 
     <h3><span class="fn">clamp</span>(v, min, max) <span class="ret">→ num</span></h3>
-    <table>
-      <thead><tr><th>Parameter</th><th>Type</th><th>Description</th></tr></thead>
-      <tbody>
-        <tr><td><code>v</code></td><td><code>num</code></td><td>Input value.</td></tr>
-        <tr><td><code>min</code></td><td><code>num</code></td><td>Lower bound (inclusive).</td></tr>
-        <tr><td><code>max</code></td><td><code>num</code></td><td>Upper bound (inclusive).</td></tr>
-      </tbody>
-    </table>
     <p>Clamp <code>v</code> to [min, max].</p>
 
     <h3><span class="fn">lerp</span>(a, b, t) <span class="ret">→ num</span></h3>
-    <table>
-      <thead><tr><th>Parameter</th><th>Type</th><th>Description</th></tr></thead>
-      <tbody>
-        <tr><td><code>a</code></td><td><code>num</code></td><td>Start value.</td></tr>
-        <tr><td><code>b</code></td><td><code>num</code></td><td>End value.</td></tr>
-        <tr><td><code>t</code></td><td><code>num</code></td><td>Interpolation factor (0–1).</td></tr>
-      </tbody>
-    </table>
     <p>Linear interpolation from <code>a</code> to <code>b</code> by <code>t</code>.</p>
 
     <h3><span class="fn">map</span>(v, inMin, inMax, outMin, outMax) <span class="ret">→ num</span></h3>
-    <table>
-      <thead><tr><th>Parameter</th><th>Type</th><th>Description</th></tr></thead>
-      <tbody>
-        <tr><td><code>v</code></td><td><code>num</code></td><td>Input value.</td></tr>
-        <tr><td><code>inMin</code></td><td><code>num</code></td><td>Input range minimum.</td></tr>
-        <tr><td><code>inMax</code></td><td><code>num</code></td><td>Input range maximum.</td></tr>
-        <tr><td><code>outMin</code></td><td><code>num</code></td><td>Output range minimum.</td></tr>
-        <tr><td><code>outMax</code></td><td><code>num</code></td><td>Output range maximum.</td></tr>
-      </tbody>
-    </table>
     <p>Re-map <code>v</code> from one numeric range to another. Does not clamp output.</p>
 
     <h3><span class="fn">smoothstep</span>(edge0, edge1, x) <span class="ret">→ num</span></h3>
-    <table>
-      <thead><tr><th>Parameter</th><th>Type</th><th>Description</th></tr></thead>
-      <tbody>
-        <tr><td><code>edge0</code></td><td><code>num</code></td><td>Lower edge.</td></tr>
-        <tr><td><code>edge1</code></td><td><code>num</code></td><td>Upper edge.</td></tr>
-        <tr><td><code>x</code></td><td><code>num</code></td><td>Input value.</td></tr>
-      </tbody>
-    </table>
     <p>GLSL-style smoothstep; returns 0 below <code>edge0</code>, 1 above <code>edge1</code>, smooth S-curve in between.</p>
 
     <h3>Easing functions <span class="ret">→ num</span></h3>
-    <p>All easing functions accept a single <code>t</code> in [0, 1] and return a value in [0, 1].</p>
+    <p>All accept a single <code>t</code> in [0, 1] and return a value in [0, 1].</p>
     <table>
       <thead><tr><th>Function</th><th>Description</th></tr></thead>
       <tbody>
@@ -282,31 +236,16 @@
     </table>
 
     <h3><span class="fn">noise2</span>(x, y) <span class="ret">→ num</span></h3>
-    <table>
-      <thead><tr><th>Parameter</th><th>Type</th><th>Description</th></tr></thead>
-      <tbody>
-        <tr><td><code>x</code></td><td><code>num</code></td><td>First coordinate.</td></tr>
-        <tr><td><code>y</code></td><td><code>num</code></td><td>Second coordinate.</td></tr>
-      </tbody>
-    </table>
-    <p>Classic Perlin-style value noise for 2D input. Returns a value in [-1, 1]. Uses a fixed permutation table (reproducible across runs).</p>
+    <p>Perlin-style value noise for 2D input. Returns a value in [-1, 1].</p>
 
     <h3><span class="fn">noise3</span>(x, y, z) <span class="ret">→ num</span></h3>
-    <table>
-      <thead><tr><th>Parameter</th><th>Type</th><th>Description</th></tr></thead>
-      <tbody>
-        <tr><td><code>x</code></td><td><code>num</code></td><td>First coordinate.</td></tr>
-        <tr><td><code>y</code></td><td><code>num</code></td><td>Second coordinate.</td></tr>
-        <tr><td><code>z</code></td><td><code>num</code></td><td>Third coordinate.</td></tr>
-      </tbody>
-    </table>
-    <p>Classic Perlin-style value noise for 3D input. Returns a value in [-1, 1].</p>
+    <p>Perlin-style value noise for 3D input. Returns a value in [-1, 1].</p>
   </section>
 
-  <!-- ═══════════════════════════════════════════════════ artlab/geometry -->
+  <!-- ═══════════════════════════════════════════════════ stdlib/geometry -->
   <section id="geometry">
-    <h2>artlab/geometry</h2>
-    <div class="module-import">DSL: <code>use "artlab/geometry"</code></div>
+    <h2>stdlib/geometry</h2>
+    <div class="module-import"><code>import { sphere, box, mesh, ... } from '../../src/stdlib/geometry.js'</code></div>
 
     <h3>Geometry factories</h3>
     <p>Each factory returns a <code>THREE.BufferGeometry</code> ready to pass to <code>mesh()</code>.</p>
@@ -317,7 +256,7 @@
           <td><code>sphere(radius, detail)</code></td>
           <td><code>radius: num, detail: num</code></td>
           <td>1, 32</td>
-          <td>Sphere geometry with <code>detail&times;detail</code> segments.</td>
+          <td>Sphere geometry.</td>
         </tr>
         <tr>
           <td><code>box(w, h, d)</code></td>
@@ -347,7 +286,7 @@
           <td><code>ring(iR, oR, segs)</code></td>
           <td><code>iR: num, oR: num, segs: num</code></td>
           <td>0.5, 1, 64</td>
-          <td>Ring/disc geometry; <code>iR</code> = inner radius, <code>oR</code> = outer radius.</td>
+          <td>Ring/disc; <code>iR</code> = inner radius, <code>oR</code> = outer radius.</td>
         </tr>
         <tr>
           <td><code>cone(r, h, segs)</code></td>
@@ -369,31 +308,23 @@
         <tr><td><code>options.wireframe</code></td><td><code>bool</code></td><td><code>false</code></td><td>Render as wireframe.</td></tr>
       </tbody>
     </table>
-    <p>Wrap a geometry in a <code>MeshStandardMaterial</code> and return the resulting <code>THREE.Mesh</code>.</p>
+    <p>Wrap a geometry in a <code>MeshStandardMaterial</code> and return the <code>THREE.Mesh</code>.</p>
 
     <h3><span class="fn">add</span>(scene, geometry, options) <span class="ret">→ THREE.Mesh</span></h3>
-    <table>
-      <thead><tr><th>Parameter</th><th>Type</th><th>Description</th></tr></thead>
-      <tbody>
-        <tr><td><code>scene</code></td><td><code>THREE.Scene</code></td><td>Scene to add the mesh to.</td></tr>
-        <tr><td><code>geometry</code></td><td><code>THREE.BufferGeometry</code></td><td>Geometry to wrap.</td></tr>
-        <tr><td><code>options</code></td><td><code>object</code></td><td>Same options as <code>mesh()</code>.</td></tr>
-      </tbody>
-    </table>
-    <p>Create a mesh from geometry and immediately add it to the scene. Returns the mesh for further manipulation.</p>
+    <p>Create a mesh and immediately add it to the scene. Same options as <code>mesh()</code>.</p>
 
-    <pre><code><span class="kw">use</span> <span class="str">"artlab/geometry"</span> <span class="kw">as</span> geo
+    <pre><code><span class="kw">import</span> { sphere, mesh, add } <span class="kw">from</span> <span class="str">'../../src/stdlib/geometry.js'</span>
 
-<span class="kw">fn</span> <span class="fn">setup</span>() {
-  <span class="kw">let</span> earth = geo.add(scene, geo.sphere(<span class="num">1</span>, <span class="num">64</span>), { color: <span class="num">0x2266cc</span> })
+<span class="kw">export function</span> <span class="fn">setup</span>(ctx) {
+  <span class="kw">const</span> earth = ctx.add(mesh(sphere(<span class="num">1</span>, <span class="num">64</span>), { color: <span class="num">0x2266cc</span> }))
 }</code></pre>
   </section>
 
-  <!-- ══════════════════════════════════════════════════════ artlab/lights -->
+  <!-- ══════════════════════════════════════════════════════ stdlib/lights -->
   <section id="lights">
-    <h2>artlab/lights</h2>
-    <div class="module-import">DSL: <code>use "artlab/lights"</code></div>
-    <p>All factory functions return the corresponding <code>THREE.Light</code> object.</p>
+    <h2>stdlib/lights</h2>
+    <div class="module-import"><code>import { ambient, point, directional, ... } from '../../src/stdlib/lights.js'</code></div>
+    <p>All factory functions return the corresponding <code>THREE.Light</code> object. Add it to the scene with <code>ctx.add()</code>.</p>
 
     <table>
       <thead><tr><th>Function</th><th>Parameters (defaults)</th><th>Description</th></tr></thead>
@@ -401,22 +332,22 @@
         <tr>
           <td><code>ambient(color, intensity)</code></td>
           <td><code>0x404040, 1</code></td>
-          <td>Flat ambient fill light; no shadows.</td>
+          <td>Flat ambient fill; no shadows.</td>
         </tr>
         <tr>
           <td><code>point(color, intensity, distance, decay)</code></td>
           <td><code>0xffffff, 1, 0, 2</code></td>
-          <td>Omnidirectional point light. <code>distance=0</code> means infinite range.</td>
+          <td>Omnidirectional point light. <code>distance=0</code> = infinite range.</td>
         </tr>
         <tr>
           <td><code>directional(color, intensity)</code></td>
           <td><code>0xffffff, 1</code></td>
-          <td>Sun-style parallel light. Shadow casting enabled, 2048&times;2048 shadow map.</td>
+          <td>Parallel sun-style light. Shadow casting enabled, 2048&times;2048 map.</td>
         </tr>
         <tr>
           <td><code>spot(color, intensity, distance, angle, penumbra)</code></td>
           <td><code>0xffffff, 1, 0, Math.PI/4, 0.1</code></td>
-          <td>Cone spot light. Shadow casting enabled.</td>
+          <td>Cone spot light with shadow casting.</td>
         </tr>
         <tr>
           <td><code>hemisphere(skyColor, groundColor, intensity)</code></td>
@@ -427,152 +358,27 @@
     </table>
 
     <h3><span class="fn">addLight</span>(scene, light, position) <span class="ret">→ THREE.Light</span></h3>
-    <table>
-      <thead><tr><th>Parameter</th><th>Type</th><th>Description</th></tr></thead>
-      <tbody>
-        <tr><td><code>scene</code></td><td><code>THREE.Scene</code></td><td>Scene to add the light to.</td></tr>
-        <tr><td><code>light</code></td><td><code>THREE.Light</code></td><td>Light object from a factory.</td></tr>
-        <tr><td><code>position</code></td><td><code>[x, y, z]</code> (optional)</td><td>Position array. Omit to keep the default position.</td></tr>
-      </tbody>
-    </table>
-    <p>Add a light to a scene and optionally set its position in one call.</p>
+    <p>Add a light to the scene and optionally set its position in one call.</p>
 
-    <pre><code><span class="kw">use</span> <span class="str">"artlab/lights"</span> <span class="kw">as</span> L
+    <pre><code><span class="kw">import</span> { directional, ambient } <span class="kw">from</span> <span class="str">'../../src/stdlib/lights.js'</span>
 
-<span class="kw">fn</span> <span class="fn">setup</span>() {
-  L.addLight(scene, L.directional(<span class="num">0xffffff</span>, <span class="num">2</span>), [<span class="num">10</span>, <span class="num">20</span>, <span class="num">10</span>])
-  L.addLight(scene, L.ambient(<span class="num">0x334455</span>, <span class="num">0.6</span>))
+<span class="kw">export function</span> <span class="fn">setup</span>(ctx) {
+  <span class="kw">const</span> sun = ctx.add(directional(<span class="num">0xffffff</span>, <span class="num">2</span>))
+  sun.position.set(<span class="num">10</span>, <span class="num">20</span>, <span class="num">10</span>)
+  ctx.add(ambient(<span class="num">0x334455</span>, <span class="num">0.6</span>))
 }</code></pre>
   </section>
 
-  <!-- ══════════════════════════════════════════════════════ artlab/cameras -->
-  <section id="cameras">
-    <h2>artlab/cameras</h2>
-    <div class="module-import">DSL: <code>use "artlab/cameras"</code></div>
-    <p>All camera factories return an object with at least <code>{ camera, update(dt), setTarget(obj), onResize() }</code>.</p>
-
-    <h3><span class="fn">OrbitCamera</span>(renderer, opts) <span class="ret">→ { camera, controls, update, setTarget, onResize }</span></h3>
-    <table>
-      <thead><tr><th>Option</th><th>Type</th><th>Default</th><th>Description</th></tr></thead>
-      <tbody>
-        <tr><td><code>fov</code></td><td><code>num</code></td><td><code>55</code></td><td>Field of view in degrees.</td></tr>
-        <tr><td><code>near</code></td><td><code>num</code></td><td><code>0.1</code></td><td>Near clip plane.</td></tr>
-        <tr><td><code>far</code></td><td><code>num</code></td><td><code>200000</code></td><td>Far clip plane.</td></tr>
-        <tr><td><code>minDistance</code></td><td><code>num</code></td><td><code>2</code></td><td>Minimum orbit radius.</td></tr>
-        <tr><td><code>maxDistance</code></td><td><code>num</code></td><td><code>8000</code></td><td>Maximum orbit radius.</td></tr>
-        <tr><td><code>zoomSpeed</code></td><td><code>num</code></td><td><code>1.2</code></td><td>Scroll zoom speed.</td></tr>
-        <tr><td><code>rotateSpeed</code></td><td><code>num</code></td><td><code>0.5</code></td><td>Mouse drag rotate speed.</td></tr>
-      </tbody>
-    </table>
-    <p>Mouse-driven orbit camera using Three.js <code>OrbitControls</code>. Handles window resize automatically.</p>
-
-    <h3><span class="fn">FlyCamera</span>(renderer, opts) <span class="ret">→ { camera, update, setTarget, dispose, onResize }</span></h3>
-    <table>
-      <thead><tr><th>Option</th><th>Type</th><th>Default</th><th>Description</th></tr></thead>
-      <tbody>
-        <tr><td><code>speed</code></td><td><code>num</code></td><td><code>50</code></td><td>Movement speed in units/second.</td></tr>
-        <tr><td><code>sensitivity</code></td><td><code>num</code></td><td><code>0.002</code></td><td>Mouse look sensitivity (radians/pixel).</td></tr>
-        <tr><td><code>fov</code></td><td><code>num</code></td><td><code>55</code></td><td>Field of view in degrees.</td></tr>
-      </tbody>
-    </table>
-    <p>WASD + Q/E keyboard movement with hold-mouse-button look. Call <code>dispose()</code> to remove event listeners.</p>
-
-    <h3><span class="fn">PathCamera</span>(curve, opts) <span class="ret">→ { camera, update, setTarget, seek, t, autoPlay, onResize }</span></h3>
-    <table>
-      <thead><tr><th>Option</th><th>Type</th><th>Default</th><th>Description</th></tr></thead>
-      <tbody>
-        <tr><td><code>speed</code></td><td><code>num</code></td><td><code>0.1</code></td><td>t-units per second (full range is 0→1).</td></tr>
-        <tr><td><code>autoPlay</code></td><td><code>bool</code></td><td><code>true</code></td><td>Advance automatically each frame.</td></tr>
-        <tr><td><code>startT</code></td><td><code>num</code></td><td><code>0</code></td><td>Initial position along the curve (0–1).</td></tr>
-        <tr><td><code>lookAhead</code></td><td><code>num</code></td><td><code>0.01</code></td><td>How far ahead on the curve to look.</td></tr>
-      </tbody>
-    </table>
-    <p>Camera that follows a <code>THREE.CatmullRomCurve3</code>. Use <code>seek(t)</code> to jump to a position.</p>
-
-    <h3><span class="fn">CinematicCamera</span>(opts) <span class="ret">→ { camera, addKeyframe, seek, play, pause, update, setTarget, onResize, currentT, duration, playing }</span></h3>
-    <table>
-      <thead><tr><th>Option</th><th>Type</th><th>Default</th><th>Description</th></tr></thead>
-      <tbody>
-        <tr><td><code>duration</code></td><td><code>num</code></td><td><code>1</code></td><td>Total timeline duration in seconds.</td></tr>
-        <tr><td><code>loop</code></td><td><code>bool</code></td><td><code>false</code></td><td>Loop playback at the end.</td></tr>
-        <tr><td><code>fov</code></td><td><code>num</code></td><td><code>55</code></td><td>Field of view in degrees.</td></tr>
-      </tbody>
-    </table>
-    <p>Keyframe-driven camera. Add keyframes with <code>addKeyframe(t, pos, target)</code>; positions are
-       linearly interpolated between keyframes. Call <code>play()</code> to start and <code>update(dt)</code>
-       each frame to advance playback.</p>
-  </section>
-
-  <!-- ══════════════════════════════════════════════════ artlab/animation -->
-  <section id="animation">
-    <h2>artlab/animation</h2>
-    <div class="module-import">DSL: <code>use "artlab/animation"</code></div>
-
-    <h3>animations <span class="ret">(AnimationSystem singleton)</span></h3>
-    <p>Module-level singleton. All convenience functions register with this instance.
-       Call <code>animations.update(dt)</code> once per frame from your render loop.</p>
-
-    <h3><span class="fn">tween</span>(target, to, duration, options) <span class="ret">→ Tween[]</span></h3>
-    <table>
-      <thead><tr><th>Parameter</th><th>Type</th><th>Default</th><th>Description</th></tr></thead>
-      <tbody>
-        <tr><td><code>target</code></td><td><code>object</code></td><td>—</td><td>Object owning the properties to animate.</td></tr>
-        <tr><td><code>to</code></td><td><code>object</code></td><td>—</td><td>Map of <code>{ propPath: targetValue }</code>. Dot-notation is supported (e.g. <code>"scale.x"</code>).</td></tr>
-        <tr><td><code>duration</code></td><td><code>num</code></td><td>—</td><td>Duration in seconds.</td></tr>
-        <tr><td><code>options.easing</code></td><td><code>str</code></td><td><code>"linear"</code></td><td>Easing name (e.g. <code>"power2out"</code>).</td></tr>
-        <tr><td><code>options.delay</code></td><td><code>num</code></td><td><code>0</code></td><td>Delay before starting, in seconds.</td></tr>
-        <tr><td><code>options.onComplete</code></td><td><code>fn</code></td><td><code>null</code></td><td>Called when all tweens in this call finish.</td></tr>
-      </tbody>
-    </table>
-    <p>Create and start tweens on the global animation system. Returns an array of <code>Tween</code> objects;
-       call <code>.finish()</code> on each to cancel early.</p>
-
-    <h3><span class="fn">audioReact</span>(target, prop, band, options) <span class="ret">→ { disconnect() }</span></h3>
-    <table>
-      <thead><tr><th>Parameter</th><th>Type</th><th>Default</th><th>Description</th></tr></thead>
-      <tbody>
-        <tr><td><code>target</code></td><td><code>object</code></td><td>—</td><td>Object owning the property.</td></tr>
-        <tr><td><code>prop</code></td><td><code>str</code></td><td>—</td><td>Property path (dot-notation OK, e.g. <code>"scale.y"</code>).</td></tr>
-        <tr><td><code>band</code></td><td><code>"bass" | "mid" | "high"</code></td><td>—</td><td>FFT band to track.</td></tr>
-        <tr><td><code>options.min</code></td><td><code>num</code></td><td><code>0</code></td><td>Mapped minimum value.</td></tr>
-        <tr><td><code>options.max</code></td><td><code>num</code></td><td><code>1</code></td><td>Mapped maximum value.</td></tr>
-      </tbody>
-    </table>
-    <p>Create an audio-reactive binding that drives a property on every frame.
-       Call <code>.disconnect()</code> to stop tracking.</p>
-
-    <h3><span class="fn">timeline</span>(keyframes) <span class="ret">→ { seek, play, pause, onComplete }</span></h3>
-    <table>
-      <thead><tr><th>Parameter</th><th>Type</th><th>Description</th></tr></thead>
-      <tbody>
-        <tr><td><code>keyframes</code></td><td><code>Array&lt;{ t: num, props: Map | object }&gt;</code></td><td>Sorted or unsorted keyframe array. Each keyframe maps target objects to <code>{ propPath: value }</code>.</td></tr>
-      </tbody>
-    </table>
-    <p>Build a keyframe timeline. Returns <code>{ seek(t), play(speed?), pause(), onComplete(cb) }</code>.
-       The timeline drives itself through the global <code>animations</code> tween system — no separate loop is needed.</p>
-
-    <pre><code><span class="kw">use</span> <span class="str">"artlab/animation"</span> <span class="kw">as</span> anim
-
-<span class="kw">fn</span> <span class="fn">setup</span>() {
-  <span class="cm"># tween mesh up over 2 seconds</span>
-  anim.tween(mesh.position, { y: <span class="num">5</span> }, <span class="num">2</span>, { easing: <span class="str">"power2out"</span> })
-
-  <span class="cm"># audio-reactive scale</span>
-  anim.audioReact(mesh.scale, <span class="str">"x"</span>, <span class="str">"bass"</span>, { min: <span class="num">1</span>, max: <span class="num">3</span> })
-}
-
-<span class="kw">fn</span> <span class="fn">update</span>(dt: <span class="ty">num</span>) {
-  anim.animations.update(dt)
-}</code></pre>
-  </section>
-
-  <!-- ══════════════════════════════════════════════════════ artlab/audio -->
+  <!-- ══════════════════════════════════════════════════════ stdlib/audio -->
   <section id="audio">
-    <h2>artlab/audio</h2>
-    <div class="module-import">DSL: <code>use "artlab/audio"</code></div>
+    <h2>stdlib/audio</h2>
+    <div class="module-import"><code>import * as audio from '../../src/stdlib/audio.js'</code></div>
 
     <h3><span class="fn">start</span>() <span class="ret">→ Promise&lt;void&gt;</span></h3>
     <p>Resume the audio context. Must be called from a user-gesture handler (click, keydown). Idempotent.</p>
+
+    <h3><span class="fn">stop</span>() <span class="ret">→ Promise&lt;void&gt;</span></h3>
+    <p>Suspend the audio context. Call in <code>teardown()</code> if audio was started.</p>
 
     <h3><span class="fn">update</span>() <span class="ret">→ { bass, mid, high, raw }</span></h3>
     <p>Analyse the latest audio frame. Call once per animation frame. Returns normalised band values (0–1) and the raw <code>Float32Array</code> FFT data.</p>
@@ -584,7 +390,7 @@
         <tr><td><code>name</code></td><td><code>"bass" | "mid" | "high" | "treble"</code></td><td>FFT band name (<code>"high"</code> and <code>"treble"</code> are aliases).</td></tr>
       </tbody>
     </table>
-    <p>Return the current FFT band value (0–1) for a single named band. Convenient for audio-reactive expressions.</p>
+    <p>Return the current FFT band value (0–1) for a single named band.</p>
 
     <h3><span class="fn">play</span>(src, options) <span class="ret">→ Promise&lt;AudioBufferSourceNode&gt;</span></h3>
     <table>
@@ -607,175 +413,162 @@
         <tr><td><code>options.reverb</code></td><td><code>bool</code></td><td><code>true</code></td><td>Route through engine reverb chain.</td></tr>
       </tbody>
     </table>
-    <p>Create an ambient FM synth pad via Tone.js. Returns a handle with <code>setVolume(db)</code>
-       (ramps over 1.5 s) and <code>dispose()</code>.</p>
+    <p>Create an ambient FM synth pad via Tone.js. Returns a handle with <code>setVolume(db)</code> and <code>dispose()</code>.</p>
+
+    <h3>Music helpers</h3>
+    <table>
+      <thead><tr><th>Function</th><th>Returns</th><th>Description</th></tr></thead>
+      <tbody>
+        <tr><td><code>scale(root, mode, octaves, startOctave)</code></td><td><code>string[]</code></td><td>Generate a note array for a named scale (e.g. <code>'minor'</code>, <code>'major'</code>).</td></tr>
+        <tr><td><code>chord(root, quality)</code></td><td><code>string[]</code></td><td>Return chord notes for a root and quality (<code>'maj'</code>, <code>'min'</code>, <code>'dim'</code>, <code>'aug'</code>).</td></tr>
+        <tr><td><code>progression(root, str, mode, octave)</code></td><td><code>string[][]</code></td><td>Roman-numeral progression (e.g. <code>'I-IV-V-I'</code>) as arrays of note strings.</td></tr>
+        <tr><td><code>sequencer(opts)</code></td><td><code>{ start, stop, dispose }</code></td><td>Step sequencer with BPM, pattern, and per-step callbacks.</td></tr>
+        <tr><td><code>reverb(opts)</code></td><td><code>Tone.Reverb</code></td><td>Reverb effect node.</td></tr>
+        <tr><td><code>delay(opts)</code></td><td><code>Tone.FeedbackDelay</code></td><td>Feedback delay node.</td></tr>
+        <tr><td><code>chorus(opts)</code></td><td><code>Tone.Chorus</code></td><td>Chorus effect node.</td></tr>
+      </tbody>
+    </table>
 
     <h3><span class="fn">spatialize</span>(audioNode, options) <span class="ret">→ { update(obj), disconnect() }</span></h3>
-    <table>
-      <thead><tr><th>Parameter</th><th>Type</th><th>Default</th><th>Description</th></tr></thead>
-      <tbody>
-        <tr><td><code>audioNode</code></td><td><code>AudioNode</code></td><td>—</td><td>Source node to spatialise.</td></tr>
-        <tr><td><code>options.refDistance</code></td><td><code>num</code></td><td><code>1</code></td><td>Distance at which attenuation begins.</td></tr>
-        <tr><td><code>options.maxDistance</code></td><td><code>num</code></td><td><code>10000</code></td><td>Distance at which gain is clamped.</td></tr>
-        <tr><td><code>options.rolloffFactor</code></td><td><code>num</code></td><td><code>1</code></td><td>Rate of attenuation.</td></tr>
-        <tr><td><code>options.panningModel</code></td><td><code>str</code></td><td><code>"HRTF"</code></td><td><code>"HRTF"</code> or <code>"equalpower"</code>.</td></tr>
-        <tr><td><code>options.distanceModel</code></td><td><code>str</code></td><td><code>"inverse"</code></td><td>Web Audio distance model.</td></tr>
-      </tbody>
-    </table>
     <p>Link a Web Audio node to a Three.js object's world position via a <code>PannerNode</code>.
-       Call <code>update(obj)</code> each frame to track the object's position.</p>
+       Call <code>update(obj)</code> each frame to track the object's position. Call <code>disconnect()</code>
+       to stop tracking.</p>
   </section>
 
-  <!-- ═══════════════════════════════════════════════ artlab/physics/orbital -->
-  <section id="orbital">
-    <h2>artlab/physics/orbital</h2>
-    <div class="module-import">DSL: <code>use "artlab/physics/orbital"</code></div>
+  <!-- ══════════════════════════════════════════════════════ stdlib/video -->
+  <section id="video">
+    <h2>stdlib/video</h2>
+    <div class="module-import"><code>import { webcam, videoTexture, chromaKey, ... } from '../../src/stdlib/video.js'</code></div>
+    <p>Video input, file playback, and GPU shader effects for video textures.</p>
 
-    <h3>Constants</h3>
     <table>
-      <thead><tr><th>Name</th><th>Value</th><th>Description</th></tr></thead>
-      <tbody class="const-row">
-        <tr><td><code>AU</code></td><td><code>100</code></td><td>1 AU in scene units.</td></tr>
-        <tr><td><code>SOLAR_MASS</code></td><td><code>1</code></td><td>Normalized solar mass reference.</td></tr>
+      <thead><tr><th>Function</th><th>Returns</th><th>Description</th></tr></thead>
+      <tbody>
+        <tr>
+          <td><code>webcam(opts?)</code></td>
+          <td><code>{ texture, video, start(), stop(), isReady() }</code></td>
+          <td>Live webcam stream as a <code>VideoTexture</code>. Options: <code>width</code>, <code>height</code>, <code>facingMode</code>.</td>
+        </tr>
+        <tr>
+          <td><code>screen(opts?)</code></td>
+          <td><code>{ texture, video, start(), stop(), isReady() }</code></td>
+          <td>Screen / tab capture as a <code>VideoTexture</code>. Options: <code>width</code>, <code>height</code>.</td>
+        </tr>
+        <tr>
+          <td><code>videoTexture(src, opts?)</code></td>
+          <td><code>{ texture, video, play(), pause(), isReady() }</code></td>
+          <td>Load a video file URL as a <code>VideoTexture</code>. Options: <code>loop</code>, <code>muted</code>, <code>autoplay</code>.</td>
+        </tr>
+        <tr>
+          <td><code>captureCanvas(canvas, opts?)</code></td>
+          <td><code>{ start(), stop(), download(name) }</code></td>
+          <td>Record the canvas to a video file via <code>MediaRecorder</code>. Options: <code>fps</code>, <code>mimeType</code>.</td>
+        </tr>
+        <tr>
+          <td><code>chromaKey(texture, keyColor, threshold)</code></td>
+          <td><code>THREE.ShaderMaterial</code></td>
+          <td>Green-screen removal shader material. <code>keyColor</code> defaults to green.</td>
+        </tr>
+        <tr>
+          <td><code>pixelate(texture, blockSize)</code></td>
+          <td><code>THREE.ShaderMaterial</code></td>
+          <td>Pixelated rendering shader. <code>blockSize</code> in pixels (default 8).</td>
+        </tr>
+        <tr>
+          <td><code>glitch(texture, opts?)</code></td>
+          <td><code>THREE.ShaderMaterial</code></td>
+          <td>RGB-split / scanline glitch shader. Options: <code>intensity</code>, <code>speed</code>.</td>
+        </tr>
+        <tr>
+          <td><code>videoPlane(textureOrResult, opts?)</code></td>
+          <td><code>THREE.Mesh</code></td>
+          <td>Plane mesh sized to the video's aspect ratio. Pass a texture or a webcam/screen result directly.</td>
+        </tr>
       </tbody>
     </table>
 
-    <h3><span class="fn">orbit</span>(params) <span class="ret">→ { position(elapsed), params }</span></h3>
+    <pre><code><span class="kw">import</span> { webcam, videoPlane } <span class="kw">from</span> <span class="str">'../../src/stdlib/video.js'</span>
+
+<span class="kw">let</span> cam
+
+<span class="kw">export async function</span> <span class="fn">setup</span>(ctx) {
+  cam = webcam()
+  cam.start()
+  <span class="kw">const</span> plane = ctx.add(videoPlane(cam))
+  plane.position.set(<span class="num">0</span>, <span class="num">0</span>, <span class="num">0</span>)
+}
+
+<span class="kw">export function</span> <span class="fn">teardown</span>() { cam.stop() }</code></pre>
+  </section>
+
+  <!-- ═══════════════════════════════════════════ stdlib/physics/particles -->
+  <section id="physics">
+    <h2>stdlib/physics/particles</h2>
+    <div class="module-import"><code>import { createParticleWorld, emitter, forceField } from '../../src/stdlib/physics/particles.js'</code></div>
+    <p>CPU particle simulation with optional force fields. For rigid-body and orbital physics see
+       <code>src/physics/</code> (Rapier3D wrappers).</p>
+
+    <h3><span class="fn">createParticleWorld</span>() <span class="ret">→ ParticleWorld</span></h3>
+    <p>Create a new particle simulation world. Call <code>world.step(dt)</code> once per frame.</p>
+
+    <h3><span class="fn">emitter</span>(world, scene, options) <span class="ret">→ { id, dispose() }</span></h3>
+    <table>
+      <thead><tr><th>Option</th><th>Default</th><th>Description</th></tr></thead>
+      <tbody>
+        <tr><td><code>rate</code></td><td>10</td><td>Particles spawned per second.</td></tr>
+        <tr><td><code>lifetime</code></td><td>2</td><td>Particle lifetime in seconds.</td></tr>
+        <tr><td><code>speed</code></td><td>1</td><td>Initial speed in scene units/s.</td></tr>
+        <tr><td><code>spread</code></td><td>30</td><td>Cone spread in degrees.</td></tr>
+        <tr><td><code>color</code></td><td>0xffffff</td><td>Particle color (hex).</td></tr>
+        <tr><td><code>size</code></td><td>0.1</td><td>Particle point size.</td></tr>
+      </tbody>
+    </table>
+    <p>Attach a particle emitter to the world. Manages its own <code>THREE.Points</code> mesh in the scene.</p>
+
+    <h3><span class="fn">forceField</span>(world, emitterId, center, radius, force) <span class="ret">→ void</span></h3>
+    <p>Apply an attraction or repulsion force to particles within <code>radius</code> of <code>center</code>.
+       Positive <code>force</code> = attraction.</p>
+  </section>
+
+  <!-- ═════════════════════════════════════════════════════════ stdlib/ui -->
+  <section id="ui">
+    <h2>stdlib/ui</h2>
+    <div class="module-import"><code>import { label, hud, progressBar, tooltip } from '../../src/stdlib/ui.js'</code></div>
+    <p>Overlay widgets rendered as DOM elements via CSS2D on top of the Three.js canvas.</p>
+
+    <h3><span class="fn">label</span>(obj, text, options) <span class="ret">→ { label, setText(s), setOpacity(v), detach() }</span></h3>
     <table>
       <thead><tr><th>Parameter</th><th>Type</th><th>Default</th><th>Description</th></tr></thead>
       <tbody>
-        <tr><td><code>params.semiMajorAxis</code></td><td><code>num</code></td><td>—</td><td>Semi-major axis in AU.</td></tr>
-        <tr><td><code>params.eccentricity</code></td><td><code>num</code></td><td><code>0</code></td><td>Orbital eccentricity (0 = circle).</td></tr>
-        <tr><td><code>params.inclination</code></td><td><code>num</code></td><td><code>0</code></td><td>Inclination in degrees.</td></tr>
-        <tr><td><code>params.period</code></td><td><code>num</code></td><td><code>1</code></td><td>Orbital period in Earth years.</td></tr>
-        <tr><td><code>params.phase</code></td><td><code>num</code></td><td><code>0</code></td><td>Initial mean anomaly offset in radians.</td></tr>
+        <tr><td><code>obj</code></td><td><code>THREE.Object3D</code></td><td>—</td><td>Scene object the label follows.</td></tr>
+        <tr><td><code>text</code></td><td><code>str</code></td><td>—</td><td>Label text.</td></tr>
+        <tr><td><code>options.color</code></td><td><code>str</code></td><td><code>'#ffffff'</code></td><td>CSS color string.</td></tr>
+        <tr><td><code>options.fontSize</code></td><td><code>str</code></td><td><code>'14px'</code></td><td>CSS font-size string.</td></tr>
+        <tr><td><code>options.offsetY</code></td><td><code>num</code></td><td><code>0</code></td><td>Vertical offset above the object.</td></tr>
       </tbody>
     </table>
-    <p>Create a Kepler orbit descriptor. Call <code>.position(elapsedSeconds)</code> to get
-       the <code>{ x, y, z }</code> position in scene units at any point in time.</p>
+    <p>3D label that projects to screen space and follows a scene object. Requires a <code>CSS2DRenderer</code> in the rendering loop.</p>
 
-    <h3><span class="fn">attachOrbit</span>(obj, orbitParams) <span class="ret">→ function(elapsed)</span></h3>
+    <h3><span class="fn">hud</span>(options) <span class="ret">→ { addLine(key, val), update(key, val), remove() }</span></h3>
     <table>
-      <thead><tr><th>Parameter</th><th>Type</th><th>Description</th></tr></thead>
+      <thead><tr><th>Option</th><th>Default</th><th>Description</th></tr></thead>
       <tbody>
-        <tr><td><code>obj</code></td><td><code>THREE.Object3D</code></td><td>Object to animate (writes to <code>.position.x/y/z</code>).</td></tr>
-        <tr><td><code>orbitParams</code></td><td><code>object</code></td><td>Same parameters accepted by <code>orbit()</code>.</td></tr>
+        <tr><td><code>position</code></td><td><code>"top-left"</code></td><td>Corner: <code>"top-left"</code>, <code>"top-right"</code>, <code>"bottom-left"</code>, <code>"bottom-right"</code>.</td></tr>
       </tbody>
     </table>
-    <p>Animate an object on a Keplerian orbit. Returns an updater function; call it each frame with elapsed seconds.</p>
+    <p>Key-value HUD panel for displaying runtime stats. <code>addLine(key, val)</code> adds a row; <code>update(key, val)</code> updates it in place.</p>
 
-    <h3><span class="fn">solarOrbit</span>(planetName) <span class="ret">→ { position(elapsed), params }</span></h3>
-    <table>
-      <thead><tr><th>Parameter</th><th>Type</th><th>Description</th></tr></thead>
-      <tbody>
-        <tr><td><code>planetName</code></td><td><code>str</code></td><td>Lower-case planet name: <code>"mercury"</code>, <code>"venus"</code>, <code>"earth"</code>, <code>"mars"</code>, <code>"jupiter"</code>, <code>"saturn"</code>, <code>"uranus"</code>, <code>"neptune"</code>.</td></tr>
-      </tbody>
-    </table>
-    <p>Return an orbit descriptor pre-configured with real solar system data for the named planet.</p>
+    <h3><span class="fn">progressBar</span>(options) <span class="ret">→ { setValue(0..1), remove() }</span></h3>
+    <p>Horizontal progress bar overlay. Options: <code>x</code>, <code>y</code>, <code>w</code>, <code>h</code>, <code>color</code>.</p>
 
-    <pre><code><span class="kw">use</span> <span class="str">"artlab/physics/orbital"</span> <span class="kw">as</span> orb
-
-<span class="kw">let</span> earthUpdate = orb.attachOrbit(earthMesh, orb.solarOrbit(<span class="str">"earth"</span>).params)
-
-<span class="kw">fn</span> <span class="fn">update</span>(elapsed: <span class="ty">num</span>, dt: <span class="ty">num</span>) {
-  earthUpdate(elapsed)
-}</code></pre>
-  </section>
-
-  <!-- ═══════════════════════════════════════════════ artlab/physics/bindings -->
-  <section id="physics">
-    <h2>artlab/physics/bindings</h2>
-    <div class="module-import">DSL: <code>use "artlab/physics/bindings"</code></div>
-
-    <h3><span class="fn">createPhysics</span>(options) <span class="ret">→ { composer, orbital, rigid, particles, step(elapsed, dt), dispose() }</span></h3>
-    <table>
-      <thead><tr><th>Option</th><th>Type</th><th>Default</th><th>Description</th></tr></thead>
-      <tbody>
-        <tr><td><code>gravity</code></td><td><code>bool</code></td><td><code>true</code></td><td>Pre-apply Earth gravity (-9.81 Y) to the rigid world.</td></tr>
-      </tbody>
-    </table>
-    <p>Create a unified physics context. All three sub-worlds (orbital, rigid, particles) are advanced with a single <code>step(elapsed, dt)</code> call.</p>
-
-    <h3><span class="fn">attachOrbit</span>(physicsCtx, obj, desc) <span class="ret">→ { id, detach() }</span></h3>
-    <p>Attach a scene object to a Keplerian orbital body. After each <code>step()</code> the object's position is synced. Call <code>detach()</code> to remove.</p>
-
-    <h3><span class="fn">attachRigid</span>(physicsCtx, obj, desc) <span class="ret">→ { id, detach(), applyForce(vec3), applyImpulse(vec3) }</span></h3>
-    <table>
-      <thead><tr><th>Desc field</th><th>Type</th><th>Description</th></tr></thead>
-      <tbody>
-        <tr><td><code>bodyType</code></td><td><code>"dynamic" | "static" | "kinematic"</code></td><td>Rapier body type.</td></tr>
-        <tr><td><code>shape</code></td><td><code>{ type: "box" | "sphere" | ..., ...dims }</code></td><td>Collision shape descriptor.</td></tr>
-        <tr><td><code>mass</code></td><td><code>num</code></td><td>Mass in kg (dynamic bodies).</td></tr>
-        <tr><td><code>restitution</code></td><td><code>num</code></td><td>Bounciness (0–1).</td></tr>
-      </tbody>
-    </table>
-    <p>Attach a scene object to a Rapier rigid body. Position and quaternion are synced after each step.</p>
-
-    <h3><span class="fn">createEmitter</span>(physicsCtx, desc) <span class="ret">→ { id, getParticles(), detach() }</span></h3>
-    <table>
-      <thead><tr><th>Desc field</th><th>Type</th><th>Description</th></tr></thead>
-      <tbody>
-        <tr><td><code>rate</code></td><td><code>num</code></td><td>Particles per second.</td></tr>
-        <tr><td><code>lifetime</code></td><td><code>num</code></td><td>Particle lifetime in seconds.</td></tr>
-        <tr><td><code>speed</code></td><td><code>num</code></td><td>Initial speed in scene units/s.</td></tr>
-        <tr><td><code>spread</code></td><td><code>num</code></td><td>Cone spread in degrees.</td></tr>
-        <tr><td><code>gravity</code></td><td><code>num</code></td><td>Downward gravity factor.</td></tr>
-      </tbody>
-    </table>
-    <p>Create a particle emitter. Retrieve live particles via <code>getParticles()</code> for rendering.</p>
-
-    <h3><span class="fn">setGravity</span>(physicsCtx, vec3) <span class="ret">→ void</span></h3>
-    <table>
-      <thead><tr><th>Parameter</th><th>Type</th><th>Description</th></tr></thead>
-      <tbody>
-        <tr><td><code>physicsCtx</code></td><td><code>object</code></td><td>Context from <code>createPhysics()</code>.</td></tr>
-        <tr><td><code>vec3</code></td><td><code>{ x, y, z }</code></td><td>Gravity in m/s². Earth = <code>{ x:0, y:-9.81, z:0 }</code>.</td></tr>
-      </tbody>
-    </table>
-    <p>Set the gravity vector applied to all dynamic rigid bodies.</p>
-  </section>
-
-  <!-- ═════════════════════════════════════════════════════════ artlab/ui -->
-  <section id="ui">
-    <h2>artlab/ui</h2>
-    <div class="module-import">DSL: <code>use "artlab/ui"</code></div>
-    <p>Overlay UI widgets rendered in a DOM layer on top of the canvas.</p>
-
-    <table>
-      <thead><tr><th>Function</th><th>Parameters</th><th>Returns</th><th>Description</th></tr></thead>
-      <tbody>
-        <tr>
-          <td><code>label(text, opts)</code></td>
-          <td><code>text: str, opts?: { x, y, color, size }</code></td>
-          <td><code>{ setText(s), setPos(x,y), remove() }</code></td>
-          <td>Positioned text label overlaid on the canvas.</td>
-        </tr>
-        <tr>
-          <td><code>hud(opts)</code></td>
-          <td><code>opts?: { position: "top-left" | "top-right" | ... }</code></td>
-          <td><code>{ addLine(key, val), update(key, val), remove() }</code></td>
-          <td>Key-value HUD panel for displaying runtime stats.</td>
-        </tr>
-        <tr>
-          <td><code>progressBar(opts)</code></td>
-          <td><code>opts?: { x, y, w, h, color }</code></td>
-          <td><code>{ setValue(0..1), remove() }</code></td>
-          <td>Horizontal progress bar overlay.</td>
-        </tr>
-        <tr>
-          <td><code>tooltip(mesh, text, opts)</code></td>
-          <td><code>mesh: THREE.Mesh, text: str, opts?: { camera }</code></td>
-          <td><code>{ remove() }</code></td>
-          <td>3D tooltip that follows a mesh and projects to screen space.</td>
-        </tr>
-      </tbody>
-    </table>
+    <h3><span class="fn">tooltip</span>(options) <span class="ret">→ { show(text, x, y), hide(), remove() }</span></h3>
+    <p>Floating tooltip div. Position it manually with <code>show(text, x, y)</code> (screen coordinates).</p>
   </section>
 
 </main>
 </div>
 
-<footer>Artlab &mdash; Runtime API Reference &mdash; v1.0</footer>
+<footer>Artlab &mdash; Runtime API Reference</footer>
 
 </body>
 </html>

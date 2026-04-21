@@ -108,7 +108,7 @@
 
 <header>
   <div class="logo">art<span>lab</span></div>
-  <div class="tagline">A DSL and runtime for generative 3D art &amp; audio-reactive scenes.</div>
+  <div class="tagline">Browser IDE and runtime for generative 3D art &amp; audio-reactive scenes.</div>
 </header>
 
 <main>
@@ -116,60 +116,63 @@
   <section>
     <h2>What is Artlab?</h2>
     <p>
-      Artlab is a domain-specific language and browser-native runtime for building real-time
-      3D scenes, generative art, and audio-reactive visualizations. It compiles a concise,
-      whitespace-significant DSL down to plain JavaScript and Three.js, so you get the
-      expressiveness of a purpose-built language with the full power of the web platform
-      underneath. Scenes are packaged as self-contained <code>.zip</code> archives that can
-      be served statically, shared as a link, or embedded in any page.
+      Artlab is a browser-native IDE and runtime for building real-time 3D scenes, generative art,
+      and audio-reactive visualizations with Three.js. Packages are plain ES modules — no compilation
+      step, no custom language. Write <code>setup(ctx)</code>, <code>update(ctx, dt)</code>, and
+      <code>teardown(ctx)</code>; the IDE hot-reloads on every save.
+    </p>
+    <p>
+      The <code>ctx</code> object injected by the runtime gives you <code>Three</code>,
+      <code>scene</code>, <code>camera</code>, <code>renderer</code>, <code>controls</code>,
+      <code>add()</code>, <code>setBloom()</code>, and all stdlib helpers — so simple packages
+      need no imports at all.
     </p>
   </section>
 
   <section>
     <h2>Quick Start</h2>
-    <p>Install the CLI, scaffold a new scene, and view it in your browser:</p>
-    <pre><code># install (npm 8+, Node 18+)
-npm install -g artlab-cli
-
-# create a new scene package
-artlab create hello
-
-# start the dev server with live reload
-artlab serve hello
-
-# open http://localhost:4000 in your browser</code></pre>
+    <p>Clone the repo, install dependencies, and open the IDE:</p>
+    <pre><code># Node 18+, npm 8+
+git clone &lt;repo-url&gt; artlab
+cd artlab
+npm install
+npm run dev
+# open http://localhost:5173</code></pre>
     <p>
-      When you are ready to share, bundle the scene into a portable archive:
+      The IDE loads with the solar-system reference package in the preview pane.
+      Open any example from the sidebar, edit a file, save — the preview updates instantly.
+      Use the toolbar's <strong>Export</strong> button to download a package as a <code>.zip</code>.
     </p>
-    <pre><code>artlab pack hello
-# produces: hello.artpack.zip</code></pre>
+    <p>The simplest possible package:</p>
+    <pre><code>export function setup(ctx) {
+  ctx.add(new ctx.Three.Mesh(
+    new ctx.Three.BoxGeometry(1, 1, 1),
+    new ctx.Three.MeshStandardMaterial({ color: 0x4488ff })
+  ))
+}
+
+export function update(ctx, dt) {
+  ctx.scene.children[0].rotation.y += dt
+}</code></pre>
   </section>
 
   <section>
     <h2>Documentation</h2>
     <div class="nav-grid">
       <div class="nav-card">
-        <a href="language.html">Language Reference</a>
-        <p>Full DSL grammar: imports, variables, functions, control flow, types, operators.</p>
-      </div>
-      <div class="nav-card">
         <a href="stdlib.html">Runtime API</a>
-        <p>Standard library modules: math, geometry, lights, cameras, animation, audio, physics.</p>
+        <p>Standard library reference: math, geometry, lights, audio, video, physics, ui.</p>
       </div>
       <div class="nav-card">
         <a href="tutorial.html">Tutorial</a>
-        <p>Build a rotating cube, add lights, a camera, and audio reactivity — step by step.</p>
-      </div>
-      <div class="nav-card">
-        <a href="examples.html">Examples</a>
-        <p>Ready-to-run scenes: solar system, audio visualizer, particle fountain, and more.</p>
+        <p>Build a rotating cube, add lights, and hook it up to audio &mdash; step by step.</p>
       </div>
     </div>
   </section>
 
 </main>
 
-<footer>Artlab &mdash; docs generated 2026-04-16</footer>
+<footer>Artlab &mdash; docs updated 2026-04-20</footer>
 
 </body>
 </html>
