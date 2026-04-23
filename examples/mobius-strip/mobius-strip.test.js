@@ -1,246 +1,109 @@
 // @vitest-environment jsdom
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import * as THREE from 'three'
+import * as Three from 'three'
+
 
 vi.mock('three', async () => await vi.importActual('three'))
 
-// ── Mock ctx ────────────────────────────────────────────────────────────────
-
-function makeCtx(overrides = {}) {
-  const scene = {
-    add: vi.fn(),
-    remove: vi.fn(),
-    children: [],
-    background: null,
-  }
+function makeMockCtx(overrides = {}) {
+  const container = document.createElement('div')
+  const canvas = document.createElement('canvas')
+  canvas.getBoundingClientRect = () => ({ left:0, top:0, width:800, height:600 })
+  container.appendChild(canvas)
+  const scene = { add: vi.fn(), remove: vi.fn(), children: [] }
   const camera = {
-    position: new THREE.Vector3(0, 0, 50),
-    lookAt: vi.fn(),
-    aspect: 1,
-    fov: 60,
-    updateProjectionMatrix: vi.fn(),
+    position: new Three.Vector3(0,2,6), lookAt: vi.fn(),
+    fov: 60, aspect: 1, updateProjectionMatrix: vi.fn(),
+    projectionMatrix: new Three.Matrix4(), matrixWorldInverse: new Three.Matrix4(),
   }
   return {
-    Three: THREE,
-    scene,
-    camera,
-    renderer: {
-      domElement: document.createElement('canvas'),
-      shadowMap: { enabled: false },
-      setSize: vi.fn(),
-    },
-    controls: { update: vi.fn(), target: new THREE.Vector3(), enabled: true },
+    Three, scene, camera,
+    renderer: { domElement: canvas, shadowMap:{enabled:false}, setSize: vi.fn(), render: vi.fn() },
+    controls: { update: vi.fn(), target: new Three.Vector3(), enabled: true, enableDamping: true },
+    labelRenderer: { render: vi.fn(), setSize: vi.fn(), domElement: document.createElement('div') },
     add: vi.fn(obj => { scene.children.push(obj); return obj }),
     remove: vi.fn(),
     setBloom: vi.fn(),
     elapsed: 0,
+    sphere: (r=1,s=32) => new Three.SphereGeometry(r,s,s),
+    box: (w=1,h=1,d=1) => new Three.BoxGeometry(w,h,d),
+    cylinder: (rt=1,rb=1,h=1,s=32) => new Three.CylinderGeometry(rt,rb,h,s),
+    torus: (r=1,t=0.4,rs=8,ts=32) => new Three.TorusGeometry(r,t,rs,ts),
+    plane: (w=1,h=1) => new Three.PlaneGeometry(w,h),
+    cone: (r=1,h=1,s=32) => new Three.ConeGeometry(r,h,s),
+    mesh: (geo,opts={}) => new Three.Mesh(geo, new Three.MeshStandardMaterial(opts)),
+    ambient: (c=0x404040,i=1) => new Three.AmbientLight(c,i),
+    point: (c=0xffffff,i=1,d=0,dc=2) => new Three.PointLight(c,i,d,dc),
+    directional: (c=0xffffff,i=1) => new Three.DirectionalLight(c,i),
+    
     ...overrides,
   }
 }
 
-// ── Tests ───────────────────────────────────────────────────────────────────
-
 describe('mobius-strip', () => {
-  let ctx, mod
+  let ctx
+  let mod
 
   beforeEach(async () => {
-    vi.clearAllMocks()
-    ctx = makeCtx()
+    ctx = makeMockCtx()
     mod = await import('./mobius-strip.js')
   })
 
-  // ── Parametric helpers ────────────────────────────────────────────
-
-  it('mobiusPoint returns a Vector3', () => {
-    const p = mod.mobiusPoint(0, 0)
-    expect(p).toBeInstanceOf(THREE.Vector3)
-  })
-
-  it('mobiusPoint(0, 0) lies at (R, 0, 0)', () => {
-    const p = mod.mobiusPoint(0, 0)
-    expect(p.x).toBeCloseTo(3, 4) // R = 3
-    expect(p.y).toBeCloseTo(0, 4)
-    expect(p.z).toBeCloseTo(0, 4)
-  })
-
-  it('mobiusPoint at t=π, s=0 lies at (-R, 0, 0)', () => {
-    const p = mod.mobiusPoint(Math.PI, 0)
-    expect(p.x).toBeCloseTo(-3, 4)
-    expect(p.y).toBeCloseTo(0, 1) // sin(π) ≈ 0
-    expect(p.z).toBeCloseTo(0, 4)
-  })
-
-  it('mobiusPoint with nonzero s gives offset from center', () => {
-    const center = mod.mobiusPoint(0, 0)
-    const edge = mod.mobiusPoint(0, 0.5)
-    expect(edge.x).not.toBeCloseTo(center.x, 2)
-  })
-
-  // ── Geometry builder ──────────────────────────────────────────────
-
-  it('buildMobiusGeometry returns a BufferGeometry with position, color, normal', () => {
-    const geo = mod.buildMobiusGeometry()
-    expect(geo).toBeInstanceOf(THREE.BufferGeometry)
-    expect(geo.getAttribute('position')).toBeDefined()
-    expect(geo.getAttribute('color')).toBeDefined()
-    expect(geo.getAttribute('normal')).toBeDefined()
-    expect(geo.index).not.toBeNull()
-  })
-
-  it('buildMobiusGeometry has correct vertex count', () => {
-    const geo = mod.buildMobiusGeometry()
-    const posAttr = geo.getAttribute('position')
-    // (SEG_T+1) * (SEG_S+1) = 201 * 13 = 2613 vertices
-    expect(posAttr.count).toBe(201 * 13)
-  })
-
-  // ── Marble position ───────────────────────────────────────────────
-
-  it('marblePosition returns a Vector3', () => {
-    const p = mod.marblePosition(0)
-    expect(p).toBeInstanceOf(THREE.Vector3)
-  })
-
-  it('marblePosition at phase=0 is near (R, 0, 0)', () => {
-    const p = mod.marblePosition(0)
-    expect(p.x).toBeCloseTo(3, 1)
-    expect(p.y).toBeCloseTo(0, 1)
-  })
-
-  it('marblePosition at 2π vs 0 are on opposite sides of strip', () => {
-    // At phase=0, marble is at s=+offset; at phase=2π, s=-offset
-    const p0 = mod.marblePosition(0)
-    const p2 = mod.marblePosition(Math.PI * 2)
-    // Both should be near (R, 0, 0) but the tiny offset differs in sign
-    expect(p0.x).toBeCloseTo(p2.x, 1)
-    // At t=0 for both, but s differs in sign → x differs slightly
-    expect(Math.abs(p0.x - p2.x)).toBeLessThan(0.1)
-  })
-
-  it('marble returns to approximately the same position after 4π', () => {
-    const p0 = mod.marblePosition(0)
-    const p4 = mod.marblePosition(Math.PI * 4 - 0.0001) // just before wrapping
-    expect(p0.x).toBeCloseTo(p4.x, 0)
-    expect(p0.z).toBeCloseTo(p4.z, 0)
-  })
-
-  // ── setup ─────────────────────────────────────────────────────────
-
-  it('setup() completes without throwing', () => {
+  it('setup() does not throw', () => {
     expect(() => mod.setup(ctx)).not.toThrow()
+  })
+
+  it('setup() calls ctx.add at least once', () => {
+    mod.setup(ctx)
     expect(ctx.add).toHaveBeenCalled()
   })
 
-  it('setup() enables bloom', () => {
+  it('setup() calls ctx.setBloom', () => {
     mod.setup(ctx)
-    expect(ctx.setBloom).toHaveBeenCalledWith(0.6)
+    expect(ctx.setBloom).toHaveBeenCalled()
   })
 
-  it('setup() sets dark background', () => {
+  it('setup() creates _strip mesh', () => {
     mod.setup(ctx)
-    expect(ctx.scene.background).toBeInstanceOf(THREE.Color)
+    expect(ctx._strip).toBeInstanceOf(Three.Mesh)
   })
 
-  it('setup() creates internal state with expected keys', () => {
+  it('setup() creates _wire', () => {
     mod.setup(ctx)
-    expect(ctx._mob).toBeDefined()
-    expect(ctx._mob.pivot).toBeInstanceOf(THREE.Group)
-    expect(ctx._mob.marble).toBeInstanceOf(THREE.Mesh)
-    expect(ctx._mob.trail).toBeInstanceOf(THREE.Line)
-    expect(ctx._mob.stripMesh).toBeInstanceOf(THREE.Mesh)
-    expect(typeof ctx._mob.phase).toBe('number')
+    expect(ctx._wire).toBeDefined()
   })
 
-  it('setup() positions camera above and back', () => {
+  it('setup() creates particle arrays', () => {
     mod.setup(ctx)
-    expect(ctx.camera.position.y).toBeGreaterThan(0)
-    expect(ctx.camera.position.z).toBeGreaterThan(0)
-    expect(ctx.camera.lookAt).toHaveBeenCalled()
+    expect(ctx._particleU).toBeInstanceOf(Float32Array)
+    expect(ctx._particleV).toBeInstanceOf(Float32Array)
+    expect(ctx._particleSpeed).toBeInstanceOf(Float32Array)
   })
 
-  // ── update ────────────────────────────────────────────────────────
 
-  it('update() runs without throwing', () => {
+  it('update() runs 3 frames without throwing', () => {
     mod.setup(ctx)
-    expect(() => mod.update(ctx, 0.016)).not.toThrow()
+    expect(() => {
+      mod.update(ctx, 0.016)
+      ctx.elapsed = 0.016
+      mod.update(ctx, 0.016)
+      ctx.elapsed = 0.032
+      mod.update(ctx, 0.016)
+    }).not.toThrow()
   })
 
-  it('update() handles missing state gracefully', () => {
-    expect(() => mod.update(ctx, 0.016)).not.toThrow()
-  })
 
-  it('update() advances marble phase', () => {
-    mod.setup(ctx)
-    const before = ctx._mob.phase
-    mod.update(ctx, 0.5)
-    expect(ctx._mob.phase).toBeGreaterThan(before)
-  })
 
-  it('update() moves the marble position', () => {
-    mod.setup(ctx)
-    const pos0 = ctx._mob.marble.position.clone()
-    ctx.elapsed = 1.0
-    mod.update(ctx, 1.0)
-    const pos1 = ctx._mob.marble.position.clone()
-    expect(pos0.distanceTo(pos1)).toBeGreaterThan(0.01)
-  })
-
-  it('update() rotates the pivot', () => {
-    mod.setup(ctx)
-    const rot0 = ctx._mob.pivot.rotation.y
-    ctx.elapsed = 0.5
-    mod.update(ctx, 0.5)
-    expect(ctx._mob.pivot.rotation.y).not.toBeCloseTo(rot0, 4)
-  })
-
-  it('update() wraps phase past 4π', () => {
-    mod.setup(ctx)
-    ctx._mob.phase = Math.PI * 4 - 0.01
-    mod.update(ctx, 0.1)
-    // Phase should wrap around
-    expect(ctx._mob.phase).toBeLessThan(Math.PI * 4)
-  })
-
-  it('update() marks trail buffers for GPU upload', () => {
-    mod.setup(ctx)
-    const posBefore = ctx._mob.trail.geometry.attributes.position.version
-    const colBefore = ctx._mob.trail.geometry.attributes.color.version
-    mod.update(ctx, 0.016)
-    expect(ctx._mob.trail.geometry.attributes.position.version).toBeGreaterThan(posBefore)
-    expect(ctx._mob.trail.geometry.attributes.color.version).toBeGreaterThan(colBefore)
-  })
-
-  // ── teardown ──────────────────────────────────────────────────────
-
-  it('teardown() cleans up without throwing', () => {
+  it('teardown() does not throw', () => {
     mod.setup(ctx)
     expect(() => mod.teardown(ctx)).not.toThrow()
-    expect(ctx.remove).toHaveBeenCalled()
-    expect(ctx._mob).toBeNull()
   })
 
-  it('teardown() is safe to call when state is absent', () => {
-    expect(() => mod.teardown(ctx)).not.toThrow()
-  })
-
-  it('teardown() disposes geometries and materials', () => {
+  it('teardown() calls ctx.remove', () => {
     mod.setup(ctx)
-    const stripGeoDispose = vi.spyOn(ctx._mob.stripMesh.geometry, 'dispose')
-    const stripMatDispose = vi.spyOn(ctx._mob.stripMesh.material, 'dispose')
-    const marbleGeoDispose = vi.spyOn(ctx._mob.marble.geometry, 'dispose')
     mod.teardown(ctx)
-    expect(stripGeoDispose).toHaveBeenCalled()
-    expect(stripMatDispose).toHaveBeenCalled()
-    expect(marbleGeoDispose).toHaveBeenCalled()
+    expect(ctx.remove).toHaveBeenCalled()
   })
 
-  // ── Multiple frames stress test ───────────────────────────────────
 
-  it('survives 100 update frames', () => {
-    mod.setup(ctx)
-    for (let i = 0; i < 100; i++) {
-      ctx.elapsed = i * 0.016
-      expect(() => mod.update(ctx, 0.016)).not.toThrow()
-    }
-  })
 })

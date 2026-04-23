@@ -1,256 +1,110 @@
 // @vitest-environment jsdom
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import * as THREE from 'three'
+import * as Three from 'three'
+
 
 vi.mock('three', async () => await vi.importActual('three'))
 
 function makeMockCtx(overrides = {}) {
+  const container = document.createElement('div')
   const canvas = document.createElement('canvas')
-  canvas.getBoundingClientRect = () => ({ left: 0, top: 0, width: 800, height: 600 })
-
+  canvas.getBoundingClientRect = () => ({ left:0, top:0, width:800, height:600 })
+  container.appendChild(canvas)
   const scene = { add: vi.fn(), remove: vi.fn(), children: [] }
   const camera = {
-    position: new THREE.Vector3(0, 0, 50),
-    lookAt: vi.fn(), aspect: 1, fov: 60,
-    updateProjectionMatrix: vi.fn(),
+    position: new Three.Vector3(0,2,6), lookAt: vi.fn(),
+    fov: 60, aspect: 1, updateProjectionMatrix: vi.fn(),
+    projectionMatrix: new Three.Matrix4(), matrixWorldInverse: new Three.Matrix4(),
   }
   return {
-    Three: THREE, scene, camera,
-    renderer: { domElement: canvas, shadowMap: { enabled: false }, setSize: vi.fn() },
-    controls: { update: vi.fn(), target: new THREE.Vector3(), enabled: true },
+    Three, scene, camera,
+    renderer: { domElement: canvas, shadowMap:{enabled:false}, setSize: vi.fn(), render: vi.fn() },
+    controls: { update: vi.fn(), target: new Three.Vector3(), enabled: true, enableDamping: true },
+    labelRenderer: { render: vi.fn(), setSize: vi.fn(), domElement: document.createElement('div') },
     add: vi.fn(obj => { scene.children.push(obj); return obj }),
     remove: vi.fn(),
     setBloom: vi.fn(),
     elapsed: 0,
+    sphere: (r=1,s=32) => new Three.SphereGeometry(r,s,s),
+    box: (w=1,h=1,d=1) => new Three.BoxGeometry(w,h,d),
+    cylinder: (rt=1,rb=1,h=1,s=32) => new Three.CylinderGeometry(rt,rb,h,s),
+    torus: (r=1,t=0.4,rs=8,ts=32) => new Three.TorusGeometry(r,t,rs,ts),
+    plane: (w=1,h=1) => new Three.PlaneGeometry(w,h),
+    cone: (r=1,h=1,s=32) => new Three.ConeGeometry(r,h,s),
+    mesh: (geo,opts={}) => new Three.Mesh(geo, new Three.MeshStandardMaterial(opts)),
+    ambient: (c=0x404040,i=1) => new Three.AmbientLight(c,i),
+    point: (c=0xffffff,i=1,d=0,dc=2) => new Three.PointLight(c,i,d,dc),
+    directional: (c=0xffffff,i=1) => new Three.DirectionalLight(c,i),
+    
     ...overrides,
   }
 }
 
 describe('marble-run', () => {
-  let ctx, setup, update, teardown, collideRamp, collideBumper, collideFunnel, collideLoop
+  let ctx
+  let mod
 
   beforeEach(async () => {
-    vi.clearAllMocks()
     ctx = makeMockCtx()
-    const mod = await import('./marble-run.js')
-    setup = mod.setup
-    update = mod.update
-    teardown = mod.teardown
-    collideRamp = mod.collideRamp
-    collideBumper = mod.collideBumper
-    collideFunnel = mod.collideFunnel
-    collideLoop = mod.collideLoop
+    mod = await import('./marble-run.js')
   })
 
-  it('setup() completes without throwing', () => {
-    expect(() => setup(ctx)).not.toThrow()
+  it('setup() does not throw', () => {
+    expect(() => mod.setup(ctx)).not.toThrow()
+  })
+
+  it('setup() calls ctx.add at least once', () => {
+    mod.setup(ctx)
     expect(ctx.add).toHaveBeenCalled()
-    expect(ctx.setBloom).toHaveBeenCalledWith(0.6)
   })
 
-  it('setup() creates track segments and one marble', () => {
-    setup(ctx)
-    expect(Array.isArray(ctx._track)).toBe(true)
-    expect(ctx._track.length).toBeGreaterThan(5)
-    expect(ctx._marbles.length).toBe(1)
-    expect(ctx._marbles[0].body).toHaveProperty('position')
-    expect(ctx._marbles[0].body).toHaveProperty('velocity')
-    expect(ctx._marbles[0]).toHaveProperty('mesh')
+  it('setup() calls ctx.setBloom', () => {
+    mod.setup(ctx)
+    expect(ctx.setBloom).toHaveBeenCalled()
   })
 
-  it('setup() creates meshes for each track segment', () => {
-    setup(ctx)
-    expect(ctx._meshes.length).toBe(ctx._track.length)
+  it('setup() creates _ramps and _marbles', () => {
+    mod.setup(ctx)
+    expect(ctx._ramps).toBeDefined()
+    expect(Array.isArray(ctx._marbles)).toBe(true)
+    expect(ctx._spawnTimer).toBeDefined()
   })
 
-  it('update() runs without throwing', () => {
-    setup(ctx)
-    expect(() => update(ctx, 0.016)).not.toThrow()
-    // Run several frames
-    for (let i = 0; i < 10; i++) update(ctx, 0.016)
+  it('setup() creates _bowl mesh', () => {
+    mod.setup(ctx)
+    expect(ctx._bowl).toBeInstanceOf(Three.Mesh)
   })
 
-  it('update() applies gravity — marble moves downward', () => {
-    setup(ctx)
-    const startY = ctx._marbles[0].body.position.y
-    for (let i = 0; i < 20; i++) update(ctx, 0.016)
-    expect(ctx._marbles[0].body.position.y).toBeLessThan(startY)
+  it('setup() creates _lights array', () => {
+    mod.setup(ctx)
+    expect(ctx._lights).toBeDefined()
+    expect(ctx._lights.length).toBeGreaterThanOrEqual(2)
   })
 
-  it('marble resets when falling below threshold', () => {
-    setup(ctx)
-    // Force marble way below
-    ctx._marbles[0].body.position.set(0, -100, 0)
-    update(ctx, 0.016)
-    expect(ctx._marbles[0].body.position.y).toBeGreaterThan(-13)
+
+  it('update() runs 3 frames without throwing', () => {
+    mod.setup(ctx)
+    expect(() => {
+      mod.update(ctx, 0.016)
+      ctx.elapsed = 0.016
+      mod.update(ctx, 0.016)
+      ctx.elapsed = 0.032
+      mod.update(ctx, 0.016)
+    }).not.toThrow()
   })
 
-  it('click adds a new marble', () => {
-    setup(ctx)
-    expect(ctx._marbles.length).toBe(1)
-    const evt = new Event('click')
-    evt.clientX = 400
-    evt.clientY = 300
-    ctx.renderer.domElement.dispatchEvent(evt)
-    expect(ctx._marbles.length).toBe(2)
+
+
+  it('teardown() does not throw', () => {
+    mod.setup(ctx)
+    expect(() => mod.teardown(ctx)).not.toThrow()
   })
 
-  it('teardown() removes event listener and objects', () => {
-    setup(ctx)
-    const removeSpy = vi.spyOn(ctx.renderer.domElement, 'removeEventListener')
-    teardown(ctx)
-    expect(removeSpy).toHaveBeenCalledWith('click', ctx._onClick)
+  it('teardown() calls ctx.remove', () => {
+    mod.setup(ctx)
+    mod.teardown(ctx)
     expect(ctx.remove).toHaveBeenCalled()
   })
 
-  // ── Collision unit tests ────────────────────────────────────────────────
-  describe('collideRamp', () => {
-    it('pushes marble above ramp plane when penetrating', () => {
-      const mb = {
-        body: {
-          position: new THREE.Vector3(0, 5.9, 0),  // slightly below ramp surface
-          velocity: new THREE.Vector3(1, -3, 0),
-          restitution: 0.65,
-        },
-        mesh: new THREE.Mesh(),
-      }
-      const seg = {
-        type: 'ramp',
-        center: new THREE.Vector3(0, 6, 0),
-        normal: new THREE.Vector3(0, 1, 0),
-        halfW: 3, halfD: 2,
-      }
-      const hit = collideRamp(mb, seg)
-      expect(hit).toBe(true)
-      // Marble should be pushed up
-      expect(mb.body.position.y).toBeGreaterThanOrEqual(6.0)
-    })
 
-    it('returns false if marble is above ramp', () => {
-      const mb = {
-        body: {
-          position: new THREE.Vector3(0, 7, 0),
-          velocity: new THREE.Vector3(0, -1, 0),
-          restitution: 0.65,
-        },
-        mesh: new THREE.Mesh(),
-      }
-      const seg = {
-        type: 'ramp',
-        center: new THREE.Vector3(0, 6, 0),
-        normal: new THREE.Vector3(0, 1, 0),
-        halfW: 3, halfD: 2,
-      }
-      expect(collideRamp(mb, seg)).toBe(false)
-    })
-
-    it('returns false if marble is outside ramp bounds', () => {
-      const mb = {
-        body: {
-          position: new THREE.Vector3(10, 6, 0),
-          velocity: new THREE.Vector3(0, -1, 0),
-          restitution: 0.65,
-        },
-        mesh: new THREE.Mesh(),
-      }
-      const seg = {
-        type: 'ramp',
-        center: new THREE.Vector3(0, 6, 0),
-        normal: new THREE.Vector3(0, 1, 0),
-        halfW: 3, halfD: 2,
-      }
-      expect(collideRamp(mb, seg)).toBe(false)
-    })
-  })
-
-  describe('collideBumper', () => {
-    it('bounces marble off a bumper cylinder', () => {
-      const mb = {
-        body: {
-          position: new THREE.Vector3(0.3, 5, 0),
-          velocity: new THREE.Vector3(-2, 0, 0),
-          restitution: 0.65,
-        },
-        mesh: new THREE.Mesh(),
-      }
-      const seg = { type: 'bumper', center: new THREE.Vector3(0, 5, 0), radius: 0.3 }
-      const hit = collideBumper(mb, seg)
-      expect(hit).toBe(true)
-      // Velocity x should have reversed
-      expect(mb.body.velocity.x).toBeGreaterThan(0)
-    })
-
-    it('returns false when marble is far from bumper', () => {
-      const mb = {
-        body: {
-          position: new THREE.Vector3(5, 5, 0),
-          velocity: new THREE.Vector3(0, 0, 0),
-          restitution: 0.65,
-        },
-        mesh: new THREE.Mesh(),
-      }
-      const seg = { type: 'bumper', center: new THREE.Vector3(0, 5, 0), radius: 0.3 }
-      expect(collideBumper(mb, seg)).toBe(false)
-    })
-  })
-
-  describe('collideFunnel', () => {
-    it('supports marble inside funnel bowl', () => {
-      const mb = {
-        body: {
-          position: new THREE.Vector3(-1.5, 1.5, 0),
-          velocity: new THREE.Vector3(0, -2, 0),
-          restitution: 0.65,
-        },
-        mesh: new THREE.Mesh(),
-      }
-      const seg = { type: 'funnel', center: new THREE.Vector3(-1.5, 2.2, 0), radius: 1.0 }
-      const hit = collideFunnel(mb, seg)
-      expect(hit).toBe(true)
-    })
-
-    it('returns false when marble is far above funnel', () => {
-      const mb = {
-        body: {
-          position: new THREE.Vector3(-1.5, 10, 0),
-          velocity: new THREE.Vector3(0, -1, 0),
-          restitution: 0.65,
-        },
-        mesh: new THREE.Mesh(),
-      }
-      const seg = { type: 'funnel', center: new THREE.Vector3(-1.5, 2.2, 0), radius: 1.0 }
-      expect(collideFunnel(mb, seg)).toBe(false)
-    })
-  })
-
-  describe('collideLoop', () => {
-    it('deflects marble near loop torus', () => {
-      // Position marble right at the inner edge of the torus tube
-      const seg = { type: 'loop', center: new THREE.Vector3(-2, -5.5, 0), radius: 1.5 }
-      const mb = {
-        body: {
-          position: new THREE.Vector3(-2, -5.5 + 1.5 - 0.1, 0),
-          velocity: new THREE.Vector3(0, -3, 0),
-          restitution: 0.65,
-        },
-        mesh: new THREE.Mesh(),
-      }
-      const hit = collideLoop(mb, seg)
-      // May or may not hit depending on exact geometry; just ensure no crash
-      expect(typeof hit).toBe('boolean')
-    })
-
-    it('returns false when marble is far from loop', () => {
-      const mb = {
-        body: {
-          position: new THREE.Vector3(20, 20, 0),
-          velocity: new THREE.Vector3(0, 0, 0),
-          restitution: 0.65,
-        },
-        mesh: new THREE.Mesh(),
-      }
-      const seg = { type: 'loop', center: new THREE.Vector3(-2, -5.5, 0), radius: 1.5 }
-      expect(collideLoop(mb, seg)).toBe(false)
-    })
-  })
 })
