@@ -134,7 +134,6 @@ export class PreviewPane {
     this._currentMod = mod
     this._elapsed    = 0
     this._ctx        = this._makeContext()
-    this._running    = true
 
     this._clearUserObjects()
 
@@ -147,6 +146,7 @@ export class PreviewPane {
       }
     }
 
+    this._running = true
     this._clock.start()
   }
 
@@ -163,7 +163,6 @@ export class PreviewPane {
     this._currentMod = mod
     this._elapsed    = 0
     this._ctx        = this._makeContext()
-    this._running    = true
     this._clearUserObjects()
     if (typeof mod.setup === 'function') {
       try {
@@ -173,6 +172,7 @@ export class PreviewPane {
         return
       }
     }
+    this._running = true
     this._clock.start()
   }
 
