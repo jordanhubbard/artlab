@@ -49,8 +49,26 @@ const copyExamplesPlugin = {
     // all such imports here.  Add new entries as needed when examples grow.
     const jsm = 'node_modules/three/examples/jsm'
     const addons = 'dist/vendors/three-addons'
-    mkdirSync(`${addons}/renderers`, { recursive: true })
+    mkdirSync(`${addons}/renderers`,  { recursive: true })
+    mkdirSync(`${addons}/exporters`,  { recursive: true })
     copyFileSync(`${jsm}/renderers/CSS2DRenderer.js`, `${addons}/renderers/CSS2DRenderer.js`)
+    copyFileSync(`${jsm}/exporters/STLExporter.js`,   `${addons}/exporters/STLExporter.js`)
+    copyFileSync(`${jsm}/exporters/OBJExporter.js`,   `${addons}/exporters/OBJExporter.js`)
+
+    // manifold-3d — bundle the JS wrapper and copy the WASM binary alongside it.
+    // The Emscripten runtime resolves manifold.wasm relative to the module URL,
+    // so both files must live in the same directory.
+    await esbuild({
+      entryPoints: ['node_modules/manifold-3d/manifold.js'],
+      bundle:      true,
+      format:      'esm',
+      minify:      true,
+      outfile:     'dist/vendors/manifold.esm.js',
+    })
+    copyFileSync(
+      'node_modules/manifold-3d/manifold.wasm',
+      'dist/vendors/manifold.wasm',
+    )
   },
 }
 
@@ -69,8 +87,8 @@ const importMapPlugin = {
       const imports = {
         'three':         `${base}vendors/three.esm.js`,
         'tone':          `${base}vendors/tone.esm.js`,
+        'manifold-3d':   `${base}vendors/manifold.esm.js`,
         // Prefix mapping: three/addons/X → vendors/three-addons/X
-        // CSS2DRenderer.js is the only addon currently needed by static assets.
         'three/addons/': `${base}vendors/three-addons/`,
       }
       const tag = `<script type="importmap">\n${JSON.stringify({ imports }, null, 2)}\n</script>`
