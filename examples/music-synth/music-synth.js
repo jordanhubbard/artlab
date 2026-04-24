@@ -33,6 +33,7 @@ let _arpSynth, _chordSynth, _bassSynth, _noise
 
 function _buildSynths() {
   _rev = reverb({ decay: 4, wet: 0.55 })
+  _rev.toDestination()
   _dly = delay({ delayTime: '8n', feedback: 0.3, wet: 0.25 })
 
   // Arpeggio — bright pluck
