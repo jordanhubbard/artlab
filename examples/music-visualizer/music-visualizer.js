@@ -11,6 +11,7 @@ const PARTICLE_COUNT = 300
 const FFT_SIZE = 256
 
 export async function setup(ctx) {
+  ctx.setHelp('Click Start to enable microphone — rings pulse with bass / mid / treble')
   ctx.camera.position.set(0, 4, 10)
   ctx.camera.lookAt(0, 0, 0)
   ctx.setBloom(1.2)
@@ -22,25 +23,40 @@ export async function setup(ctx) {
   ctx.add(pt)
   ctx._lights = [ambient, pt]
 
-  // FFT setup
+  // FFT setup — wired up from the start button (requires user gesture)
   ctx._audioCtx = null
   ctx._analyser = null
   ctx._fftData = null
   ctx._stream = null
 
-  try {
-    const stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false })
-    ctx._stream = stream
-    ctx._audioCtx = new (window.AudioContext || window.webkitAudioContext)()
-    const source = ctx._audioCtx.createMediaStreamSource(stream)
-    const analyser = ctx._audioCtx.createAnalyser()
-    analyser.fftSize = FFT_SIZE
-    source.connect(analyser)
-    ctx._analyser = analyser
-    ctx._fftData = new Uint8Array(analyser.frequencyBinCount)
-  } catch (_e) {
-    ctx._analyser = null
-  }
+  const container = ctx.renderer.domElement.parentElement
+  ctx._startBtn = document.createElement('button')
+  Object.assign(ctx._startBtn.style, {
+    position: 'absolute', bottom: '24px', left: '50%', transform: 'translateX(-50%)',
+    background: 'rgba(10,14,36,0.92)', border: '1px solid rgba(80,140,255,0.5)',
+    color: '#88aaff', padding: '11px 36px', cursor: 'pointer',
+    fontFamily: 'monospace', fontSize: '12px', letterSpacing: '.25em',
+    borderRadius: '3px', zIndex: '100',
+  })
+  ctx._startBtn.textContent = 'Start Visualizer'
+  container.appendChild(ctx._startBtn)
+
+  ctx._startBtn.addEventListener('click', async () => {
+    ctx._startBtn.style.display = 'none'
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false })
+      ctx._stream = stream
+      ctx._audioCtx = new (window.AudioContext || window.webkitAudioContext)()
+      const source = ctx._audioCtx.createMediaStreamSource(stream)
+      const analyser = ctx._audioCtx.createAnalyser()
+      analyser.fftSize = FFT_SIZE
+      source.connect(analyser)
+      ctx._analyser = analyser
+      ctx._fftData = new Uint8Array(analyser.frequencyBinCount)
+    } catch (_e) {
+      ctx._analyser = null
+    }
+  }, { once: true })
 
   // Create rings
   ctx._rings = BANDS.map(band => {
@@ -149,6 +165,7 @@ export function update(ctx, dt) {
 }
 
 export function teardown(ctx) {
+  ctx._startBtn?.remove()
   for (const { mesh } of ctx._rings) ctx.remove(mesh)
   ctx.remove(ctx._particles)
   ctx._particles.geometry.dispose()
