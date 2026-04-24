@@ -17,6 +17,7 @@ function noteHue(note) {
 }
 
 export async function setup(ctx) {
+  ctx.setHelp('White keys: A S D F G H J K   •   Black keys: W E T Y U')
   ctx.camera.position.set(0, 5, 10)
   ctx.camera.lookAt(0, 1, 0)
   ctx.setBloom(0.8)

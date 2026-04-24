@@ -118,6 +118,7 @@ const EXAMPLES = [
   { name: 'penrose-tiles', entry: 'penrose-tiles.js', description: 'Animated Penrose P3 tiling — aperiodic rhombus tiles with growing subdivision and rainbow fills' },
   { name: 'physics-particles', entry: 'physics-particles.js', description: 'Interactive particle fountain — physics/particles stdlib demo' },
   { name: 'pixel-sort', entry: 'pixel-sort.js', description: 'Real-time pixel-sorting glitch art — a procedural image gets continuously sorted by brightness in horizontal bands' },
+  { name: 'printable-bracket', entry: 'printable-bracket.js', description: 'Parametric L-bracket built with manifold-3d CSG, exportable as STL/OBJ for 3D printing (units: mm)' },
   { name: 'reaction-diffusion', entry: 'reaction-diffusion.js', description: 'Gray-Scott reaction-diffusion simulation evolving coral and maze patterns on a rotating sphere' },
   { name: 'recursive-spirals', entry: 'recursive-spirals.js', description: 'Nested spirals of spirals — each arm of a golden spiral spawns smaller spirals at its tips, creating a fractal spiral galaxy' },
   { name: 'shader-gallery', entry: 'shader-gallery.js', description: 'A virtual art gallery with five live shader paintings — pixelate, color waves, glitch, julia fractal, and animated noise' },

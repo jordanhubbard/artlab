@@ -153,6 +153,7 @@ function heatColor(val) {
 }
 
 export function setup(ctx) {
+  ctx.setHelp('Click and drag to inject velocity and dye into the fluid')
   ctx.camera.position.set(0, 0, 7)
   ctx.setBloom(0.4)
 

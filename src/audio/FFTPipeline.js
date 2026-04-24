@@ -53,6 +53,22 @@ export class FFTPipeline {
     }
   }
 
+  /**
+   * Route an additional audio source (e.g. Tone.UserMedia) into the FFT
+   * analyzer without sending it to the speakers. Safe to call after connect().
+   * @param {any} toneNode — any Tone.js node with .connect()
+   */
+  connectInput(toneNode) {
+    if (!this._fft || !toneNode) return
+    try {
+      toneNode.connect(this._fft)
+      toneNode.connect(this._meter)
+      console.info('[audio] FFTPipeline input source connected')
+    } catch (e) {
+      console.warn('[audio] FFTPipeline.connectInput failed:', e.message)
+    }
+  }
+
   // ── Per-frame update ───────────────────────────────────────────────────────
 
   /**

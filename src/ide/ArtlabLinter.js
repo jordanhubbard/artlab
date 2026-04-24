@@ -21,7 +21,7 @@ const CTX_METHODS = new Set([
   'ambient', 'point', 'directional', 'spot', 'hemisphere',
   'lerp', 'clamp', 'map', 'smoothstep', 'rad', 'deg',
   'vec2', 'vec3', 'vec4', 'color', 'quat', 'range',
-  'loadTexture', 'setBloom',
+  'loadTexture', 'setBloom', 'setHelp',
 ])
 
 const CTX_PROPS = new Set([

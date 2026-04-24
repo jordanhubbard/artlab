@@ -102,7 +102,7 @@ export default defineConfig({
   },
 
   test: {
-    exclude: ['e2e/**', 'node_modules/**'],
+    exclude: ['e2e/**', 'node_modules/**', 'dist/**'],
   },
 
   server: {
@@ -112,5 +112,5 @@ export default defineConfig({
   },
 
   assetsInclude: ['**/*.glsl'],
-  optimizeDeps: { exclude: ['three'] },
+  optimizeDeps: { exclude: ['three', 'manifold-3d'] },
 })

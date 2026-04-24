@@ -4,6 +4,10 @@ dist/
 *.local
 public/textures/
 
+# Playwright e2e output
+test-results/
+playwright-report/
+
 # Dolt database files (added by bd init)
 .dolt/
 *.db

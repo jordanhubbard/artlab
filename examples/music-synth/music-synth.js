@@ -161,6 +161,7 @@ function _build3D(ctx) {
 // ── Lifecycle ─────────────────────────────────────────────────────────────────
 
 export function setup(ctx) {
+  ctx.setHelp('Space: start / stop the sequencer')
   ctx.camera.position.set(0, 3, 16)
   ctx.camera.lookAt(0, 0, 0)
 

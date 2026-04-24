@@ -48,6 +48,7 @@ function makeMockCtx() {
     add:           vi.fn(obj => { scene.add(obj); return obj }),
     remove:        vi.fn(),
     setBloom:      vi.fn(),
+    setHelp:  vi.fn(),
     elapsed:       0,
   }
 }
@@ -68,6 +69,7 @@ describe('video-fx', () => {
       textContent: '',
       addEventListener: (_ev, cb, _opts) => cb(),
       appendChild:  vi.fn(),
+      remove:       vi.fn(),
     })
 
     mod = await import('./video-fx.js')

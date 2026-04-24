@@ -123,6 +123,9 @@ export function teardown(ctx) {
   _branding = null
   _mesh = null
   _cam = null
+
+  // Remove the gesture button if the user switched examples before clicking it.
+  ctx.renderer.domElement.parentElement?.querySelector('#vb-start-btn')?.remove()
 }
 
 // ── Builder helpers ───────────────────────────────────────────────────────────

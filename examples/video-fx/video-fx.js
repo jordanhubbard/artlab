@@ -140,6 +140,7 @@ const PIX_LEVELS = [6, 12, 24, 48]
 // ── Lifecycle ─────────────────────────────────────────────────────────────────
 
 export async function setup(ctx) {
+  ctx.setHelp('R: toggle recording   •   G: heavy glitch   •   P: cycle pixelation')
   ctx.camera.position.set(0, 0, 11)
   ctx.setBloom(0.2)
 
@@ -255,6 +256,9 @@ export function teardown(ctx) {
   window.removeEventListener('keydown', _onKey)
   _hud?.remove()
   for (const { el } of (_labels || [])) el.remove()
+
+  // Remove the gesture button if the user switched examples before clicking it.
+  ctx.renderer.domElement.parentElement?.querySelector('#start-btn')?.remove()
 }
 
 // ── Helpers ──────────────────────────────────────────────────────────────────

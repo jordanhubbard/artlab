@@ -20,6 +20,7 @@ export function setup(ctx) {
   fields      = []
   fieldToggle = 0
 
+  ctx.setHelp('Click the ground to place force fields (alternates attractor / repulsor, max 8)')
   ctx.camera.position.set(0, 20, 25)
   ctx.camera.lookAt(0, 0, 0)
   ctx.setBloom(1.4)

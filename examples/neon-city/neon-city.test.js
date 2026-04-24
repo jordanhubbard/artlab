@@ -32,6 +32,7 @@ function makeCtx(overrides = {}) {
     add: vi.fn(),
     remove: vi.fn(),
     setBloom: vi.fn(),
+    setHelp:  vi.fn(),
     elapsed: 0,
     ...overrides,
   }

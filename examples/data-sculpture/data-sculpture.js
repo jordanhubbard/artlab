@@ -41,6 +41,8 @@ function _tempColor(t) {
 }
 
 export function setup(ctx) {
+  ctx.setHelp('Hover a bar to see city and temperature')
+
   // Warm ambient + directional from above
   const amb = new Three.AmbientLight(0xfff5e8, 0.65)
   ctx.add(amb)

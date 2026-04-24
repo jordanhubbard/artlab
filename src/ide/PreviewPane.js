@@ -275,6 +275,17 @@ export class PreviewPane {
       /** setBloom(strength) — 0 disables, typical range 0.3–2.0 */
       setBloom(strength = 0) { self._bloomPass.strength = Math.max(0, strength) },
 
+      // ── UI hints ────────────────────────────────────────────────────────────
+      /**
+       * setHelp(text) — show a one-line interaction hint above the preview
+       * (e.g. "Click to spawn, Space to reset"). Pass '' or null to clear.
+       * Call this in setup() whenever your sketch responds to mouse or keyboard.
+       */
+      setHelp(text) {
+        const el = document.getElementById('canvas-help')
+        if (el) el.textContent = text == null ? '' : String(text)
+      },
+
       _added:    added,
       _userVars: {},
     }
@@ -346,6 +357,10 @@ export class PreviewPane {
     this._ctx        = null
     this._running    = false
     this._clock.stop()
+
+    // Clear any interaction hint from the previous example.
+    const helpEl = document.getElementById('canvas-help')
+    if (helpEl) helpEl.textContent = ''
     this._clearError()
 
     // Restore idle light when no module is loaded

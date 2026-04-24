@@ -34,7 +34,10 @@ export class AudioEngine {
       this._Tone = Tone
 
       await Tone.start()
-      Tone.getContext().latencyHint = 'playback'
+      // latencyHint is a performance hint only; in some Tone.js / browser
+      // combinations it's a getter-only property, so failing to set it must
+      // not abort start().
+      try { Tone.getContext().latencyHint = 'playback' } catch (_) {}
 
       // Master chain: pad → delay → reverb → limiter → out
       this.limiter = new Tone.Limiter(-3).toDestination()

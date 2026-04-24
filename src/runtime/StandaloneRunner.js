@@ -108,6 +108,31 @@ export class StandaloneRunner {
         if (self._bloomPass) self._bloomPass.strength = strength
       },
 
+      /**
+       * setHelp(text) — display a one-line interaction hint. In the standalone
+       * runtime this renders as a small overlay at the top of the canvas; the
+       * IDE overrides this to render it in the preview toolbar.
+       */
+      setHelp(text) {
+        let el = document.getElementById('artlab-help')
+        if (!el) {
+          el = document.createElement('div')
+          el.id = 'artlab-help'
+          el.style.cssText = [
+            'position:fixed', 'top:10px', 'left:50%',
+            'transform:translateX(-50%)', 'z-index:100',
+            'padding:4px 14px', 'pointer-events:none',
+            'background:rgba(0,0,0,0.6)', 'color:#70c8ff',
+            'font-family:monospace', 'font-size:12px',
+            'border-radius:3px', 'letter-spacing:0.04em',
+          ].join(';')
+          document.body.appendChild(el)
+        }
+        const t = text == null ? '' : String(text)
+        el.textContent = t
+        el.style.display = t ? 'block' : 'none'
+      },
+
       // Three.js shorthand constructors (mirrors PreviewPane ctx)
       vec2:  (x, y)       => new Three.Vector2(x, y),
       vec3:  (x, y, z)    => new Three.Vector3(x, y, z),

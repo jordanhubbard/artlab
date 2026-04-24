@@ -32,6 +32,11 @@ export const fft = new FFTPipeline()
 // Internal asset loader — created lazily after start() resolves.
 let _assetLoader = null
 
+// Microphone handle (Tone.UserMedia) — created on start(), closed on stop().
+// Tapped directly into the FFT so mic audio drives band analysis without
+// routing to the speakers (which would feed back).
+let _mic = null
+
 // ---------------------------------------------------------------------------
 // Lifecycle
 // ---------------------------------------------------------------------------
@@ -44,6 +49,21 @@ let _assetLoader = null
 export async function start() {
   await engine.start()
   fft.connect(engine)
+
+  // Open the microphone and route it into the FFT analyzer. The mic is
+  // intentionally NOT connected to Tone.getDestination() so it never reaches
+  // the speakers (no feedback). Permission denial is non-fatal — examples
+  // driven by synthesized sound still work via the destination tap.
+  try {
+    if (engine.Tone && !_mic) {
+      _mic = new engine.Tone.UserMedia()
+      await _mic.open()
+      fft.connectInput(_mic)
+    }
+  } catch (e) {
+    console.info('[audio] microphone unavailable:', e?.message || e)
+    _mic = null
+  }
 
   // Build the asset loader now that AudioContext is available.
   const ctx = engine.audioContext
@@ -63,14 +83,21 @@ export async function start() {
  * Call this before loading a new example / package.
  */
 export async function stop() {
-  // 1. Dispose FFT / Meter nodes before the context closes.
+  // 1. Close the microphone so the OS indicator turns off and the next
+  //    example (which may not want audio) doesn't inherit an open stream.
+  if (_mic) {
+    try { _mic.close(); _mic.dispose() } catch (_) {}
+    _mic = null
+  }
+
+  // 2. Dispose FFT / Meter nodes before the context closes.
   fft.dispose()
 
-  // 2. Tear down AudioEngine (stops Transport, disposes chain, closes context,
+  // 3. Tear down AudioEngine (stops Transport, disposes chain, closes context,
   //    installs a fresh Tone.Context).
   await engine.stop()
 
-  // 3. Drop the asset-loader reference — its AudioContext is now closed.
+  // 4. Drop the asset-loader reference — its AudioContext is now closed.
   _assetLoader = null
 }
 

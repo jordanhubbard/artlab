@@ -169,6 +169,7 @@ function _rebuildMeshes(ctx) {
 // ── Lifecycle ─────────────────────────────────────────────────────────────────
 
 export function setup(ctx) {
+  ctx.setHelp('Hover a shape to see its tooltip   •   Use the on-screen controls to change shape')
   ctx.camera.position.set(0, 4, 10)
   ctx.camera.lookAt(0, 0, 0)
 

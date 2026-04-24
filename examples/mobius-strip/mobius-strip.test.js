@@ -24,6 +24,7 @@ function makeMockCtx(overrides = {}) {
     add: vi.fn(obj => { scene.children.push(obj); return obj }),
     remove: vi.fn(),
     setBloom: vi.fn(),
+    setHelp:  vi.fn(),
     elapsed: 0,
     sphere: (r=1,s=32) => new Three.SphereGeometry(r,s,s),
     box: (w=1,h=1,d=1) => new Three.BoxGeometry(w,h,d),

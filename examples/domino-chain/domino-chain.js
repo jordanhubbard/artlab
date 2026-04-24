@@ -74,6 +74,7 @@ function checkCollisions(dominoes) {
 }
 
 export function setup(ctx) {
+  ctx.setHelp('Click the first domino to topple the chain')
   ctx.camera.position.set(5, 8, 10)
   ctx.camera.lookAt(0, 1, 0)
   ctx.setBloom(0.4)

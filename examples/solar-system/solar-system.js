@@ -123,6 +123,8 @@ function easeInOut(t) {
 export async function setup(ctx) {
   const { Three } = ctx
 
+  ctx.setHelp('O: toggle orbit lines   •   Click a planet to focus the camera')
+
   // CSS2DObject — dynamic import so the package degrades gracefully in blob-URL contexts
   let CSS2DObject = null
   try {

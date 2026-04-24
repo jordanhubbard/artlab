@@ -18,6 +18,7 @@ function makeMockCtx(overrides = {}) {
     add: vi.fn(obj => { scene.children.push(obj); return obj }),
     remove: vi.fn(),
     setBloom: vi.fn(),
+    setHelp:  vi.fn(),
     elapsed: 0,
     ...overrides,
   }

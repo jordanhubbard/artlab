@@ -72,6 +72,7 @@ let _hud, _onKey
 // ── Lifecycle ─────────────────────────────────────────────────────────────────
 
 export async function setup(ctx) {
+  ctx.setHelp('K: change symmetry (number of slices)   •   R: reset rotation')
   ctx.camera.position.set(0, 0, CAM_DIST)
   ctx.camera.fov    = 60
   ctx.camera.aspect = PLANE_W / PLANE_H
@@ -139,6 +140,9 @@ export function teardown(ctx) {
   _onKey = null
   _segIdx = 0
   _rotOffset = 0
+
+  // Remove the gesture button if the user switched examples before clicking it.
+  ctx.renderer.domElement.parentElement?.querySelector('#vk-allow-btn')?.remove()
 }
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -146,6 +150,7 @@ export function teardown(ctx) {
 function _awaitGesture(container) {
   return new Promise(resolve => {
     const btn = document.createElement('button')
+    btn.id = 'vk-allow-btn'
     Object.assign(btn.style, {
       position:    'absolute',
       bottom:      '50%',

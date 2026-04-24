@@ -101,11 +101,15 @@ export function teardown(ctx) {
 
   _note?.remove()
   _note = null
+
+  // Remove the gesture button if the user switched examples before clicking it.
+  ctx.renderer.domElement.parentElement?.querySelector('#cm-allow-btn')?.remove()
 }
 
 function _awaitGesture(container) {
   return new Promise(resolve => {
     const btn = document.createElement('button')
+    btn.id = 'cm-allow-btn'
     Object.assign(btn.style, {
       position:      'absolute',
       bottom:        '50%',

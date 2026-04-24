@@ -27,6 +27,7 @@ const ORBITER_DATA = [
 export function setup(ctx) {
   const { Three, sphere, torus, mesh, ambient, point } = ctx
 
+  ctx.setHelp('C: toggle between scripted camera path and manual orbit')
   ctx.setBloom(1.0)
   ctx.controls.enabled = false
 

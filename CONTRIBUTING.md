@@ -34,12 +34,12 @@ bin/            artlab CLI entry point
 
 | Path | Purpose |
 |---|---|
-| `src/runtime/StandaloneRunner.js` | Full-screen runner used by `solar-system.html` |
-| `src/ide/PreviewPane.js` | Sandboxed live preview inside the IDE |
+| `src/ide/PreviewPane.js` | Sandboxed live preview inside the IDE (constructs the `ctx` object used by every example) |
+| `src/runtime/StandaloneRunner.js` | Full-screen runtime for exported / standalone packages |
 | `src/stdlib/geometry.js` | Geometry factories and `mesh()` helper |
 | `src/stdlib/lights.js` | Light factories |
-| `src/stdlib/math.js` | `lerp`, `clamp`, `map`, `smoothstep`, `rad`, `deg` |
-| `src/stdlib/audio.js` | Audio playback, FFT bands, Tone.js synth helpers |
+| `src/stdlib/math.js` | `lerp`, `clamp`, `map`, `smoothstep`, `rad`, `deg`, Perlin `noise2` / `noise3` |
+| `src/stdlib/audio.js` | Mic input, FFT bands, Tone.js synth helpers |
 | `src/stdlib/video.js` | Webcam, screen capture, video textures, shader effects |
 
 ---
@@ -55,8 +55,9 @@ self-contained directory under `examples/`.
 examples/my-example/
   artlab.json        Manifest (required)
   my-example.js      Entry module (required)
+  my-example.test.js Vitest test (required; named to match the entry)
   assets/            Textures, audio, data files (optional)
-  example.test.js    Vitest test (required)
+  tutorial.json      Optional guided code-tour consumed by the IDE tutorial pane
 ```
 
 ### The manifest — `artlab.json`
@@ -112,12 +113,30 @@ Both `StandaloneRunner` and `PreviewPane` inject the same context shape:
 | `labelRenderer` | `CSS2DRenderer` | CSS2D label overlay (StandaloneRunner only) |
 | `add(obj)` | function | Add an object to the scene; returns the object |
 | `remove(obj)` | function | Remove an object from the scene |
-| `setBloom(strength)` | function | Set bloom post-processing strength (0–3) |
+| `setBloom(strength)` | function | Set bloom post-processing strength (0–3, 0 disables) |
+| `setHelp(text)` | function | One-line interaction hint shown above the preview; clears automatically on reload |
 | `elapsed` | number | Seconds since setup completed (read-only, updated each frame) |
 
 The PreviewPane ctx also exposes the stdlib helpers as top-level fields
-(`sphere`, `box`, `mesh`, `ambient`, `point`, etc.) so IDE examples can use
-them without imports. Standalone examples use explicit imports instead.
+(`sphere`, `box`, `mesh`, `ambient`, `point`, `lerp`, `smoothstep`, `vec3`,
+`color`, etc.) so IDE examples can use them without imports. Standalone /
+exported packages use explicit imports instead.
+
+### Interaction hints — `setHelp(text)`
+
+If your example listens for mouse or keyboard events, declare it in `setup()`:
+
+```js
+export function setup(ctx) {
+  ctx.setHelp('Click to spawn a body   •   Space to reset')
+  // ...
+}
+```
+
+The string renders in the preview toolbar next to "Preview". Keep it to one
+line; use `•` to separate controls. Skip it for examples whose only interaction
+is a one-time gesture button (e.g. "Enable Microphone") — the button is
+self-labeling.
 
 ### The stdlib-only rule
 
@@ -151,22 +170,35 @@ the IDE sandbox.
 
 ### Scale conventions
 
-For orbital and space demos, use these conventions to stay consistent with the
-solar-system reference package:
+Pick a scale that suits the subject and stay consistent within the package. A
+few reference conventions used across the examples:
 
-| Concept | Value |
-|---|---|
-| 1 AU | 100 units |
-| Earth radius | 2.5 units |
-| 1 simulation year | 120 real seconds |
+| Domain | Convention | Examples |
+|---|---|---|
+| Abstract / desktop-scale | 1 unit ≈ 1 m; camera 5–15 units out | `hello-cube`, `wave-sculpture`, `color-fields` |
+| Orbital / space | 1 AU = 100 units; Earth radius = 2.5 units; 1 year = 120 s | `solar-system`, `orbital-dance` |
+| 3D-printable / CSG | 1 unit = 1 mm; camera positioned accordingly | `printable-bracket` |
+
+### 3D printing and CSG
+
+Printable sketches should produce a **manifold** (watertight, outward-normal)
+mesh so the exported STL/OBJ slices cleanly. Use
+[`manifold-3d`](https://github.com/elalish/manifold) for boolean operations
+(union, difference, intersection) — its output is manifold by construction.
+See `examples/printable-bracket` for the full pattern: build a `Manifold`,
+convert `man.getMesh()` → `THREE.BufferGeometry`, display it for preview, and
+expose STL / OBJ export via `three/addons/exporters/`.
+
+Use mm as the unit (1 artlab unit = 1 mm) so bounding boxes map directly to
+slicer input.
 
 ### Example tiers
 
 | Tier | Lines | Concepts | Examples |
 |---|---|---|---|
 | Basic | < 100 | Single concept | `hello-cube`, `aurora` |
-| Intermediate | 100–300 | 2–3 concepts composed | `wave-sculpture`, `color-fields` |
-| Advanced | 300+ | Full composition, may use multiple stdlib modules | `solar-system` |
+| Intermediate | 100–300 | 2–3 concepts composed | `wave-sculpture`, `color-fields`, `domino-chain` |
+| Advanced | 300+ | Full composition across multiple stdlib modules | `solar-system`, `music-synth`, `marble-run` |
 
 Start at the basic tier unless the task explicitly requires more.
 
@@ -221,8 +253,9 @@ npm run test:watch  # watch mode
 
 ### Example tests
 
-Every example needs a test at `examples/<name>/<name>.test.js`. Use a minimal
-mock ctx so tests run without a DOM or WebGL context:
+Every example needs a test at `examples/<name>/<name>.test.js` (filename
+matches the entry module). Use a minimal mock ctx so tests run without a DOM
+or WebGL context:
 
 ```js
 import { describe, it, expect, vi } from 'vitest'
@@ -243,6 +276,7 @@ function makeCtx(overrides = {}) {
     add: vi.fn(),
     remove: vi.fn(),
     setBloom: vi.fn(),
+    setHelp:  vi.fn(),
     elapsed: 0,
     ...overrides,
   }
@@ -317,7 +351,9 @@ Rules:
 Before opening a pull request, verify each item:
 
 - [ ] Example has a valid `artlab.json` with all required fields
-- [ ] Test file exists at `examples/<name>/example.test.js` and passes (`npm test`)
+- [ ] Test file exists at `examples/<name>/<name>.test.js` and passes (`npm test`)
+- [ ] Example is registered in the `EXAMPLES` array in `src/ide/IDE.js`
 - [ ] No direct `src/` imports beyond stdlib and physics (paths `../../src/stdlib/` and `../../src/physics/` are allowed; runtime or IDE internals are off-limits)
 - [ ] All assets are loaded with the `new URL('./assets/...', import.meta.url).href` pattern
-- [ ] `teardown` removes any event listeners added during `setup`
+- [ ] `teardown` removes any event listeners, DOM overlays, and media streams opened during `setup` (run the example, switch to another, and confirm no leftover buttons or indicators)
+- [ ] If the example responds to mouse or keyboard input, it calls `ctx.setHelp(...)` in `setup`

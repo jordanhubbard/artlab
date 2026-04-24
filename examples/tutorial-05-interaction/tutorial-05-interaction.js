@@ -9,6 +9,7 @@ const COL_CLICK  = 0xff4422;
 export function setup(ctx) {
   const { Three: T, scene } = ctx;
 
+  ctx.setHelp('Hover a cube to highlight   •   Click to launch it   •   R: reset   •   G: toggle grid');
   ctx.camera.position.set(0, 6, 12);
   ctx.camera.lookAt(0, 0, 0);
 

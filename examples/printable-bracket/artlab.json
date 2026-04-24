@@ -1,0 +1,6 @@
+{
+  "name": "printable-bracket",
+  "version": "1.0.0",
+  "entry": "printable-bracket.js",
+  "description": "Parametric L-bracket built with manifold-3d CSG, exportable as STL for 3D printing (units: mm)"
+}

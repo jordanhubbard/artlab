@@ -640,8 +640,28 @@
       font-size: var(--sz-sm);
       color: var(--text-dim);
       letter-spacing: 0.08em;
-      flex: 1;
+      flex-shrink: 0;
     }
+
+    #canvas-help {
+      flex: 1;
+      min-width: 0;
+      padding: 0 14px;
+      font-family: var(--mono);
+      font-size: var(--sz-sm);
+      color: var(--text-info);
+      letter-spacing: 0.04em;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      opacity: 0.85;
+    }
+    #canvas-help::before {
+      content: '›';
+      color: var(--text-muted);
+      margin-right: 8px;
+    }
+    #canvas-help:empty { display: none; }
 
     #fps-counter {
       font-family: var(--mono);
@@ -884,6 +904,7 @@
     <div id="canvas-zone">
       <div id="canvas-toolbar">
         <span class="canvas-title">Preview</span>
+        <span id="canvas-help" title="Interaction controls for this example"></span>
         <button class="canvas-btn" id="btn-pause" title="Pause render loop">⏸</button>
         <button class="canvas-btn" id="btn-fullscreen" title="Fullscreen canvas">⛶</button>
         <span id="fps-counter">— fps</span>

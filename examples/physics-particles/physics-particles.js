@@ -27,6 +27,7 @@ function spawnParticle(p, origin) {
 }
 
 export function setup(ctx) {
+  ctx.setHelp('Click to burst particles toward that point')
   ctx.camera.position.set(0, 4, 18)
   ctx.camera.lookAt(0, 2, 0)
   ctx.setBloom(1.2)

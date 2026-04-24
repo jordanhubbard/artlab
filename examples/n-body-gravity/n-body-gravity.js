@@ -99,6 +99,7 @@ function mergeBodies(ctx, a, b) {
 }
 
 export function setup(ctx) {
+  ctx.setHelp('Click to spawn a new body into the gravitational system')
   ctx.camera.position.set(0, 0, 60)
   ctx.camera.lookAt(0, 0, 0)
   ctx.setBloom(1.2)

@@ -1,5 +1,5 @@
 {
-  "name": "artlab-solar-system",
+  "name": "artlab",
   "version": "1.0.0",
   "type": "module",
   "bin": {
@@ -19,6 +19,7 @@
     "gsap": "^3.12.5",
     "howler": "^2.2.4",
     "lil-gui": "^0.21.0",
+    "manifold-3d": "^3.4.1",
     "three": "^0.170.0",
     "tone": "^14.9.0"
   },

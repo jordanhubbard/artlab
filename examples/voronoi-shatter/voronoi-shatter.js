@@ -77,6 +77,7 @@ function cellToMesh(cell, hue) {
 }
 
 export function setup(ctx) {
+  ctx.setHelp('Click to drop a seed point — each new seed shatters the plane into more cells')
   ctx.camera.position.set(0, 12, 8)
   ctx.camera.lookAt(0, 0, 0)
   ctx.setBloom(0.4)
