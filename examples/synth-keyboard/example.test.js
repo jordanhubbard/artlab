@@ -4,13 +4,21 @@ import * as Three from 'three'
 
 vi.mock('three', async () => await vi.importActual('three'))
 vi.mock('tone', () => ({
-  PolySynth: vi.fn(() => ({
-    triggerAttack: vi.fn(), triggerRelease: vi.fn(), connect: vi.fn(), dispose: vi.fn(),
-  })),
-  Synth: vi.fn(),
-  Reverb: vi.fn(() => ({
-    toDestination: vi.fn(), dispose: vi.fn(),
-  })),
+  PolySynth: vi.fn(function () {
+    return {
+      triggerAttack: vi.fn(),
+      triggerRelease: vi.fn(),
+      connect: vi.fn().mockReturnThis(),
+      dispose: vi.fn(),
+    }
+  }),
+  Synth: vi.fn(function () {}),
+  Reverb: vi.fn(function () {
+    return {
+      toDestination: vi.fn().mockReturnThis(),
+      dispose: vi.fn(),
+    }
+  }),
   start: vi.fn(),
 }))
 

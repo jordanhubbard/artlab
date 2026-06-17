@@ -18,15 +18,18 @@
     "@dimforge/rapier3d-compat": "^0.19.3",
     "gsap": "^3.12.5",
     "howler": "^2.2.4",
+    "jszip": "^3.10.1",
     "lil-gui": "^0.21.0",
     "manifold-3d": "^3.4.1",
+    "monaco-editor": "^0.53.0",
     "three": "^0.170.0",
     "tone": "^14.9.0"
   },
   "devDependencies": {
     "@playwright/test": "^1.59.1",
+    "esbuild": "^0.28.1",
     "jsdom": "^29.0.2",
-    "vite": "^6.0.0",
-    "vitest": "^2.1.9"
+    "vite": "^8.0.16",
+    "vitest": "^4.1.9"
   }
 }

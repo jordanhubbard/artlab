@@ -16,33 +16,41 @@ vi.mock('tone', () => ({
     state: 'stopped',
     bpm: { value: 120 },
   },
-  Synth: vi.fn(() => ({
+  Synth: vi.fn(function () {
+    return {
     connect: vi.fn().mockReturnThis(),
     toDestination: vi.fn().mockReturnThis(),
     dispose: vi.fn(),
     triggerAttackRelease: vi.fn(),
     triggerAttack: vi.fn(),
     triggerRelease: vi.fn(),
-  })),
-  PolySynth: vi.fn(() => ({
+    }
+  }),
+  PolySynth: vi.fn(function () {
+    return {
     connect: vi.fn().mockReturnThis(),
     dispose: vi.fn(),
     triggerAttackRelease: vi.fn(),
     triggerAttack: vi.fn(),
     releaseAll: vi.fn(),
-  })),
-  NoiseSynth: vi.fn(() => ({
+    }
+  }),
+  NoiseSynth: vi.fn(function () {
+    return {
     connect: vi.fn().mockReturnThis(),
     dispose: vi.fn(),
     triggerAttackRelease: vi.fn(),
-  })),
+    }
+  }),
   // Tone.Sequence is used directly with `new Tone.Sequence(cb, events, sub)`
-  Sequence: vi.fn(() => ({
+  Sequence: vi.fn(function () {
+    return {
     start: vi.fn(),
     stop: vi.fn(),
     dispose: vi.fn(),
     events: [],
-  })),
+    }
+  }),
 }))
 
 vi.mock('../../src/stdlib/audio.js', () => ({

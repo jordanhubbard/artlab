@@ -18,6 +18,24 @@
 
 import { PreviewPane } from './PreviewPane.js'
 import { lint, THREE_TYPES_DTS, TONE_TYPES_DTS } from './ArtlabLinter.js'
+import JSZip from 'jszip'
+import * as monacoApi from 'monaco-editor/esm/vs/editor/editor.api.js'
+import 'monaco-editor/esm/vs/basic-languages/css/css.contribution.js'
+import 'monaco-editor/esm/vs/basic-languages/html/html.contribution.js'
+import 'monaco-editor/esm/vs/basic-languages/javascript/javascript.contribution.js'
+import 'monaco-editor/esm/vs/language/json/monaco.contribution.js'
+import 'monaco-editor/esm/vs/language/typescript/monaco.contribution.js'
+import editorWorker from 'monaco-editor/esm/vs/editor/editor.worker.js?worker'
+import jsonWorker from 'monaco-editor/esm/vs/language/json/json.worker.js?worker'
+import tsWorker from 'monaco-editor/esm/vs/language/typescript/ts.worker.js?worker'
+
+globalThis.MonacoEnvironment = {
+  getWorker(_workerId, label) {
+    if (label === 'json') return new jsonWorker()
+    if (label === 'typescript' || label === 'javascript') return new tsWorker()
+    return new editorWorker()
+  },
+}
 
 // Monaco uses 'javascript' language for all .js files
 const JS_LANG = 'javascript'
@@ -156,9 +174,6 @@ function parseManifest(text) {
   return obj
 }
 
-const MONACO_CDN  = 'https://cdn.jsdelivr.net/npm/monaco-editor@0.50.0/min/vs/loader.js'
-const MONACO_BASE = 'https://cdn.jsdelivr.net/npm/monaco-editor@0.50.0/min/vs'
-const JSZIP_CDN   = 'https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js'
 const DEBOUNCE_MS = 900
 
 // ── Utilities ─────────────────────────────────────────────────────────────────
@@ -168,27 +183,35 @@ function debounce(fn, ms) {
   return (...a) => { clearTimeout(t); t = setTimeout(() => fn(...a), ms) }
 }
 
-function loadScript(src) {
-  return new Promise((resolve, reject) => {
-    if (document.querySelector(`script[src="${src}"]`)) { resolve(); return }
-    const s = document.createElement('script')
-    s.src = src; s.onload = resolve
-    s.onerror = () => reject(new Error(`Script load failed: ${src}`))
-    document.head.appendChild(s)
-  })
-}
-
 function ts() {
   const d = new Date()
   return `${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}:${String(d.getSeconds()).padStart(2,'0')}`
 }
 
-let _jszip = null
 async function getJSZip() {
-  if (_jszip) return _jszip
-  await loadScript(JSZIP_CDN)
-  _jszip = window.JSZip
-  return _jszip
+  return JSZip
+}
+
+function isKeyboardActivation(e) {
+  return e.key === 'Enter' || e.key === ' '
+}
+
+function bindKeyboardActivation(el, fn) {
+  el.addEventListener('keydown', e => {
+    if (!isKeyboardActivation(e)) return
+    e.preventDefault()
+    fn(e)
+  })
+}
+
+function makeButtonLike(el, label, fn) {
+  el.setAttribute('role', 'button')
+  el.tabIndex = 0
+  if (label) el.setAttribute('aria-label', label)
+  if (fn) {
+    el.addEventListener('click', fn)
+    bindKeyboardActivation(el, fn)
+  }
 }
 
 // ── Toast ──────────────────────────────────────────────────────────────────────
@@ -217,7 +240,11 @@ function showCtxMenu(x, y, items) {
       const el = document.createElement('div')
       el.className = `ctx-item${item.danger ? ' danger' : ''}`
       el.textContent = item.label
-      el.addEventListener('click', () => { hideCtxMenu(); item.action() })
+      el.setAttribute('role', 'menuitem')
+      el.tabIndex = 0
+      const run = () => { hideCtxMenu(); item.action() }
+      el.addEventListener('click', run)
+      bindKeyboardActivation(el, run)
       ctxMenu.appendChild(el)
     }
   }
@@ -226,7 +253,9 @@ function showCtxMenu(x, y, items) {
   const mw = 160, mh = items.length * 28
   ctxMenu.style.left = Math.min(x, vw - mw - 10) + 'px'
   ctxMenu.style.top  = Math.min(y, vh - mh - 10) + 'px'
+  ctxMenu.setAttribute('role', 'menu')
   ctxMenu.classList.add('open')
+  ctxMenu.querySelector('[role="menuitem"]')?.focus()
 }
 function hideCtxMenu() { ctxMenu.classList.remove('open') }
 document.addEventListener('click', hideCtxMenu)
@@ -323,19 +352,10 @@ export class IDE {
   // ── Monaco bootstrap ────────────────────────────────────────────────────────
 
   async _bootMonaco() {
-    await loadScript(MONACO_CDN)
-    return new Promise((resolve, reject) => {
-      window.require.config({ paths: { vs: MONACO_BASE } })
-      window.require(['vs/editor/editor.main'], (monaco) => {
-        try {
-          this._monaco = monaco
-          this._configureJS(monaco)
-          this._defineTheme(monaco)
-          this._createEditor(monaco)
-          resolve()
-        } catch (e) { reject(e) }
-      }, reject)
-    })
+    this._monaco = monacoApi
+    this._configureJS(monacoApi)
+    this._defineTheme(monacoApi)
+    this._createEditor(monacoApi)
   }
 
   _configureJS(monaco) {
@@ -921,7 +941,7 @@ export class IDE {
 
       // Click-to-navigate: switch to correct file + jump to line
       if (d.file || d.line) {
-        row.addEventListener('click', () => {
+        makeButtonLike(row, `Open diagnostic ${d.file ?? this._activeFile ?? ''} line ${d.line ?? 1}`, () => {
           const target = d.file ?? this._activeFile
           if (target && this.artFiles.has(target)) {
             if (this._activeFile !== target) this.openFile(target)
@@ -997,11 +1017,15 @@ export class IDE {
     const newBtn = document.getElementById('tab-new')
     if (!strip) return
 
+    strip.setAttribute('role', 'tablist')
     strip.innerHTML = ''
 
     for (const filename of this._openFiles) {
       const tab = document.createElement('div')
       tab.className = `tab${filename === this._activeFile ? ' active' : ''}${this._dirty.has(filename) ? ' dirty' : ''}`
+      tab.setAttribute('role', 'tab')
+      tab.setAttribute('aria-selected', String(filename === this._activeFile))
+      tab.tabIndex = filename === this._activeFile ? 0 : -1
 
       const name = document.createElement('span')
       name.className = 'tab-name'
@@ -1016,12 +1040,17 @@ export class IDE {
 
       tab.appendChild(name)
       tab.appendChild(close)
-      tab.addEventListener('click', () => this.openFile(filename))
+      const open = () => this.openFile(filename)
+      tab.addEventListener('click', open)
+      bindKeyboardActivation(tab, open)
       strip.appendChild(tab)
     }
 
     // Re-append the + button
-    if (newBtn) strip.appendChild(newBtn)
+    if (newBtn) {
+      makeButtonLike(newBtn, 'New file')
+      strip.appendChild(newBtn)
+    }
   }
 
   // ── Render: file tree ────────────────────────────────────────────────────────
@@ -1095,7 +1124,7 @@ export class IDE {
       row.appendChild(name)
       row.appendChild(actions)
 
-      row.addEventListener('click', () => this.openFile(filename))
+      makeButtonLike(row, `Open ${filename}`, () => this.openFile(filename))
       row.addEventListener('contextmenu', e => {
         e.preventDefault()
         const items = [
@@ -1244,17 +1273,34 @@ export class IDE {
   // ── Output panel ─────────────────────────────────────────────────────────────
 
   _initOutputTabs() {
+    document.getElementById('output-tabs')?.setAttribute('role', 'tablist')
     document.querySelectorAll('.output-tab[data-out]').forEach(tab => {
-      tab.addEventListener('click', () => this._showOutputPane(tab.dataset.out))
+      const id = tab.dataset.out
+      tab.id = `tab-${id}`
+      tab.setAttribute('role', 'tab')
+      tab.setAttribute('aria-controls', `out-${id}`)
+      tab.tabIndex = tab.classList.contains('active') ? 0 : -1
+      tab.addEventListener('click', () => this._showOutputPane(id))
+      bindKeyboardActivation(tab, () => this._showOutputPane(id))
     })
+    document.querySelectorAll('.output-pane').forEach(pane => {
+      pane.setAttribute('role', 'tabpanel')
+      pane.setAttribute('aria-labelledby', `tab-${pane.id.replace('out-', '')}`)
+    })
+    this._showOutputPane('errors')
   }
 
   _showOutputPane(id) {
     document.querySelectorAll('.output-tab').forEach(t => {
-      t.classList.toggle('active', t.dataset.out === id)
+      const active = t.dataset.out === id
+      t.classList.toggle('active', active)
+      t.setAttribute('aria-selected', String(active))
+      t.tabIndex = active ? 0 : -1
     })
     document.querySelectorAll('.output-pane').forEach(p => {
-      p.classList.toggle('active', p.id === `out-${id}`)
+      const active = p.id === `out-${id}`
+      p.classList.toggle('active', active)
+      p.hidden = !active
     })
   }
 
@@ -1263,6 +1309,11 @@ export class IDE {
     const panel   = document.getElementById('output-panel')
     const colBtn  = document.getElementById('btn-collapse-output')
     if (!handle || !panel) return
+
+    handle.setAttribute('role', 'separator')
+    handle.setAttribute('aria-orientation', 'horizontal')
+    handle.setAttribute('aria-label', 'Resize output panel')
+    handle.tabIndex = 0
 
     let collapsed = false
     let savedH    = 140
@@ -1304,6 +1355,12 @@ export class IDE {
       if (collapsed && dy > 10) { collapsed = false; colBtn && (colBtn.textContent = '▾') }
     }
 
+    const resizeBy = (delta) => {
+      const newH = Math.max(60, Math.min(window.innerHeight * 0.6, panel.clientHeight + delta))
+      panel.style.height = newH + 'px'
+      if (collapsed && delta > 0) { collapsed = false; colBtn && (colBtn.textContent = '▾') }
+    }
+
     const endDrag = () => {
       dragging = false
       handle.classList.remove('dragging')
@@ -1317,6 +1374,11 @@ export class IDE {
     const onMouseUp   = () => endDrag()
     const onTouchMove = e => { e.preventDefault(); applyDrag(e.touches[0].clientY) }
     const onTouchUp   = () => endDrag()
+
+    handle.addEventListener('keydown', e => {
+      if (e.key === 'ArrowUp') { e.preventDefault(); resizeBy(10) }
+      if (e.key === 'ArrowDown') { e.preventDefault(); resizeBy(-10) }
+    })
   }
 
   // ── Resize handles ─────────────────────────────────────────────────────────
@@ -1347,6 +1409,10 @@ export class IDE {
 
   _makeDraggable(handle, onDrag) {
     if (!handle) return
+    handle.setAttribute('role', 'separator')
+    handle.setAttribute('aria-orientation', 'vertical')
+    handle.setAttribute('aria-label', handle.id === 'handle-left' ? 'Resize sidebar' : 'Resize preview')
+    handle.tabIndex = 0
     let lastX = 0
 
     const start = (clientX) => {
@@ -1377,6 +1443,10 @@ export class IDE {
 
     handle.addEventListener('mousedown', e => { e.preventDefault(); start(e.clientX) })
     handle.addEventListener('touchstart', e => { e.preventDefault(); start(e.touches[0].clientX) }, { passive: false })
+    handle.addEventListener('keydown', e => {
+      if (e.key === 'ArrowLeft') { e.preventDefault(); onDrag(-10) }
+      if (e.key === 'ArrowRight') { e.preventDefault(); onDrag(10) }
+    })
   }
 
   // ── Toolbar + sidebar button wiring ────────────────────────────────────────
@@ -1412,15 +1482,37 @@ export class IDE {
     const modal = document.getElementById('examples-modal')
     if (!modal) return
 
-    document.getElementById('close-examples')?.addEventListener('click', () => {
-      modal.style.display = 'none'
-    })
+    document.getElementById('close-examples')?.addEventListener('click', () => this._closeExamplesGallery())
 
     document.addEventListener('keydown', e => {
-      if (e.key === 'Escape' && modal.style.display !== 'none') {
-        modal.style.display = 'none'
+      if (modal.style.display === 'none') return
+      if (e.key === 'Escape') {
+        this._closeExamplesGallery()
+        return
+      }
+      if (e.key === 'Tab') {
+        const focusable = [...modal.querySelectorAll('button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])')]
+          .filter(el => !el.disabled && el.offsetParent !== null)
+        if (focusable.length === 0) return
+        const first = focusable[0]
+        const last = focusable[focusable.length - 1]
+        if (e.shiftKey && document.activeElement === first) {
+          e.preventDefault()
+          last.focus()
+        } else if (!e.shiftKey && document.activeElement === last) {
+          e.preventDefault()
+          first.focus()
+        }
       }
     })
+  }
+
+  _closeExamplesGallery({ restoreFocus = true } = {}) {
+    const modal = document.getElementById('examples-modal')
+    if (!modal) return
+    modal.style.display = 'none'
+    if (restoreFocus) this._examplesReturnFocus?.focus?.()
+    this._examplesReturnFocus = null
   }
 
   _openExamplesGallery() {
@@ -1432,10 +1524,18 @@ export class IDE {
     if (!grid.dataset.built) {
       grid.dataset.built = '1'
       for (const ex of EXAMPLES) {
-        const card = document.createElement('div')
-        card.style.cssText = 'background:#141428; border:1px solid rgba(90,120,200,.16); border-radius:3px; padding:16px; cursor:pointer; transition:border-color .12s;'
+        const card = document.createElement('button')
+        card.type = 'button'
+        card.style.cssText = [
+          'display:block', 'width:100%', 'text-align:left',
+          'background:#141428', 'border:1px solid rgba(90,120,200,.16)',
+          'border-radius:3px', 'padding:16px', 'cursor:pointer',
+          'transition:border-color .12s, background .12s',
+        ].join(';')
         card.addEventListener('mouseenter', () => { card.style.borderColor = 'rgba(80,140,255,.5)' })
         card.addEventListener('mouseleave', () => { card.style.borderColor = 'rgba(90,120,200,.16)' })
+        card.addEventListener('focus', () => { card.style.borderColor = 'rgba(80,140,255,.8)' })
+        card.addEventListener('blur', () => { card.style.borderColor = 'rgba(90,120,200,.16)' })
 
         const nameEl = document.createElement('div')
         nameEl.style.cssText = 'font-family:monospace; font-size:11px; color:#5a8cff; letter-spacing:.1em; margin-bottom:6px;'
@@ -1449,7 +1549,7 @@ export class IDE {
         card.appendChild(descEl)
 
         card.addEventListener('click', () => {
-          modal.style.display = 'none'
+          this._closeExamplesGallery({ restoreFocus: false })
           this._loadExample(ex)
         })
 
@@ -1457,7 +1557,9 @@ export class IDE {
       }
     }
 
+    this._examplesReturnFocus = document.activeElement
     modal.style.display = 'block'
+    document.getElementById('close-examples')?.focus()
   }
 
   async _loadExample(ex) {
@@ -1466,9 +1568,13 @@ export class IDE {
     this._setErrors([])
 
     // Highlight in tree
-    document.querySelectorAll('.ex-row').forEach(r => r.classList.remove('active'))
+    document.querySelectorAll('.ex-row').forEach(r => {
+      r.classList.remove('active')
+      r.removeAttribute('aria-current')
+    })
     const row = document.querySelector(`.ex-row[data-name="${ex.name}"]`)
     row?.classList.add('active')
+    row?.setAttribute('aria-current', 'true')
 
     // Update sidebar label
     const pkgName = document.getElementById('pkg-name')
@@ -1519,18 +1625,30 @@ export class IDE {
     // Collapse toggle for EXAMPLES section
     const hdr = document.getElementById('nav-examples-hdr')
     const body = document.getElementById('nav-examples-body')
-    hdr?.addEventListener('click', () => {
+    const toggleExamples = () => {
       const collapsed = body.classList.toggle('collapsed')
       hdr.classList.toggle('collapsed', collapsed)
-    })
+      hdr.setAttribute('aria-expanded', String(!collapsed))
+    }
+    if (hdr && body) {
+      hdr.setAttribute('aria-controls', body.id)
+      hdr.setAttribute('aria-expanded', 'true')
+      makeButtonLike(hdr, 'Toggle examples', toggleExamples)
+    }
 
     // Same for PROJECTS section
     const phdr = document.querySelector('#nav-projects .nav-section-hdr')
     const pbody = document.getElementById('nav-projects-body')
-    phdr?.addEventListener('click', () => {
+    const toggleProjects = () => {
       const collapsed = pbody.classList.toggle('collapsed')
       phdr.classList.toggle('collapsed', collapsed)
-    })
+      phdr.setAttribute('aria-expanded', String(!collapsed))
+    }
+    if (phdr && pbody) {
+      phdr.setAttribute('aria-controls', pbody.id)
+      phdr.setAttribute('aria-expanded', 'true')
+      makeButtonLike(phdr, 'Toggle projects', toggleProjects)
+    }
 
     // Populate examples
     const container = document.getElementById('nav-examples-body')
@@ -1540,8 +1658,16 @@ export class IDE {
       const row = document.createElement('div')
       row.className = 'ex-row'
       row.dataset.name = ex.name
-      row.innerHTML = `<span class="ex-icon">◈</span><span class="ex-name" title="${ex.description}">${ex.name}</span>`
-      row.addEventListener('click', () => this._loadExample(ex))
+      const icon = document.createElement('span')
+      icon.className = 'ex-icon'
+      icon.textContent = '◈'
+      const name = document.createElement('span')
+      name.className = 'ex-name'
+      name.title = ex.description
+      name.textContent = ex.name
+      row.appendChild(icon)
+      row.appendChild(name)
+      makeButtonLike(row, `Load example ${ex.name}`, () => this._loadExample(ex))
       container.appendChild(row)
     }
   }
@@ -1556,7 +1682,14 @@ export class IDE {
     const row = document.createElement('div')
     row.className = 'ex-row active'
     row.dataset.project = name
-    row.innerHTML = `<span class="ex-icon">◉</span><span class="ex-name">${name}</span>`
+    const icon = document.createElement('span')
+    icon.className = 'ex-icon'
+    icon.textContent = '◉'
+    const label = document.createElement('span')
+    label.className = 'ex-name'
+    label.textContent = name
+    row.appendChild(icon)
+    row.appendChild(label)
     body.appendChild(row)
   }
 

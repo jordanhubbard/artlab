@@ -1,5 +1,7 @@
 import { defineConfig, devices } from '@playwright/test'
 
+const chromiumExecutablePath = process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH
+
 export default defineConfig({
   testDir:   './e2e',
   timeout:   15_000,   // per test
@@ -12,6 +14,7 @@ export default defineConfig({
     baseURL: 'http://localhost:4173/artlab/',
     // SwiftShader gives software WebGL in CI (no GPU needed)
     launchOptions: {
+      ...(chromiumExecutablePath ? { executablePath: chromiumExecutablePath } : {}),
       args: ['--enable-webgl', '--use-gl=swiftshader', '--disable-web-security'],
     },
     // Grant camera/mic upfront so media examples don't hang on permission prompts
@@ -24,7 +27,7 @@ export default defineConfig({
 
   // Assumes dist/ is already built (CI builds before running; locally run npm run build:artlab first)
   webServer: {
-    command:              'npx vite preview --port 4173',
+    command:              'npx vite preview --port 4173 --base /artlab/',
     url:                  'http://localhost:4173/artlab/',
     timeout:              30_000,
     reuseExistingServer:  !process.env.CI,

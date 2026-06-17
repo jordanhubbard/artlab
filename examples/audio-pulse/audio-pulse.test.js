@@ -20,7 +20,7 @@ const fakeAudioCtx = {
   close: vi.fn(),
 }
 
-vi.stubGlobal('AudioContext', vi.fn(() => fakeAudioCtx))
+vi.stubGlobal('AudioContext', vi.fn(function () { return fakeAudioCtx }))
 
 // Mock getUserMedia to reject so the fallback oscillator path runs (avoiding
 // real media device access in tests)

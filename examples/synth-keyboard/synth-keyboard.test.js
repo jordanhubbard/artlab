@@ -2,9 +2,22 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import * as Three from 'three'
 vi.mock('tone', () => ({
-  PolySynth: vi.fn(() => ({ connect: vi.fn(), triggerAttackRelease: vi.fn(), dispose: vi.fn() })),
-  Synth: vi.fn(),
-  Reverb: vi.fn(() => ({ toDestination: vi.fn(), dispose: vi.fn() })),
+  PolySynth: vi.fn(function () {
+    return {
+      connect: vi.fn().mockReturnThis(),
+      triggerAttack: vi.fn(),
+      triggerRelease: vi.fn(),
+      triggerAttackRelease: vi.fn(),
+      dispose: vi.fn(),
+    }
+  }),
+  Synth: vi.fn(function () {}),
+  Reverb: vi.fn(function () {
+    return {
+      toDestination: vi.fn().mockReturnThis(),
+      dispose: vi.fn(),
+    }
+  }),
   start: vi.fn(),
 }))
 

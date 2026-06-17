@@ -10,6 +10,12 @@ const BANDS = [
 const PARTICLE_COUNT = 300
 const FFT_SIZE = 256
 
+function overlayContainer(ctx) {
+  return ctx.renderer?.domElement?.parentElement
+    ?? document.getElementById('canvas-container')
+    ?? document.body
+}
+
 export async function setup(ctx) {
   ctx.setHelp('Click Start to enable microphone — rings pulse with bass / mid / treble')
   ctx.camera.position.set(0, 4, 10)
@@ -29,7 +35,7 @@ export async function setup(ctx) {
   ctx._fftData = null
   ctx._stream = null
 
-  const container = ctx.renderer.domElement.parentElement
+  const container = overlayContainer(ctx)
   ctx._startBtn = document.createElement('button')
   Object.assign(ctx._startBtn.style, {
     position: 'absolute', bottom: '24px', left: '50%', transform: 'translateX(-50%)',
@@ -166,11 +172,13 @@ export function update(ctx, dt) {
 
 export function teardown(ctx) {
   ctx._startBtn?.remove()
-  for (const { mesh } of ctx._rings) ctx.remove(mesh)
-  ctx.remove(ctx._particles)
-  ctx._particles.geometry.dispose()
-  ctx._particles.material.dispose()
-  for (const l of ctx._lights) ctx.remove(l)
+  for (const { mesh } of ctx._rings ?? []) ctx.remove(mesh)
+  if (ctx._particles) {
+    ctx.remove(ctx._particles)
+    ctx._particles.geometry.dispose()
+    ctx._particles.material.dispose()
+  }
+  for (const l of ctx._lights ?? []) ctx.remove(l)
   if (ctx._stream) ctx._stream.getTracks().forEach(t => t.stop())
   if (ctx._audioCtx) ctx._audioCtx.close()
 }

@@ -55,16 +55,14 @@ const copyExamplesPlugin = {
     copyFileSync(`${jsm}/exporters/STLExporter.js`,   `${addons}/exporters/STLExporter.js`)
     copyFileSync(`${jsm}/exporters/OBJExporter.js`,   `${addons}/exporters/OBJExporter.js`)
 
-    // manifold-3d — bundle the JS wrapper and copy the WASM binary alongside it.
+    // manifold-3d ships an ESM wrapper that detects browser vs. Node at runtime.
+    // Copy it directly; bundling tries to resolve its guarded node:module import.
     // The Emscripten runtime resolves manifold.wasm relative to the module URL,
     // so both files must live in the same directory.
-    await esbuild({
-      entryPoints: ['node_modules/manifold-3d/manifold.js'],
-      bundle:      true,
-      format:      'esm',
-      minify:      true,
-      outfile:     'dist/vendors/manifold.esm.js',
-    })
+    copyFileSync(
+      'node_modules/manifold-3d/manifold.js',
+      'dist/vendors/manifold.esm.js',
+    )
     copyFileSync(
       'node_modules/manifold-3d/manifold.wasm',
       'dist/vendors/manifold.wasm',
@@ -80,8 +78,8 @@ const importMapPlugin = {
   name: 'inject-import-map',
   apply: 'build',
   transformIndexHtml: {
-    enforce: 'post',
-    transform(html, ctx) {
+    order: 'post',
+    handler(html, ctx) {
       if (!ctx.bundle) return html
       const base = process.env.BASE_URL ?? '/'
       const imports = {
@@ -112,8 +110,8 @@ export default defineConfig({
         main: 'index.html',
       },
       output: {
-        manualChunks: {
-          three: ['three'],
+        manualChunks(id) {
+          if (id.includes('/node_modules/three/')) return 'three'
         },
       },
     },

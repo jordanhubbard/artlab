@@ -9,14 +9,14 @@ vi.mock('three', async () => await vi.importActual('three'))
 vi.mock('tone', () => ({
   start: vi.fn().mockResolvedValue(undefined),
   Transport: { start: vi.fn(), stop: vi.fn(), pause: vi.fn(), state: 'stopped', bpm: { value: 120 } },
-  Synth: vi.fn(() => ({ connect: vi.fn().mockReturnThis(), dispose: vi.fn(), triggerAttackRelease: vi.fn() })),
-  PolySynth: vi.fn(() => ({ connect: vi.fn().mockReturnThis(), dispose: vi.fn(), triggerAttackRelease: vi.fn() })),
-  AMSynth: vi.fn(() => ({ connect: vi.fn().mockReturnThis(), dispose: vi.fn(), triggerAttackRelease: vi.fn() })),
-  NoiseSynth: vi.fn(() => ({ connect: vi.fn().mockReturnThis(), dispose: vi.fn(), triggerAttackRelease: vi.fn() })),
-  Reverb: vi.fn(() => ({ connect: vi.fn().mockReturnThis(), dispose: vi.fn(), toDestination: vi.fn().mockReturnThis() })),
-  FeedbackDelay: vi.fn(() => ({ connect: vi.fn().mockReturnThis(), dispose: vi.fn() })),
-  Analyser: vi.fn(() => ({ getValue: vi.fn(() => new Float32Array(32)), dispose: vi.fn() })),
-  Sequence: vi.fn(() => ({ start: vi.fn(), stop: vi.fn(), dispose: vi.fn() })),
+  Synth: vi.fn(function () { return { connect: vi.fn().mockReturnThis(), dispose: vi.fn(), triggerAttackRelease: vi.fn() } }),
+  PolySynth: vi.fn(function () { return { connect: vi.fn().mockReturnThis(), dispose: vi.fn(), triggerAttackRelease: vi.fn() } }),
+  AMSynth: vi.fn(function () { return { connect: vi.fn().mockReturnThis(), dispose: vi.fn(), triggerAttackRelease: vi.fn() } }),
+  NoiseSynth: vi.fn(function () { return { connect: vi.fn().mockReturnThis(), dispose: vi.fn(), triggerAttackRelease: vi.fn() } }),
+  Reverb: vi.fn(function () { return { connect: vi.fn().mockReturnThis(), dispose: vi.fn(), toDestination: vi.fn().mockReturnThis() } }),
+  FeedbackDelay: vi.fn(function () { return { connect: vi.fn().mockReturnThis(), dispose: vi.fn() } }),
+  Analyser: vi.fn(function () { return { getValue: vi.fn(() => new Float32Array(32)), dispose: vi.fn() } }),
+  Sequence: vi.fn(function () { return { start: vi.fn(), stop: vi.fn(), dispose: vi.fn() } }),
 }))
 
 // ── CSS2DRenderer mock ────────────────────────────────────────────────────────
@@ -83,8 +83,8 @@ const mockAudioCtx = {
   suspend: vi.fn(),
   resume: vi.fn(),
 }
-vi.stubGlobal('AudioContext', vi.fn(() => mockAudioCtx))
-vi.stubGlobal('webkitAudioContext', vi.fn(() => mockAudioCtx))
+vi.stubGlobal('AudioContext', vi.fn(function () { return mockAudioCtx }))
+vi.stubGlobal('webkitAudioContext', vi.fn(function () { return mockAudioCtx }))
 
 // ── Mock ctx ──────────────────────────────────────────────────────────────────
 
