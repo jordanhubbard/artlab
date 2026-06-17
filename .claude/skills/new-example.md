@@ -167,20 +167,10 @@ Before committing, check every item:
   `description`) and the `name` matches the directory.
 - `npm test` passes.
 
-## Step 6 — Register with bd (if applicable)
+## Step 6 — Commit and push
 
-If you are working from a `bd` issue, close it when done:
-
-```bash
-bd close <id> --reason "Added <name> example"
-```
-
-If you discovered a follow-up task while implementing, create a linked issue:
-
-```bash
-bd create "Follow-up title" --description="Details" -p 2 \
-  --deps discovered-from:<parent-id> --json
-```
+If you discovered a follow-up task while implementing, record it in the PR,
+handoff, or relevant project issue context.
 
 Then push:
 

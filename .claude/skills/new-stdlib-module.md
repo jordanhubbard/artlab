@@ -128,8 +128,4 @@ git commit -m "stdlib: add <module> module"
 git push
 ```
 
-If this work closes a `bd` issue:
-
-```bash
-bd close <id> --reason "Added <module> to stdlib"
-```
+If this work came from an issue or PR, note the completed module there.

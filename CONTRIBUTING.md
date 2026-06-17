@@ -315,22 +315,12 @@ exercise them directly.
 
 ## Issue tracking
 
-This project uses **bd** (beads) for all issue tracking. Do not create markdown
-TODO lists or use external trackers.
+There is no required local issue tracker for contributors or agents. Use the
+issue, PR, or task context provided with the work.
 
-```bash
-bd ready                          # find unblocked work
-bd show <id>                      # read an issue
-bd update <id> --claim            # claim before starting
-bd close <id> --reason "Done"     # close when finished
-```
-
-Rules:
-- Claim an issue before you start work on it.
-- If you discover new work while implementing, create a linked issue:
-  `bd create "title" --description="..." --deps discovered-from:<parent-id>`
-- Close the issue and push before ending a session. Work is not complete until
-  `git push` succeeds.
+If you discover follow-up work while implementing, record it in the PR,
+handoff, or relevant project issue context. When you are responsible for
+landing a change, work is not complete until `git push` succeeds.
 
 ---
 
