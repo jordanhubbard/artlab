@@ -8,10 +8,12 @@ function makeMockCtx(overrides = {}) {
   const scene = { add: vi.fn(), remove: vi.fn(), children: [] }
   const camera = { position: new Three.Vector3(0,0,0), lookAt: vi.fn(), quaternion: new Three.Quaternion() }
   const controls = { update: vi.fn(), target: new Three.Vector3(), enabled: true }
+  const container = document.createElement('div')
+  const canvas = document.createElement('canvas')
+  canvas.getBoundingClientRect = () => ({ left:0, top:0, width:800, height:600 })
+  container.appendChild(canvas)
   const renderer = {
-    domElement: Object.assign(document.createElement('canvas'), {
-      getBoundingClientRect: () => ({ left:0, top:0, width:800, height:600 })
-    }),
+    domElement: canvas,
     shadowMap: { enabled: false }, setSize: vi.fn(), render: vi.fn(),
   }
   return {
@@ -37,6 +39,7 @@ describe('camera-journey', () => {
   let setup, update, teardown
 
   beforeEach(async () => {
+    document.body.innerHTML = ''
     ctx = makeMockCtx()
     ;({ setup, update, teardown } = await import('./camera-journey.js'))
   })
@@ -48,10 +51,31 @@ describe('camera-journey', () => {
 
   it('setup() creates _rings and _orbiters arrays', () => {
     setup(ctx)
+    expect(ctx._cameraPath).toBeDefined()
+    expect(ctx._pillarField).toBeInstanceOf(Three.InstancedMesh)
     expect(Array.isArray(ctx._rings)).toBe(true)
     expect(ctx._rings.length).toBeGreaterThanOrEqual(3)
     expect(Array.isArray(ctx._orbiters)).toBe(true)
     expect(ctx._orbiters.length).toBeGreaterThanOrEqual(6)
+  })
+
+  it('scripted update moves the camera along the path', () => {
+    setup(ctx)
+    const start = ctx.camera.position.clone()
+    ctx.elapsed = 3
+    update(ctx, 0.016)
+    expect(ctx.camera.position.distanceTo(start)).toBeGreaterThan(0.1)
+    expect(ctx.camera.lookAt).toHaveBeenCalled()
+  })
+
+  it('C toggles manual controls and Space rejoins the scripted path', () => {
+    setup(ctx)
+    window.dispatchEvent(new KeyboardEvent('keydown', { key: 'c' }))
+    expect(ctx._useOrbit).toBe(true)
+    expect(ctx.controls.enabled).toBe(true)
+    window.dispatchEvent(new KeyboardEvent('keydown', { key: ' ' }))
+    expect(ctx._useOrbit).toBe(false)
+    expect(ctx.controls.enabled).toBe(false)
   })
 
   it('update() runs 3 frames without throwing', () => {
@@ -67,5 +91,6 @@ describe('camera-journey', () => {
     setup(ctx)
     expect(() => teardown(ctx)).not.toThrow()
     expect(ctx.controls.enabled).toBe(true)
+    expect(ctx.renderer.domElement.parentElement.querySelector('#camera-journey-hud')).toBeNull()
   })
 })

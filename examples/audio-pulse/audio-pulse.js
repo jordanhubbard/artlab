@@ -3,6 +3,7 @@ import * as Three from 'three';
 
 const SAT_COUNT  = 8;
 const SAT_RADIUS = 8;
+const SILENCE_FLOOR = 0.08;
 
 function fftAvg(d, lo, hi) {
   let s = 0; for (let i = lo; i <= hi; i++) s += d[i];
@@ -13,7 +14,71 @@ function satColor(t) {
   return (Math.floor(30 + t * 225) << 16) | (Math.floor(20 + t * 60) << 8) | Math.floor(220 - t * 180);
 }
 
+function audioContextCtor() {
+  return window.AudioContext || window.webkitAudioContext;
+}
+
+function setGain(gain, value, time = 0) {
+  if (gain.gain?.setValueAtTime) gain.gain.setValueAtTime(value, time);
+  else if (gain.gain) gain.gain.value = value;
+}
+
+function connectAnalyserToSilentSink(audioCtx, analyser) {
+  const silentGain = audioCtx.createGain();
+  setGain(silentGain, 0, audioCtx.currentTime ?? 0);
+  analyser.connect(silentGain);
+  silentGain.connect(audioCtx.destination);
+  return silentGain;
+}
+
+async function startAudioGraph(ctx, btn) {
+  const AudioContext = audioContextCtor();
+  if (!AudioContext) throw new Error('Web Audio is not available in this browser');
+
+  const audioCtx = new AudioContext();
+  await audioCtx.resume?.();
+
+  const analyser = audioCtx.createAnalyser();
+  analyser.fftSize = 256;
+  analyser.smoothingTimeConstant = 0.78;
+  const silentGain = connectAnalyserToSilentSink(audioCtx, analyser);
+
+  let stream = null;
+  let oscillator = null;
+  let sourceType = 'microphone';
+
+  try {
+    stream = await navigator.mediaDevices?.getUserMedia?.({ audio: true, video: false });
+    if (!stream) throw new Error('microphone unavailable');
+    const mic = audioCtx.createMediaStreamSource(stream);
+    mic.connect(analyser);
+  } catch (_) {
+    sourceType = 'fallback';
+    oscillator = audioCtx.createOscillator();
+    const gain = audioCtx.createGain();
+    oscillator.type = 'sine';
+    oscillator.frequency.value = 55;
+    setGain(gain, 0.08, audioCtx.currentTime ?? 0);
+    oscillator.connect(gain);
+    gain.connect(analyser);
+    oscillator.start();
+  }
+
+  ctx._audio = {
+    audioCtx,
+    analyser,
+    silentGain,
+    stream,
+    oscillator,
+    sourceType,
+    fftData: new Uint8Array(analyser.frequencyBinCount),
+    silenceFrames: 0,
+  };
+  btn.remove();
+}
+
 export function setup(ctx) {
+  ctx.setHelp('Click to enable microphone input; if access is denied, a fallback pulse drives the visual.');
   ctx.camera.position.set(0, 0, 20);
   ctx.camera.lookAt(0, 0, 0);
 
@@ -49,6 +114,7 @@ export function setup(ctx) {
   ctx._audio = null;
 
   const container = ctx.renderer.domElement.parentElement;
+  container.style.position = 'relative';
   let btn = container.querySelector('#start-btn');
   if (!btn) {
     btn = Object.assign(document.createElement('button'), { id: 'start-btn', textContent: 'Click to enable audio' });
@@ -62,27 +128,20 @@ export function setup(ctx) {
   }
   ctx._btn = btn;
   btn.style.display = 'block';
+  btn.disabled = false;
+  btn.textContent = 'Click to enable audio';
 
-  btn.addEventListener('click', async () => {
-    btn.style.display = 'none';
-    const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-    const analyser = audioCtx.createAnalyser();
-    analyser.fftSize = 256;
-    let ok = false;
+  btn.onclick = async () => {
+    btn.disabled = true;
+    btn.textContent = 'Starting audio...';
     try {
-      const mic = audioCtx.createMediaStreamSource(
-        await navigator.mediaDevices.getUserMedia({ audio: true, video: false })
-      );
-      mic.connect(analyser);
-      ok = true;
-    } catch (_) {}
-    if (!ok) {
-      const osc = audioCtx.createOscillator(), gain = audioCtx.createGain();
-      osc.type = 'sine'; osc.frequency.value = 55; gain.gain.value = 0.04;
-      osc.connect(gain); gain.connect(analyser); gain.connect(audioCtx.destination); osc.start();
+      await startAudioGraph(ctx, btn);
+    } catch (err) {
+      console.warn('[audio-pulse] audio start failed:', err);
+      btn.disabled = false;
+      btn.textContent = 'Retry audio';
     }
-    ctx._audio = { audioCtx, analyser, fftData: new Uint8Array(analyser.frequencyBinCount) };
-  }, { once: true });
+  };
 }
 
 export function update(ctx, dt) {
@@ -94,10 +153,17 @@ export function update(ctx, dt) {
     analyser.getByteFrequencyData(fftData);
     bass = fftAvg(fftData, 0, 12);
     mid  = fftAvg(fftData, 13, 90);
+    const activeSignal = bass + mid > 0.012;
+    ctx._audio.silenceFrames = activeSignal ? 0 : ctx._audio.silenceFrames + 1;
+    const silentPulse = ctx._audio.silenceFrames > 12
+      ? SILENCE_FLOOR + 0.06 * (0.5 + 0.5 * Math.sin(t * 4.5))
+      : 0;
+    bass = Math.max(bass, silentPulse);
+    mid = Math.max(mid, silentPulse * 0.65);
     ctx.setBloom(0.6 + bass * 1.8);
     for (let i = 0; i < SAT_COUNT; i++) {
       const bin  = Math.floor(i * (128 / SAT_COUNT));
-      const val  = fftData[bin] / 255;
+      const val  = Math.max(fftData[bin] / 255, silentPulse * (0.45 + 0.35 * Math.sin(t * 2 + i)));
       const sat  = ctx._sats[i];
       sat.position.set(Math.cos(sat.userData.angle) * SAT_RADIUS, val * 3.5, Math.sin(sat.userData.angle) * SAT_RADIUS);
       const hex = satColor(val);
@@ -119,5 +185,12 @@ export function update(ctx, dt) {
 
 export function teardown(ctx) {
   ctx._btn?.remove();
-  if (ctx._audio) ctx._audio.audioCtx.close();
+  if (ctx._audio) {
+    try { ctx._audio.stream?.getTracks?.().forEach(track => track.stop()) } catch (_) {}
+    try { ctx._audio.oscillator?.stop?.() } catch (_) {}
+    try { ctx._audio.oscillator?.disconnect?.() } catch (_) {}
+    try { ctx._audio.silentGain?.disconnect?.() } catch (_) {}
+    try { ctx._audio.audioCtx.close() } catch (_) {}
+    ctx._audio = null;
+  }
 }

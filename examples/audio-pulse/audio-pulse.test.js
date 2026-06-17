@@ -9,14 +9,30 @@ const fakeAnalyser = {
   frequencyBinCount: 128,
   getByteFrequencyData: vi.fn(),
   connect: vi.fn(),
+  smoothingTimeConstant: 0,
 }
+
+const fakeOscillator = {
+  type: 'sine',
+  frequency: { value: 0 },
+  connect: vi.fn(),
+  start: vi.fn(),
+  stop: vi.fn(),
+  disconnect: vi.fn(),
+}
+const fakeSilentGain = { gain: { value: 0, setValueAtTime: vi.fn() }, connect: vi.fn(), disconnect: vi.fn() }
+const fakeSourceGain = { gain: { value: 0, setValueAtTime: vi.fn() }, connect: vi.fn(), disconnect: vi.fn() }
 
 const fakeAudioCtx = {
   createAnalyser: vi.fn(() => fakeAnalyser),
   createMediaStreamSource: vi.fn(() => ({ connect: vi.fn() })),
-  createOscillator: vi.fn(() => ({ type: 'sine', frequency: { value: 0 }, connect: vi.fn(), start: vi.fn() })),
-  createGain: vi.fn(() => ({ gain: { value: 0 }, connect: vi.fn() })),
+  createOscillator: vi.fn(() => fakeOscillator),
+  createGain: vi.fn()
+    .mockImplementationOnce(() => fakeSilentGain)
+    .mockImplementation(() => fakeSourceGain),
   destination: {},
+  currentTime: 0,
+  resume: vi.fn(),
   close: vi.fn(),
 }
 
@@ -75,6 +91,10 @@ describe('audio-pulse', () => {
   beforeEach(async () => {
     document.body.innerHTML = ''
     vi.clearAllMocks()
+    fakeAudioCtx.createGain
+      .mockReset()
+      .mockImplementationOnce(() => fakeSilentGain)
+      .mockImplementation(() => fakeSourceGain)
     ctx = makeMockCtx()
     mod = await import('./audio-pulse.js')
   })
@@ -156,6 +176,36 @@ describe('audio-pulse', () => {
     // oscillator branch runs; we just verify no uncaught error was thrown.
   })
 
+  it('fallback audio connects analyser to a silent sink so FFT is pulled', async () => {
+    mod.setup(ctx)
+    const btn = ctx.renderer.domElement.parentElement.querySelector('#start-btn')
+    btn.click()
+    await new Promise(resolve => setTimeout(resolve, 0))
+
+    expect(fakeAudioCtx.resume).toHaveBeenCalled()
+    expect(fakeAnalyser.connect).toHaveBeenCalledWith(fakeSilentGain)
+    expect(fakeSilentGain.connect).toHaveBeenCalledWith(fakeAudioCtx.destination)
+    expect(fakeOscillator.start).toHaveBeenCalled()
+    expect(ctx._audio.sourceType).toBe('fallback')
+    expect(ctx.renderer.domElement.parentElement.querySelector('#start-btn')).toBeNull()
+  })
+
+  it('silent analyser data still produces visible satellite motion after calibration', async () => {
+    fakeAnalyser.getByteFrequencyData.mockImplementation(arr => arr.fill(0))
+    mod.setup(ctx)
+    const btn = ctx.renderer.domElement.parentElement.querySelector('#start-btn')
+    btn.click()
+    await new Promise(resolve => setTimeout(resolve, 0))
+
+    for (let i = 0; i < 14; i++) {
+      ctx.elapsed = i * 0.1
+      mod.update(ctx, 0.1)
+    }
+
+    expect(ctx._sats.some(sat => sat.position.y > 0)).toBe(true)
+    expect(ctx._core.scale.x).toBeGreaterThan(1)
+  })
+
   it('teardown() does not throw', () => {
     mod.setup(ctx)
     expect(() => mod.teardown(ctx)).not.toThrow()
@@ -167,5 +217,19 @@ describe('audio-pulse', () => {
     expect(container.querySelector('#start-btn')).not.toBeNull()
     mod.teardown(ctx)
     expect(container.querySelector('#start-btn')).toBeNull()
+  })
+
+  it('teardown() stops fallback audio nodes', async () => {
+    mod.setup(ctx)
+    const btn = ctx.renderer.domElement.parentElement.querySelector('#start-btn')
+    btn.click()
+    await new Promise(resolve => setTimeout(resolve, 0))
+    mod.teardown(ctx)
+
+    expect(fakeOscillator.stop).toHaveBeenCalled()
+    expect(fakeOscillator.disconnect).toHaveBeenCalled()
+    expect(fakeSilentGain.disconnect).toHaveBeenCalled()
+    expect(fakeAudioCtx.close).toHaveBeenCalled()
+    expect(ctx._audio).toBeNull()
   })
 })

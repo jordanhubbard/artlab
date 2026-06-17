@@ -110,7 +110,7 @@ const EXAMPLES = [
   { name: 'audio-pulse', entry: 'audio-pulse.js', description: 'A microphone-reactive sphere and satellite ring — the basic audio example' },
   { name: 'audio-terrain', entry: 'audio-terrain.js', description: 'Microphone-driven terrain that deforms by audio band, with height-mapped vertex colors and reactive sparkle particles' },
   { name: 'aurora', entry: 'aurora.js', description: 'A dome of stars beneath undulating aurora curtains of green, teal, and violet light.' },
-  { name: 'camera-journey', entry: 'camera-journey.js', description: 'Cinematic path camera touring a pillar grid — cameras stdlib demo' },
+  { name: 'camera-journey', entry: 'camera-journey.js', description: 'Cinematic spline camera tour through a neon pillar field' },
   { name: 'canvas-2d', entry: 'canvas-2d.js', description: 'Canvas 2D generative art rendered as a live 3D texture' },
   { name: 'chroma-mirror', entry: 'chroma-mirror.js', description: 'Live webcam with chroma key compositing onto a rotating scene of glowing 3D shapes' },
   { name: 'clock-3d', entry: 'clock-3d.js', description: 'Elegant 3D analog clock with metallic bezel, gold hour markers, and smooth real-time hands' },

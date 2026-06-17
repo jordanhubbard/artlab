@@ -5,7 +5,7 @@
 //
 // Scale: 1 AU = 100 Three.js units | Earth radius = 2.5 units | 1 year = 120 s
 
-import { setupJourney, startJourney, updateJourney, journeyDone } from './camera-journey.js'
+import { setupJourney, startJourney, updateJourney, journeyDone, journeyStatus } from './camera-journey.js'
 import { setupAudio, updateAudio, teardownAudio } from './audio.js'
 import { meanAnomaly, keplerPosition } from '../../src/physics/Physics.js'
 
@@ -123,7 +123,7 @@ function easeInOut(t) {
 export async function setup(ctx) {
   const { Three } = ctx
 
-  ctx.setHelp('O: toggle orbit lines   •   Click a planet to focus the camera')
+  ctx.setHelp('O: toggle orbit lines   •   Begin Slingshot: Sun-to-Pluto gravity-assist fly-by   •   Click a planet to focus')
 
   // CSS2DObject — dynamic import so the package degrades gracefully in blob-URL contexts
   let CSS2DObject = null
@@ -132,10 +132,11 @@ export async function setup(ctx) {
     CSS2DObject = m.CSS2DObject
   } catch {}
 
-  // Camera — start near Earth (matches journey's first waypoint at t=0)
-  ctx.camera.position.set(108, 5, 18)
-  ctx.camera.lookAt(100, 0, 0)
-  ctx.controls.target.set(100, 0, 0)
+  // Camera starts just outside the solar corona; the journey controls only the
+  // spacecraft viewpoint and leaves the simulated bodies untouched.
+  ctx.camera.position.set(24, 8, 8)
+  ctx.camera.lookAt(0, 0, 0)
+  ctx.controls.target.set(0, 0, 0)
   ctx.controls.minDistance = 20
   ctx.controls.maxDistance = 5000
 
@@ -339,12 +340,27 @@ export async function setup(ctx) {
       'position:absolute;bottom:14px;left:14px;pointer-events:none;z-index:10;' +
       'font-family:"Courier New",monospace;font-size:10px;line-height:1.9;' +
       'color:rgba(160,210,255,0.45);letter-spacing:0.14em;text-transform:uppercase'
-    hint.innerHTML = 'drag to orbit<br>scroll to zoom<br>click planet to focus'
+    hint.innerHTML = 'sun launch vector<br>gravity assists armed<br>click planet to focus'
     _btnContainer.appendChild(hint)
   }
   ctx._ssHint = hint
 
-  // Begin Journey button — bottom-centre of canvas container
+  let hud = _btnContainer.querySelector('#ss-mission-hud')
+  if (!hud) {
+    hud = document.createElement('div')
+    hud.id = 'ss-mission-hud'
+    hud.style.cssText =
+      'position:absolute;top:14px;right:14px;pointer-events:none;z-index:10;' +
+      'font-family:"Courier New",monospace;font-size:10px;line-height:1.7;' +
+      'color:rgba(190,225,255,0.72);letter-spacing:0.12em;text-transform:uppercase;' +
+      'text-align:right;white-space:pre;background:rgba(2,8,20,0.32);' +
+      'border:1px solid rgba(110,170,255,0.14);padding:8px 10px;border-radius:2px'
+    _btnContainer.appendChild(hud)
+  }
+  ctx._ssMissionHud = hud
+  _updateMissionHud(ctx)
+
+  // Begin Slingshot button — bottom-centre of canvas container
   let btn = _btnContainer.querySelector('#start-btn')
   if (!btn) {
     btn = document.createElement('button')
@@ -357,12 +373,13 @@ export async function setup(ctx) {
       'letter-spacing:0.3em;text-transform:uppercase'
     _btnContainer.appendChild(btn)
   }
-  btn.textContent = 'Begin Journey'
+  btn.textContent = 'Begin Slingshot'
   btn.style.display = 'block'
   btn.addEventListener('click', () => {
     btn.remove()
     setupAudio(ctx)
     startJourney(ctx)
+    _updateMissionHud(ctx)
   }, { once: true })
 }
 
@@ -426,6 +443,7 @@ export function update(ctx, dt) {
   } else if (journeyDone(ctx) && !ctx._focusTween) {
     ctx.controls.enabled = true
   }
+  _updateMissionHud(ctx)
 
   // Planet focus tween (click-to-orbit)
   if (ctx._focusTween) {
@@ -456,6 +474,7 @@ export function teardown(ctx) {
   if (ctx._onClick) ctx.renderer?.domElement.removeEventListener('click', ctx._onClick)
   ctx.renderer?.domElement.parentElement.querySelector('#start-btn')?.remove()
   ctx._ssHint?.remove()
+  ctx._ssMissionHud?.remove()
 }
 
 // ── Private ────────────────────────────────────────────────────────────────────
@@ -472,4 +491,36 @@ function _startFocus(ctx, name) {
     t: 0, dur: 2.2,
   }
   ctx.controls.enabled = false
+}
+
+function _updateMissionHud(ctx) {
+  const hud = ctx._ssMissionHud
+  if (!hud) return
+
+  const status = journeyStatus(ctx)
+  if (!status || (!status.playing && !status.done)) {
+    hud.textContent = [
+      'SLINGSHOT NAV',
+      'STATUS  STANDBY',
+      'ORIGIN  SUN',
+      'TARGET  MERCURY',
+      'SPEED   42 KM/S',
+    ].join('\n')
+    return
+  }
+
+  const target = status.targetLabel ?? 'Deep space'
+  const next = status.nextLabel ?? 'Interstellar'
+  const speed = Math.round(status.speed)
+  const correction = Math.round(status.courseCorrection)
+  const progress = Math.round(status.progress * 100)
+  hud.textContent = [
+    'SLINGSHOT NAV',
+    `TARGET  ${target}`,
+    `NEXT    ${next}`,
+    `PHASE   ${status.phase}`,
+    `SPEED   ${speed} KM/S`,
+    `COURSE  ${correction} DEG`,
+    `MISSION ${progress}%`,
+  ].join('\n')
 }

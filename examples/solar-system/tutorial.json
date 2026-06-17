@@ -4,8 +4,8 @@
     {
       "id": "intro",
       "title": "Overview",
-      "body": "Solar System is the Artlab reference package: a physically-scaled solar system (1 AU = 100 Three.js units, 1 year = 120 s) with textured planets, LOD meshes, Saturn's rings, atmospheric rim-glow shaders, a 3000-asteroid instanced belt, CSS2D labels, click-to-focus tweening, and a generative audio layer that responds to camera proximity. The demo is split across three files: `solar-system.js` orchestrates scene construction and the update loop, `camera-journey.js` drives a scripted flythrough, and `audio.js` handles Tone.js synthesis and FFT bloom binding. Everything activates from a single \"Begin Journey\" button click.",
-      "lines": [1, 455]
+      "body": "Solar System is the Artlab reference package: a physically-scaled solar system (1 AU = 100 Three.js units, 1 year = 120 s) with textured planets, LOD meshes, Saturn's rings, atmospheric rim-glow shaders, a 3000-asteroid instanced belt, CSS2D labels, click-to-focus tweening, and a generative audio layer that responds to camera proximity. The demo is split across three files: `solar-system.js` orchestrates scene construction and the update loop, `camera-journey.js` drives a dynamic Sun-to-Pluto gravity-assist camera fly-by from live planet positions, and `audio.js` handles Tone.js synthesis and FFT bloom binding. Everything activates from a single \"Begin Slingshot\" button click.",
+      "lines": [1, 490]
     },
     {
       "id": "planet-data",
@@ -22,7 +22,7 @@
     {
       "id": "update-orbits",
       "title": "Orbital Position Math",
-      "body": "The update loop computes each planet's current angle as `(t / (T * YEAR)) * 2π`, where `t` is `ctx.elapsed` in seconds and `T * YEAR` converts the orbital period to seconds. This gives circular orbits that advance at the correct relative speeds — Mercury completes a full lap roughly 4× faster than Earth. Self-rotation uses the same pattern: `rotDir * (t / rotPeriod) * 2π` applied to `_lodRoots[name].rotation.y`, with Venus and Uranus given negative `rotDir` to model retrograde rotation. The Moon and asteroid belt follow the same formula at their own periods and radii.",
+      "body": "The update loop computes each planet's current position with `meanAnomaly` and `keplerPosition`, preserving the configured semi-major axes and eccentricities instead of moving planets to fit the camera tour. Self-rotation uses `rotDir * (t / rotPeriod) * 2π` applied to `_lodRoots[name].rotation.y`, with Venus and Uranus given negative `rotDir` to model retrograde rotation. The Moon and asteroid belt follow the same time-based pattern at their own periods and radii.",
       "lines": [359, 397]
     },
     {

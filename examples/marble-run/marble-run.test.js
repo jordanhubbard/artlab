@@ -67,8 +67,22 @@ describe('marble-run', () => {
   it('setup() creates _ramps and _marbles', () => {
     mod.setup(ctx)
     expect(ctx._ramps).toBeDefined()
+    expect(ctx._model).toBeInstanceOf(Three.Group)
     expect(Array.isArray(ctx._marbles)).toBe(true)
     expect(ctx._spawnTimer).toBeDefined()
+  })
+
+  it('ramps alternate slope direction and are offset to catch the prior exit', () => {
+    mod.setup(ctx)
+    const tilts = ctx._ramps.map(r => Math.sign(r.tilt))
+    expect(tilts).toEqual([-1, 1, -1, 1, -1, 1])
+    for (let i = 1; i < ctx._ramps.length; i++) {
+      const prior = ctx._ramps[i - 1]
+      const next = ctx._ramps[i]
+      const priorExit = prior.tilt < 0 ? prior.maxX : prior.minX
+      expect(priorExit).toBeGreaterThanOrEqual(next.minX)
+      expect(priorExit).toBeLessThanOrEqual(next.maxX)
+    }
   })
 
   it('setup() creates _bowl mesh', () => {
@@ -94,6 +108,65 @@ describe('marble-run', () => {
     }).not.toThrow()
   })
 
+  it('marbles roll right on ramps that visually descend to the right', () => {
+    mod.setup(ctx)
+    const ramp = ctx._ramps[0]
+    const radius = 0.14
+    const x0 = -2.4
+    const surfaceY = ramp.cy + (x0 - ramp.cx) * Math.sin(ramp.tilt) + 0.06
+    const mesh = new Three.Mesh(new Three.SphereGeometry(radius, 8, 6), new Three.MeshStandardMaterial())
+    const marble = {
+      pos: new Three.Vector3(x0, surfaceY + radius, 0),
+      vel: new Three.Vector3(0, 0, 0),
+      radius,
+      mesh,
+      alive: true,
+    }
+    ctx._marbles.push(marble)
+
+    for (let i = 0; i < 60; i++) {
+      ctx.elapsed += 0.016
+      mod.update(ctx, 0.016)
+    }
+
+    expect(marble.pos.x).toBeGreaterThan(x0)
+  })
+
+  it('default seeded marbles traverse the full ramp stack into the catch basin', () => {
+    const randomSpy = vi.spyOn(Math, 'random').mockReturnValue(0.5)
+    try {
+      mod.setup(ctx)
+      ctx._spawnTimer = 10
+      mod.update(ctx, 0.016)
+      expect(ctx._marbles).toHaveLength(1)
+      const marble = ctx._marbles[0]
+
+      for (let i = 0; i < 2300; i++) {
+        ctx.elapsed += 0.016
+        mod.update(ctx, 0.016)
+      }
+
+      const bottomRamp = ctx._ramps[ctx._ramps.length - 1]
+      expect(marble.alive).toBe(true)
+      expect(marble.pos.y).toBeLessThan(bottomRamp.cy)
+      expect(marble.pos.y).toBeGreaterThan(bottomRamp.cy - 1.5)
+      expect(marble.pos.x).toBeGreaterThan(-5.4)
+      expect(marble.pos.x).toBeLessThan(0.6)
+    } finally {
+      randomSpy.mockRestore()
+    }
+  })
+
+  it('arrow keys tilt the model and R resets it', () => {
+    mod.setup(ctx)
+    window.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowRight' }))
+    expect(ctx._model.rotation.z).toBeLessThan(0)
+    window.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowDown' }))
+    expect(ctx._model.rotation.x).toBeGreaterThan(0)
+    window.dispatchEvent(new KeyboardEvent('keydown', { key: 'r' }))
+    expect(ctx._model.rotation.x).toBe(0)
+    expect(ctx._model.rotation.z).toBe(0)
+  })
 
 
   it('teardown() does not throw', () => {

@@ -2,5 +2,5 @@
   "name": "solar-system",
   "version": "1.0.0",
   "entry": "solar-system.js",
-  "description": "Audio-reactive 3D solar system — the Artlab reference demo"
+  "description": "Audio-reactive 3D solar system with a Sun-to-Pluto gravity-assist camera fly-by"
 }
