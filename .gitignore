@@ -3,14 +3,12 @@ dist/
 .DS_Store
 *.local
 public/textures/
+.codegraph/
+.task-context.json
 
 # Playwright e2e output
 test-results/
 playwright-report/
-
-# Dolt database files (added by bd init)
-.dolt/
-*.db
 
 # User workspace — packages live outside the source tree
 /packages/
@@ -18,6 +16,5 @@ playwright-report/
 # Exported ZIP artifacts
 *.zip
 
-# Beads tool credentials and transient state
-.beads/.beads-credential-key
-.beads/export-state.json
+# Local issue-tracker state
+.beads/

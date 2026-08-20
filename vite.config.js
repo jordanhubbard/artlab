@@ -111,7 +111,9 @@ export default defineConfig({
       },
       output: {
         manualChunks(id) {
+          if (id.includes('/node_modules/monaco-editor/')) return 'monaco'
           if (id.includes('/node_modules/three/')) return 'three'
+          if (id.includes('/node_modules/tone/')) return 'tone'
         },
       },
     },

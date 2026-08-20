@@ -2,6 +2,9 @@
   "name": "artlab",
   "version": "1.0.0",
   "type": "module",
+  "engines": {
+    "node": ">=22.13"
+  },
   "bin": {
     "artlab": "bin/artlab.js"
   },
@@ -9,6 +12,7 @@
     "dev": "vite",
     "build": "vite build",
     "preview": "vite preview",
+    "lint": "eslint .",
     "test": "vitest run",
     "test:watch": "vitest",
     "build:artlab": "BASE_URL=/artlab/ vite build",
@@ -16,18 +20,18 @@
   },
   "dependencies": {
     "@dimforge/rapier3d-compat": "^0.19.3",
-    "gsap": "^3.12.5",
-    "howler": "^2.2.4",
     "jszip": "^3.10.1",
-    "lil-gui": "^0.21.0",
     "manifold-3d": "^3.4.1",
     "monaco-editor": "^0.53.0",
     "three": "^0.170.0",
     "tone": "^14.9.0"
   },
   "devDependencies": {
+    "@eslint/js": "^10.0.1",
     "@playwright/test": "^1.59.1",
     "esbuild": "^0.28.1",
+    "eslint": "^10.8.1",
+    "globals": "^17.11.0",
     "jsdom": "^29.0.2",
     "vite": "^8.0.16",
     "vitest": "^4.1.9"
