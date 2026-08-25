@@ -47,6 +47,8 @@ describe('fluid-2d', () => {
     expect(ctx._d).toBeInstanceOf(Float32Array)
     expect(ctx._u.length).toBe(size)
     expect(ctx._d.length).toBe(size)
+    const seeded = ctx._d.reduce((s, v) => s + v, 0)
+    expect(seeded).toBeGreaterThan(0)
   })
 
   it('setup() creates a DataTexture and quad', () => {

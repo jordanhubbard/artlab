@@ -32,7 +32,11 @@ export function setup(ctx) {
   ctx.camera.lookAt(0, 2, 0)
   ctx.setBloom(1.2)
 
-  ctx.add(new Three.AmbientLight(0x112233, 1.0))
+  ctx.add(new Three.AmbientLight(0x334466, 1.2))
+  const key = new Three.PointLight(0x88ccff, 40, 40, 2)
+  key.position.set(0, 8, 6)
+  ctx.add(key)
+  ctx._key = key
 
   const groundGeo = new Three.PlaneGeometry(40, 40)
   const groundMat = new Three.MeshStandardMaterial({ color: 0x0a0a14, roughness: 1 })
@@ -60,6 +64,7 @@ export function setup(ctx) {
     PARTICLE_N
   )
   ctx.add(ctx._instanced)
+  ctx._instanced.frustumCulled = false
   ctx._dummy = new Three.Object3D()
 
   const raycaster   = new Three.Raycaster()
@@ -128,4 +133,5 @@ export function teardown(ctx) {
   ctx._instanced.geometry.dispose()
   ctx._instanced.material.dispose()
   ctx.remove(ctx._instanced)
+  if (ctx._key) ctx.remove(ctx._key)
 }

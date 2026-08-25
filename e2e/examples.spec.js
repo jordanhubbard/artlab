@@ -43,6 +43,7 @@ const SLOW_EXAMPLES = new Set([
   'reaction-diffusion',
   'tide-eroded-vessel',
   'bell-orrery',
+  'printable-bracket',
 ])
 
 const EXAMPLES = [
@@ -77,6 +78,7 @@ const EXAMPLES = [
   'penrose-tiles',
   'physics-particles',
   'pixel-sort',
+  'printable-bracket',
   'reaction-diffusion',
   'recursive-spirals',
   'shader-gallery',

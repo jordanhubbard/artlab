@@ -61,9 +61,16 @@ describe('physics-particles', () => {
     expect(ctx._ground).toBeInstanceOf(Three.Mesh)
   })
 
+  it('setup() adds a point light so particles are visible', () => {
+    mod.setup(ctx)
+    expect(ctx._key).toBeInstanceOf(Three.PointLight)
+    expect(ctx.add).toHaveBeenCalledWith(ctx._key)
+  })
+
   it('setup() creates ctx._instanced InstancedMesh', () => {
     mod.setup(ctx)
     expect(ctx._instanced).toBeInstanceOf(Three.InstancedMesh)
+    expect(ctx._instanced.frustumCulled).toBe(false)
   })
 
   it('update() runs 3 frames without throwing', () => {

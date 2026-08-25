@@ -1,144 +1,304 @@
-// Typography Art — a neon digital-art poster rendered entirely in Three.js.
-// A glowing ARTLAB logotype pulses over a dark grid, with cycling quote
-// subtitles drawn as emissive 3D text planes approximated via canvas texture.
+// Typography Art — "Monument".
+//
+// The word LANGUAGE is built as brutalist architecture: every glyph is a mass of
+// extruded concrete strokes standing on its own plinth, split by a central plaza
+// wide enough to walk through. A low dawn sun rakes across the letterforms so the
+// word is read through its own shadows, and the camera drifts on a slow closed
+// loop that sweeps wide across the front and then passes between the two halves.
 
-const QUOTES = [
-  "Art is the lie that reveals the truth.",
-  "Every child is an artist.",
-  "Creativity is intelligence having fun.",
-  "The purpose of art is washing dust from the soul.",
-  "Art enables us to find ourselves and lose ourselves.",
-  "To create is to resist.",
-];
-const QUOTE_INTERVAL = 4.0;
+import * as Three from 'three'
 
-export function setup(ctx) {
-  const { Three, plane, mesh, ambient } = ctx;
+// ── Letterforms ───────────────────────────────────────────────────────────────
+// Strokes are [x, y, width, height] rectangles on a 5x7 cell grid whose origin is
+// the bottom-left of the glyph. Diagonals are stepped, not sloped, because every
+// stroke is extruded from the same box: the alphabet stays buildable in stone.
 
-  ctx.camera.position.set(0, 0, 5);
-
-  ctx.add(ambient(0x000000, 1.0));
-
-  // Dark backdrop plane
-  const bg = mesh(plane(20, 12), { color: 0x060608, roughness: 1.0, metalness: 0.0 });
-  bg.material.emissive = new Three.Color(0x060608);
-  bg.position.set(0, 0, -1);
-  ctx.add(bg);
-
-  // Grid lines (horizontal)
-  for (let row = 0; row < 13; row++) {
-    const y = row - 6.0;
-    const line = mesh(plane(20, 0.01), { color: 0x000000, roughness: 1.0, metalness: 0.0 });
-    line.material.emissive = new Three.Color(0x0a1a2a);
-    line.position.set(0, y, -0.5);
-    ctx.add(line);
-  }
-
-  // Grid lines (vertical)
-  for (let col = 0; col < 21; col++) {
-    const x = col - 10.0;
-    const line = mesh(plane(0.01, 12), { color: 0x000000, roughness: 1.0, metalness: 0.0 });
-    line.material.emissive = new Three.Color(0x0a1a2a);
-    line.position.set(x, 0, -0.5);
-    ctx.add(line);
-  }
-
-  // Canvas texture for the neon logotype and quote
-  const canvas  = document.createElement('canvas');
-  canvas.width  = 1280;
-  canvas.height = 720;
-  ctx._canvas   = canvas;
-  ctx._canvasCtx = canvas.getContext('2d');
-
-  const texture = new Three.CanvasTexture(canvas);
-  ctx._texture  = texture;
-
-  // Full-screen quad in front of scene to display canvas artwork
-  const quadGeo = plane(20, 11.25);
-  const quadMat = new Three.MeshBasicMaterial({
-    map: texture, transparent: true, depthWrite: false
-  });
-  const quad = new Three.Mesh(quadGeo, quadMat);
-  quad.position.set(0, 0, 0.5);
-  ctx.add(quad);
-
-  ctx._quoteIdx  = 0;
-  ctx._lastQuote = 0;
+const GLYPH_STROKES = {
+  L: [[0, 0, 1, 7], [1, 0, 4, 1]],
+  A: [[0, 0, 1, 7], [4, 0, 1, 7], [1, 6, 3, 1], [1, 3, 3, 1]],
+  N: [[0, 0, 1, 7], [4, 0, 1, 7], [1, 4.5, 1, 1.5], [2, 3, 1, 1.5], [3, 1.5, 1, 1.5]],
+  G: [[0, 0.8, 1, 5.4], [1, 6, 3.6, 1], [1, 0, 3.6, 1], [4, 0.8, 1, 2.4], [2.4, 2.6, 2.6, 1]],
+  U: [[0, 1, 1, 6], [4, 1, 1, 6], [1, 0, 3, 1]],
+  E: [[0, 0, 1, 7], [1, 6, 4, 1], [1, 3, 3, 1], [1, 0, 4, 1]],
 }
 
-export function update(ctx, dt) {
-  const elapsed = ctx.elapsed;
-  const c = ctx._canvasCtx;
+const WORD = 'LANGUAGE'
 
-  c.clearRect(0, 0, 1280, 720);
+const CELL          = 2.0   // world units per grid cell
+const GLYPH_CELLS_W = 5
+const SLAB_DEPTH    = 5.0   // extrusion depth of every stroke
+const PLINTH_H      = 0.7
+const PLINTH_MARGIN = 0.8   // plinth overhang on each side
+const ADVANCE       = 14    // spacing between glyph centres within a half
+const PLAZA_HALF    = 9     // half-width of the walkable central gap
 
-  const pulse = 0.75 + 0.25 * Math.sin(elapsed * 0.8);
+// ── Site ──────────────────────────────────────────────────────────────────────
 
-  // Outer glow passes
-  c.font = 'bold 160px monospace';
-  c.textAlign = 'center';
-  c.textBaseline = 'middle';
+const GROUND_SIZE   = 900
+const SKY_RADIUS    = 500
+const FOG_NEAR      = 30
+const FOG_FAR       = 330
+const HAZE          = 0xc9a883   // dawn haze; fog and sky horizon share it
 
-  c.fillStyle = `rgba(0,255,200,${0.18 * pulse})`;
-  c.filter = 'blur(28px)';
-  c.fillText('ARTLAB', 640, 300);
+const PILLAR_ROWS   = [-60, -42, 42, 60]
+const PILLAR_STEP   = 12
+const PILLAR_REACH  = 66
+const PILLAR_SIDE   = 3.2
+const RUBBLE_COUNT  = 22
 
-  c.fillStyle = `rgba(0,255,200,${0.18 * pulse})`;
-  c.filter = 'blur(14px)';
-  c.fillText('ARTLAB', 640, 300);
+// ── Camera passage ────────────────────────────────────────────────────────────
+// A closed figure-eight: it swings wide in front of the word, skims past both
+// ends, and crosses the plaza at eye height. The look target rides the same loop
+// with a phase lead, so the camera always faces along the row of glyphs.
 
-  c.fillStyle = `rgba(80,255,220,${0.5 * pulse})`;
-  c.filter = 'blur(6px)';
-  c.fillText('ARTLAB', 640, 300);
+const LOOP_SECONDS  = 108
+const START_PHASE   = 0.78  // opening frame is a three-quarter establishing view
+const PATH_RADIUS_X = 70
+const PATH_RADIUS_Z = 32
+const PATH_EYE_Y    = 6.6
+const PATH_RISE     = 2.2
+const LOOK_LEAD     = 2.4
+const LOOK_RADIUS_X = 46
+const LOOK_RADIUS_Z = 4
+const LOOK_EYE_Y    = 6.8
 
-  c.filter = 'none';
-  c.fillStyle = `rgba(200,255,245,${pulse})`;
-  c.fillText('ARTLAB', 640, 300);
+/** Deterministic pseudo-random value in [0,1) — keeps the ruin reproducible. */
+function hash(n) {
+  const x = Math.sin(n * 12.9898) * 43758.5453
+  return x - Math.floor(x)
+}
 
-  c.strokeStyle = `rgba(0,255,200,${0.6 * pulse})`;
-  c.lineWidth = 2;
-  c.strokeText('ARTLAB', 640, 300);
+function pathPoint(phase, out) {
+  return out.set(
+    PATH_RADIUS_X * Math.sin(phase),
+    PATH_EYE_Y + PATH_RISE * Math.sin(phase * 3 + 0.4),
+    PATH_RADIUS_Z * Math.sin(phase * 2),
+  )
+}
 
-  // Cycling quote
-  const qElapsed = elapsed - ctx._lastQuote;
-  if (qElapsed >= QUOTE_INTERVAL) {
-    ctx._quoteIdx  = (ctx._quoteIdx + 1) % QUOTES.length;
-    ctx._lastQuote = elapsed;
+function lookPoint(phase, out) {
+  const p = phase + LOOK_LEAD
+  return out.set(
+    LOOK_RADIUS_X * Math.sin(p),
+    LOOK_EYE_Y,
+    LOOK_RADIUS_Z * Math.sin(p * 2),
+  )
+}
+
+function placeCamera(ctx, elapsed) {
+  const phase = START_PHASE + (elapsed * Math.PI * 2) / LOOP_SECONDS
+  ctx.camera.position.copy(pathPoint(phase, ctx._camPos))
+  ctx.camera.lookAt(lookPoint(phase, ctx._camLook))
+}
+
+// ── Construction helpers ──────────────────────────────────────────────────────
+
+/** A single extruded stone block, sized from the shared unit box. */
+function block(group, geometry, material, x, y, z, w, h, d) {
+  const m = new Three.Mesh(geometry, material)
+  m.scale.set(w, h, d)
+  m.position.set(x, y, z)
+  m.castShadow = true
+  m.receiveShadow = true
+  group.add(m)
+  return m
+}
+
+/** One glyph: a plinth plus its extruded strokes, settled slightly with age. */
+function buildGlyph(letter, index, geometry, material) {
+  const glyph = new Three.Group()
+  const glyphWidth = GLYPH_CELLS_W * CELL
+
+  block(
+    glyph, geometry, material,
+    0, PLINTH_H / 2, 0,
+    glyphWidth + PLINTH_MARGIN * 2, PLINTH_H, SLAB_DEPTH + PLINTH_MARGIN * 2,
+  )
+
+  for (const [cx, cy, cw, ch] of GLYPH_STROKES[letter]) {
+    block(
+      glyph, geometry, material,
+      (cx + cw / 2 - GLYPH_CELLS_W / 2) * CELL,
+      PLINTH_H + (cy + ch / 2) * CELL,
+      0,
+      cw * CELL, ch * CELL, SLAB_DEPTH,
+    )
   }
-  const qe = elapsed - ctx._lastQuote;
-  let fade = 1.0;
-  if (qe < 0.6)                    fade = qe / 0.6;
-  else if (qe > QUOTE_INTERVAL - 0.6) fade = (QUOTE_INTERVAL - qe) / 0.6;
 
-  const quote = QUOTES[ctx._quoteIdx];
-  c.font = '22px monospace';
-  c.fillStyle = `rgba(100,220,200,${fade * 0.9})`;
-  c.filter = 'blur(1.5px)';
-  c.fillText(quote, 640, 420);
-  c.filter = 'none';
-  c.fillStyle = `rgba(180,255,235,${fade * 0.95})`;
-  c.fillText(quote, 640, 420);
+  // Centuries of settling: a hair of lean and sink, never enough to float.
+  glyph.rotation.z = (hash(index + 1) - 0.5) * 0.02
+  glyph.rotation.y = (hash(index + 7) - 0.5) * 0.05
+  glyph.position.set(glyphCenterX(index), -hash(index + 13) * 0.12, 0)
+  return glyph
+}
 
-  // Decorative rule
-  const ruleAlpha = 0.5 + 0.3 * Math.sin(elapsed * 1.2);
-  c.strokeStyle = `rgba(0,255,200,${ruleAlpha})`;
-  c.lineWidth = 1.5;
-  c.beginPath();
-  c.moveTo(200, 370);
-  c.lineTo(1080, 370);
-  c.stroke();
+/** Glyph centres, split by the plaza: half the word on each side of the origin. */
+function glyphCenterX(index) {
+  const half = WORD.length / 2
+  const fromPlaza = index < half ? half - 1 - index : index - half
+  const offset = PLAZA_HALF + (GLYPH_CELLS_W * CELL) / 2 + fromPlaza * ADVANCE
+  return index < half ? -offset : offset
+}
 
-  // Corner branding
-  c.font = '12px monospace';
-  c.fillStyle = 'rgba(0,180,150,0.6)';
-  c.textAlign = 'left';
-  c.fillText('ARTLAB v1.0', 20, 700);
-  c.textAlign = 'right';
-  c.fillText('generative art engine', 1260, 700);
+function buildPillars(geometry, material) {
+  const pillars = new Three.Group()
+  let seed = 0
+  for (const z of PILLAR_ROWS) {
+    for (let x = -PILLAR_REACH; x <= PILLAR_REACH; x += PILLAR_STEP) {
+      seed += 1
+      const broken = hash(seed * 3 + 2) < 0.3
+      const height = broken ? 2.5 + hash(seed * 5) * 3 : 7 + hash(seed * 5) * 13
+      const jitter = (hash(seed * 11) - 0.5) * 4
+      block(
+        pillars, geometry, material,
+        x + jitter, height / 2, z + (hash(seed * 17) - 0.5) * 6,
+        PILLAR_SIDE, height, PILLAR_SIDE,
+      )
+    }
+  }
+  return pillars
+}
 
-  ctx._texture.needsUpdate = true;
+function buildRubble(geometry, material) {
+  const rubble = new Three.Group()
+  for (let i = 0; i < RUBBLE_COUNT; i++) {
+    const width  = 3 + hash(i * 2 + 1) * 4
+    const height = 0.8 + hash(i * 2 + 5) * 0.8
+    const depth  = 2 + hash(i * 2 + 9) * 2
+    const slab = block(
+      rubble, geometry, material,
+      (hash(i * 3 + 4) - 0.5) * 132,
+      height / 2,
+      (hash(i * 3 + 8) - 0.5) * 44,
+      width, height, depth,
+    )
+    slab.rotation.y = hash(i * 7 + 3) * Math.PI
+    slab.rotation.z = (hash(i * 7 + 6) - 0.5) * 0.25
+  }
+  return rubble
+}
+
+/** Vertical dawn gradient: indigo zenith fading down to a burning horizon. */
+function makeSkyTexture() {
+  const canvas = document.createElement('canvas')
+  canvas.width = 4
+  canvas.height = 256
+
+  const g = canvas.getContext('2d')
+  if (g) {
+    const gradient = g.createLinearGradient(0, 0, 0, canvas.height)
+    gradient.addColorStop(0.00, '#0d1230')
+    gradient.addColorStop(0.35, '#3d3358')
+    gradient.addColorStop(0.62, '#94647a')
+    gradient.addColorStop(0.80, '#e8a86a')
+    gradient.addColorStop(0.90, '#f6d3a2')
+    gradient.addColorStop(1.00, '#5a4632')
+    g.fillStyle = gradient
+    g.fillRect(0, 0, canvas.width, canvas.height)
+  }
+
+  return new Three.CanvasTexture(canvas)
+}
+
+// ── Lifecycle ─────────────────────────────────────────────────────────────────
+
+export function setup(ctx) {
+  ctx.setHelp('Monument — dawn drifts through a word built as architecture; no input needed')
+
+  ctx._prevFog = ctx.scene.fog ?? null
+  ctx._prevBackground = ctx.scene.background ?? null
+  ctx.scene.fog = new Three.Fog(HAZE, FOG_NEAR, FOG_FAR)
+  ctx.setBloom?.(0.3)
+  if (ctx.controls) ctx.controls.enabled = false
+
+  ctx._camPos = new Three.Vector3()
+  ctx._camLook = new Three.Vector3()
+
+  const strokeGeo = new Three.BoxGeometry(1, 1, 1)
+  const groundGeo = new Three.PlaneGeometry(GROUND_SIZE, GROUND_SIZE)
+  const skyGeo    = new Three.SphereGeometry(SKY_RADIUS, 32, 24)
+
+  const stoneMat = new Three.MeshStandardMaterial({
+    color: 0x9b9186, roughness: 0.92, metalness: 0.0,
+  })
+  const pillarMat = new Three.MeshStandardMaterial({
+    color: 0x7d7469, roughness: 0.95, metalness: 0.0,
+  })
+  const groundMat = new Three.MeshStandardMaterial({
+    color: 0x6d6459, roughness: 1.0, metalness: 0.0,
+  })
+  const skyTexture = makeSkyTexture()
+  const skyMat = new Three.MeshBasicMaterial({
+    map: skyTexture, side: Three.BackSide, depthWrite: false, fog: false,
+  })
+
+  ctx._geometries = [strokeGeo, groundGeo, skyGeo]
+  ctx._materials  = [stoneMat, pillarMat, groundMat, skyMat]
+  ctx._textures   = [skyTexture]
+
+  ctx._sky = new Three.Mesh(skyGeo, skyMat)
+
+  ctx._ground = new Three.Mesh(groundGeo, groundMat)
+  ctx._ground.rotation.x = -Math.PI / 2
+  ctx._ground.receiveShadow = true
+
+  ctx._monument = new Three.Group()
+  for (let i = 0; i < WORD.length; i++) {
+    ctx._monument.add(buildGlyph(WORD[i], i, strokeGeo, stoneMat))
+  }
+
+  ctx._pillars = buildPillars(strokeGeo, pillarMat)
+  ctx._rubble  = buildRubble(strokeGeo, pillarMat)
+
+  // Low dawn sun raking along the word, plus a cool sky fill so the shadowed
+  // faces still describe their edges.
+  const sun = new Three.DirectionalLight(0xffd2a0, 2.8)
+  sun.position.set(-130, 24, 78)
+  sun.castShadow = true
+  sun.shadow.mapSize.setScalar(2048)
+  sun.shadow.camera.left = -120
+  sun.shadow.camera.right = 120
+  sun.shadow.camera.top = 120
+  sun.shadow.camera.bottom = -120
+  sun.shadow.camera.near = 1
+  sun.shadow.camera.far = 500
+  sun.shadow.bias = -0.0008
+  ctx._sun = sun
+
+  const fill = new Three.DirectionalLight(0x5b7fb8, 0.45)
+  fill.position.set(110, 20, -90)
+
+  const skyLight = new Three.HemisphereLight(0x8fa8d8, 0x6b5a44, 0.6)
+
+  ctx._roots = [ctx._sky, ctx._ground, ctx._monument, ctx._pillars, ctx._rubble, sun, fill, skyLight]
+  for (const root of ctx._roots) ctx.add(root)
+
+  placeCamera(ctx, 0)
+}
+
+export function update(ctx, dt) {  // eslint-disable-line no-unused-vars
+  placeCamera(ctx, ctx.elapsed)
 }
 
 export function teardown(ctx) {
-  ctx._texture?.dispose()
+  for (const root of ctx._roots ?? []) ctx.remove(root)
+  for (const geometry of ctx._geometries ?? []) geometry.dispose()
+  for (const material of ctx._materials ?? []) material.dispose()
+  for (const texture of ctx._textures ?? []) texture.dispose()
+  ctx._sun?.dispose?.()
+
+  ctx.scene.fog = ctx._prevFog ?? null
+  ctx.scene.background = ctx._prevBackground ?? null
+  if (ctx.controls) ctx.controls.enabled = true
+
+  ctx._roots = null
+  ctx._geometries = null
+  ctx._materials = null
+  ctx._textures = null
+  ctx._monument = null
+  ctx._pillars = null
+  ctx._rubble = null
+  ctx._ground = null
+  ctx._sky = null
+  ctx._sun = null
 }

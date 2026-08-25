@@ -195,6 +195,22 @@ export function setup(ctx) {
   ctx.renderer.domElement.addEventListener('mousemove', ctx._onMouseMove)
   ctx.renderer.domElement.addEventListener('mousedown', ctx._onMouseDown)
   ctx.renderer.domElement.addEventListener('mouseup', ctx._onMouseUp)
+
+  // Seed a circulating plume so the heatmap is visible before the first drag.
+  const cx = Math.floor(N * 0.5)
+  const cy = Math.floor(N * 0.42)
+  for (let di = -6; di <= 6; di++) {
+    for (let dj = -6; dj <= 6; dj++) {
+      const i = cx + di
+      const j = cy + dj
+      if (i < 1 || i > N || j < 1 || j > N) continue
+      const r2 = di * di + dj * dj
+      if (r2 > 36) continue
+      ctx._d[IX(i, j)] = 8 * (1 - r2 / 36)
+      ctx._u[IX(i, j)] = -dj * 0.12
+      ctx._v[IX(i, j)] =  di * 0.12
+    }
+  }
 }
 
 export function update(ctx, dt) {
