@@ -2,7 +2,7 @@
   "name": "fractal-tree",
   "version": "1.0.0",
   "entry": "fractal-tree.js",
-  "description": "A recursive 3D L-system fractal tree that grows branch by branch from a seed over 10 seconds",
+  "description": "Ground-level view under an ancient canopy: roots, fog, and a finished first frame instead of a 10-second grow.",
   "category": "generative",
   "tags": ["fractal", "l-system", "tree", "procedural", "animation"]
 }

@@ -31,16 +31,16 @@ const UNDERSTORY_COUNT = 180
 const DISTANT_TRUNK_COUNT = 40
 const SHAFT_COUNT = 3
 const FLOOR_SIZE = 160
-const FOG_COLOR = 0x5d6c54
-const FOG_DENSITY = 0.031
+const FOG_COLOR = 0x384631
+const FOG_DENSITY = 0.024
 
 // Motion — deliberately restrained; this is a very old, very heavy tree
 const TRUNK_SWAY = 0.006
 const LIMB_SWAY_MIN = 0.016
 const LIMB_SWAY_RANGE = 0.014
-const CAMERA_RADIUS = 6.4
-const CAMERA_HEIGHT = 1.42
-const CAMERA_TARGET_Y = 7.1
+const CAMERA_RADIUS = 7.6
+const CAMERA_HEIGHT = 1.5
+const CAMERA_TARGET_Y = 3.7
 
 let _objects = []                   // top-level objects handed to ctx.add
 let _limbs = []                     // [{ anchor, wind, branches, canopy, ... }]
@@ -75,12 +75,20 @@ function scaling(x, y, z) {
 }
 
 // Gentle ground relief, flattened near the trunk so the roots meet solid floor.
-function floorHeight(x, z) {
-  const radius = Math.hypot(x, z)
+// Sampled in the floor plane's own coordinates (u, v).
+function floorRelief(u, v) {
+  const radius = Math.hypot(u, v)
   const mask = Math.min(1, Math.max(0, (radius - 4) / 8))
-  const relief = Math.sin(x * 0.16) * Math.cos(z * 0.13) * 0.55
-    + Math.sin(x * 0.05 + z * 0.07) * 0.9
+  const relief = Math.sin(u * 0.16) * Math.cos(v * 0.13) * 0.55
+    + Math.sin(u * 0.05 + v * 0.07) * 0.9
   return relief * mask
+}
+
+// Ground height at a world position. Rotating the floor plane by -90° about X
+// maps plane v to -z, so anything placed on the ground must sample it that way
+// or it ends up hovering above or sunk into the relief.
+function groundHeight(x, z) {
+  return floorRelief(x, -z)
 }
 
 // ---------------------------------------------------------------------------
@@ -280,6 +288,10 @@ function buildTree(rand, woodGeometry, rootGeometry, leafGeometry) {
   let branchCount = trunk.matrices.length
   let leafCount = 0
   let tipRadius = Infinity
+  let canopyBaseY = Infinity
+  let canopyTopY = -Infinity
+  let canopyRadius = 0
+  const leafPoint = new THREE.Vector3()
 
   for (let i = 0; i < LIMB_COUNT; i++) {
     const jointIndex = attachJoints[i % attachJoints.length]
@@ -318,8 +330,7 @@ function buildTree(rand, woodGeometry, rootGeometry, leafGeometry) {
     wind.add(branches)
 
     const leafMaterial = new THREE.MeshStandardMaterial({
-      color: 0xffffff, roughness: 0.82, metalness: 0.0,
-      transparent: true, opacity: 0.94, side: THREE.DoubleSide,
+      color: 0xffffff, roughness: 0.85, metalness: 0.0, side: THREE.DoubleSide,
     })
     const canopy = new THREE.InstancedMesh(leafGeometry, leafMaterial, leafMatrices.length)
     canopy.name = `limb-canopy-${i}`
@@ -327,8 +338,15 @@ function buildTree(rand, woodGeometry, rootGeometry, leafGeometry) {
     leafMatrices.forEach((matrix, k) => {
       canopy.setMatrixAt(k, matrix)
       // Instance tint: sunlit yellow-greens through to deep shade greens.
-      leafTint.setHSL(0.26 + rand() * 0.06, 0.42 + rand() * 0.22, 0.16 + rand() * 0.26)
+      leafTint.setHSL(0.26 + rand() * 0.06, 0.42 + rand() * 0.22, 0.14 + rand() * 0.24)
       canopy.setColorAt(k, leafTint)
+
+      // Track where the canopy actually sits so the camera can be staged
+      // underneath it rather than at an arbitrary distance.
+      leafPoint.setFromMatrixPosition(matrix).applyMatrix4(anchor.matrix)
+      canopyBaseY = Math.min(canopyBaseY, leafPoint.y)
+      canopyTopY = Math.max(canopyTopY, leafPoint.y)
+      canopyRadius = Math.max(canopyRadius, Math.hypot(leafPoint.x, leafPoint.z))
     })
     wind.add(canopy)
 
@@ -399,6 +417,9 @@ function buildTree(rand, woodGeometry, rootGeometry, leafGeometry) {
       rootSpread,
       trunkRadius: TRUNK_RADIUS,
       tipRadius,
+      canopyBaseY,
+      canopyTopY,
+      canopyRadius,
     },
   }
 }
@@ -407,12 +428,12 @@ function buildFloor(litterTexture) {
   const geometry = new THREE.PlaneGeometry(FLOOR_SIZE, FLOOR_SIZE, 48, 48)
   const position = geometry.attributes.position
   for (let i = 0; i < position.count; i++) {
-    position.setZ(i, floorHeight(position.getX(i), position.getY(i)))
+    position.setZ(i, floorRelief(position.getX(i), position.getY(i)))
   }
   geometry.computeVertexNormals()
 
   const floor = new THREE.Mesh(geometry, new THREE.MeshStandardMaterial({
-    color: 0x54492f, roughness: 0.98, metalness: 0.0, map: litterTexture,
+    color: 0x6a5c3e, roughness: 0.98, metalness: 0.0, map: litterTexture,
   }))
   floor.name = 'forest-floor'
   floor.rotation.x = -Math.PI / 2
@@ -420,29 +441,32 @@ function buildFloor(litterTexture) {
   return floor
 }
 
-function buildUnderstory(rand) {
-  const geometry = new THREE.ConeGeometry(1, 1, 5)
-  geometry.translate(0, 0.5, 0)
+// Low ferns and shrub clumps, reusing the canopy leaf blob so the understory
+// belongs to the same foliage language as the tree above it.
+function buildUnderstory(rand, leafGeometry) {
   const material = new THREE.MeshStandardMaterial({
-    color: 0xffffff, roughness: 0.9, metalness: 0.0,
+    color: 0xffffff, roughness: 0.92, metalness: 0.0, side: THREE.DoubleSide,
   })
-  const understory = new THREE.InstancedMesh(geometry, material, UNDERSTORY_COUNT)
+  const understory = new THREE.InstancedMesh(leafGeometry, material, UNDERSTORY_COUNT)
   understory.name = 'understory'
 
   const matrix = new THREE.Matrix4()
+  const scale = new THREE.Vector3()
   const tint = new THREE.Color()
   for (let i = 0; i < UNDERSTORY_COUNT; i++) {
     const azimuth = rand() * TAU
-    const radius = 3.2 + rand() * 34
+    // Push clumps clear of the camera's whole orbit, not just of the trunk, so
+    // none of them swings into the lens as the camera comes around.
+    let radius = 2.6 + rand() * 34
+    if (radius > CAMERA_RADIUS - 2.4 && radius < CAMERA_RADIUS + 3.4) radius += 5.8
     const x = Math.cos(azimuth) * radius
     const z = Math.sin(azimuth) * radius
-    const height = 0.35 + rand() * 0.95
-    const width = 0.3 + rand() * 0.55
+    const spread = 0.3 + rand() * 0.36
     matrix.makeRotationY(rand() * TAU)
-    matrix.setPosition(x, floorHeight(x, z) - 0.05, z)
-    matrix.scale(new THREE.Vector3(width, height, width))
+    matrix.setPosition(x, groundHeight(x, z) + 0.05, z)
+    matrix.scale(scale.set(spread, 0.3 + rand() * 0.5, spread))
     understory.setMatrixAt(i, matrix)
-    tint.setHSL(0.24 + rand() * 0.08, 0.34 + rand() * 0.2, 0.10 + rand() * 0.14)
+    tint.setHSL(0.25 + rand() * 0.07, 0.38 + rand() * 0.2, 0.04 + rand() * 0.07)
     understory.setColorAt(i, tint)
   }
   return understory
@@ -464,7 +488,7 @@ function buildDistantTrunks(rand, woodGeometry) {
     const height = 9 + rand() * 11
     const width = 0.3 + rand() * 0.45
     matrix.makeRotationZ((rand() - 0.5) * 0.06)
-    matrix.setPosition(x, floorHeight(x, z) - 0.2, z)
+    matrix.setPosition(x, groundHeight(x, z) - 0.2, z)
     matrix.scale(new THREE.Vector3(width, height, width))
     trunks.setMatrixAt(i, matrix)
   }
@@ -474,7 +498,8 @@ function buildDistantTrunks(rand, woodGeometry) {
 // Sun breaking through the canopy: a translucent additive cone plus the pool of
 // light it lands in. Cheaper and steadier than shadow-mapped dappling.
 function buildDappledLight(rand, shaftTexture, glowTexture) {
-  const shaftGeometry = new THREE.CylinderGeometry(0.35, 1.7, 1, 14, 1, true)
+  // Narrow where it slips through the canopy gap, widening toward the floor.
+  const shaftGeometry = new THREE.CylinderGeometry(1.6, 0.5, 1, 14, 1, true)
   shaftGeometry.translate(0, 0.5, 0)
   const poolGeometry = new THREE.CircleGeometry(1, 28)
 
@@ -490,24 +515,24 @@ function buildDappledLight(rand, shaftTexture, glowTexture) {
     const poolRadius = 1.1 + rand() * 1.1
 
     const shaft = new THREE.Mesh(shaftGeometry, new THREE.MeshBasicMaterial({
-      color: 0xfff0c4, map: shaftTexture, transparent: true, opacity: 0.075,
+      color: 0xfff0c4, map: shaftTexture, transparent: true, opacity: 0.055,
       blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide,
     }))
     shaft.name = `light-shaft-${i}`
     shaft.position.set(x, top, z)
     shaft.scale.set(poolRadius, -top, poolRadius)   // negative Y aims it down
-    shaft.userData = { baseOpacity: 0.075, flicker: 0.16 + i * 0.05, phase: rand() * TAU }
+    shaft.userData = { baseOpacity: 0.055, flicker: 0.16 + i * 0.05, phase: rand() * TAU }
     shafts.push(shaft)
 
     const pool = new THREE.Mesh(poolGeometry, new THREE.MeshBasicMaterial({
-      color: 0xffe9b0, map: glowTexture, transparent: true, opacity: 0.5,
+      color: 0xffe9b0, map: glowTexture, transparent: true, opacity: 0.62,
       blending: THREE.AdditiveBlending, depthWrite: false,
     }))
     pool.name = `light-pool-${i}`
     pool.rotation.x = -Math.PI / 2
-    pool.position.set(x, floorHeight(x, z) + 0.03, z)
-    pool.scale.setScalar(poolRadius * 1.5)
-    pool.userData = { baseOpacity: 0.5, flicker: 0.19 + i * 0.06, phase: rand() * TAU }
+    pool.position.set(x, groundHeight(x, z) + 0.03, z)
+    pool.scale.setScalar(poolRadius * 1.9)
+    pool.userData = { baseOpacity: 0.62, flicker: 0.19 + i * 0.06, phase: rand() * TAU }
     pools.push(pool)
   }
 
@@ -555,14 +580,14 @@ export function setup(ctx) {
 
   // Canopy light: cool sky bounce, one warm break in the leaves overhead, and a
   // dim fill so the near floor and root flare never go to black.
-  track(ctx, new THREE.HemisphereLight(0xb9d3e8, 0x2b2417, 1.15))
+  track(ctx, new THREE.HemisphereLight(0x9dc2dd, 0x14110a, 0.85))
 
-  const sun = new THREE.DirectionalLight(0xffeec2, 2.1)
+  const sun = new THREE.DirectionalLight(0xffeec2, 2.6)
   sun.position.set(7, 19, 5)
   track(ctx, sun)
 
-  const understoryFill = new THREE.PointLight(0xffdba0, 8, 18, 2)
-  understoryFill.position.set(2.5, 1.8, 3.5)
+  const understoryFill = new THREE.PointLight(0xffcf92, 9, 16, 2)
+  understoryFill.position.set(2.5, 1.6, 3.2)
   track(ctx, understoryFill)
 
   const litterTexture = makeLitterTexture()
@@ -571,7 +596,7 @@ export function setup(ctx) {
 
   track(ctx, buildFloor(litterTexture))
   track(ctx, buildDistantTrunks(rand, woodGeometry))
-  track(ctx, buildUnderstory(rand))
+  track(ctx, buildUnderstory(rand, leafGeometry))
 
   const tree = buildTree(rand, woodGeometry, rootGeometry, leafGeometry)
   track(ctx, tree.grove)

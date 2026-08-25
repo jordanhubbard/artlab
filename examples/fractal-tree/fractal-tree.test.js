@@ -87,12 +87,20 @@ describe('fractal-tree — Old Growth', () => {
     expect(ctx.scene.fog.density).toBeGreaterThan(0.01)
   })
 
-  it('stages the camera at ground level looking up into the canopy', () => {
+  it('stages the camera at ground level beneath the canopy, aimed upward', () => {
     setup(ctx)
-    expect(ctx.camera.position.y).toBeLessThan(2.5)
-    expect(ctx.camera.position.y).toBeGreaterThan(0.5)
+    const { position } = ctx.camera
+    const { canopyBaseY, canopyRadius } = ctx._oldGrowth.stats
+
+    expect(position.y).toBeGreaterThan(0.5)
+    expect(position.y).toBeLessThan(2.5)
+
+    // The whole canopy hangs overhead, and the camera stands inside its reach.
+    expect(canopyBaseY).toBeGreaterThan(position.y + 1.5)
+    expect(Math.hypot(position.x, position.z)).toBeLessThan(canopyRadius)
+
     const [, lookY] = ctx.camera.lookAt.mock.calls.at(-1)
-    expect(lookY).toBeGreaterThan(5)
+    expect(lookY - position.y).toBeGreaterThan(1.5)
     expect(ctx.controls.enabled).toBe(false)
   })
 

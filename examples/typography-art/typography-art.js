@@ -3,8 +3,12 @@
 // The word LANGUAGE is built as brutalist architecture: every glyph is a mass of
 // extruded concrete strokes standing on its own plinth, split by a central plaza
 // wide enough to walk through. A low dawn sun rakes across the letterforms so the
-// word is read through its own shadows, and the camera drifts on a slow closed
-// loop that sweeps wide across the front and then passes between the two halves.
+// word is read through its own shadows.
+//
+// The camera runs one slow closed loop in two acts: it opens high and far, where
+// the whole word is legible as language, then descends into the ruin, sweeps
+// around the ends at eye height, and crosses the plaza between the two halves
+// before rising again.
 
 import * as Three from 'three'
 
@@ -36,31 +40,43 @@ const PLAZA_HALF    = 9     // half-width of the walkable central gap
 
 const GROUND_SIZE   = 900
 const SKY_RADIUS    = 500
-const FOG_NEAR      = 30
-const FOG_FAR       = 330
+const FOG_NEAR      = 95
+const FOG_FAR       = 520
 const HAZE          = 0xc9a883   // dawn haze; fog and sky horizon share it
 
-const PILLAR_ROWS   = [-60, -42, 42, 60]
+// Colonnades: a full backdrop behind the word, plus wings that flank the front
+// without ever standing between the reading camera and the letters.
+const PILLAR_ROWS = [
+  { z: -60, spans: [[-78, 78]] },
+  { z: -42, spans: [[-78, 78]] },
+  { z:  46, spans: [[-124, -74], [74, 124]] },
+  { z:  72, spans: [[-124, -74], [74, 124]] },
+]
 const PILLAR_STEP   = 12
-const PILLAR_REACH  = 66
 const PILLAR_SIDE   = 3.2
 const RUBBLE_COUNT  = 22
 
 // ── Camera passage ────────────────────────────────────────────────────────────
-// A closed figure-eight: it swings wide in front of the word, skims past both
-// ends, and crosses the plaza at eye height. The look target rides the same loop
-// with a phase lead, so the camera always faces along the row of glyphs.
+// `lift` is the act: 1 at phase 0 (high, far, whole word legible) falling to 0 at
+// phase PI (eye height, crossing the plaza). The look target collapses onto the
+// word centre as the camera lifts, and drifts along the row of glyphs down low.
 
-const LOOP_SECONDS  = 108
-const START_PHASE   = 0.78  // opening frame is a three-quarter establishing view
+const LOOP_SECONDS  = 132
 const PATH_RADIUS_X = 70
+const PATH_SPREAD   = 0.55  // extra lateral reach while lifted
 const PATH_RADIUS_Z = 32
-const PATH_EYE_Y    = 6.6
-const PATH_RISE     = 2.2
+const PATH_FAR_Z    = 118
+const PATH_EYE_Y    = 6.4
+const PATH_LIFT_Y   = 46
 const LOOK_LEAD     = 2.4
 const LOOK_RADIUS_X = 46
 const LOOK_RADIUS_Z = 4
 const LOOK_EYE_Y    = 6.8
+
+// Columns are culled where they would stand in the camera's way.
+const PATH_SAMPLES   = 256
+const PATH_CLEARANCE = 9
+const PATH_HEADROOM  = 3
 
 /** Deterministic pseudo-random value in [0,1) — keeps the ruin reproducible. */
 function hash(n) {
@@ -69,26 +85,40 @@ function hash(n) {
 }
 
 function pathPoint(phase, out) {
+  const lift = 0.5 + 0.5 * Math.cos(phase)
   return out.set(
-    PATH_RADIUS_X * Math.sin(phase),
-    PATH_EYE_Y + PATH_RISE * Math.sin(phase * 3 + 0.4),
-    PATH_RADIUS_Z * Math.sin(phase * 2),
+    PATH_RADIUS_X * Math.sin(phase) * (1 + PATH_SPREAD * lift),
+    PATH_EYE_Y + PATH_LIFT_Y * lift,
+    PATH_RADIUS_Z * Math.sin(phase * 2) + PATH_FAR_Z * lift,
   )
 }
 
 function lookPoint(phase, out) {
+  const drift = 0.5 - 0.5 * Math.cos(phase)
   const p = phase + LOOK_LEAD
   return out.set(
-    LOOK_RADIUS_X * Math.sin(p),
+    LOOK_RADIUS_X * Math.sin(p) * drift,
     LOOK_EYE_Y,
-    LOOK_RADIUS_Z * Math.sin(p * 2),
+    LOOK_RADIUS_Z * Math.sin(p * 2) * drift,
   )
 }
 
 function placeCamera(ctx, elapsed) {
-  const phase = START_PHASE + (elapsed * Math.PI * 2) / LOOP_SECONDS
+  const phase = (elapsed * Math.PI * 2) / LOOP_SECONDS
   ctx.camera.position.copy(pathPoint(phase, ctx._camPos))
   ctx.camera.lookAt(lookPoint(phase, ctx._camLook))
+}
+
+/** True when the camera passage never enters the column standing at (x, z). */
+function pathClearsColumn(x, z, height, scratch) {
+  for (let i = 0; i < PATH_SAMPLES; i++) {
+    pathPoint((i / PATH_SAMPLES) * Math.PI * 2, scratch)
+    if (scratch.y > height + PATH_HEADROOM) continue
+    const dx = scratch.x - x
+    const dz = scratch.z - z
+    if (dx * dx + dz * dz < PATH_CLEARANCE * PATH_CLEARANCE) return false
+  }
+  return true
 }
 
 // ── Construction helpers ──────────────────────────────────────────────────────
@@ -142,18 +172,19 @@ function glyphCenterX(index) {
 
 function buildPillars(geometry, material) {
   const pillars = new Three.Group()
+  const scratch = new Three.Vector3()
   let seed = 0
-  for (const z of PILLAR_ROWS) {
-    for (let x = -PILLAR_REACH; x <= PILLAR_REACH; x += PILLAR_STEP) {
-      seed += 1
-      const broken = hash(seed * 3 + 2) < 0.3
-      const height = broken ? 2.5 + hash(seed * 5) * 3 : 7 + hash(seed * 5) * 13
-      const jitter = (hash(seed * 11) - 0.5) * 4
-      block(
-        pillars, geometry, material,
-        x + jitter, height / 2, z + (hash(seed * 17) - 0.5) * 6,
-        PILLAR_SIDE, height, PILLAR_SIDE,
-      )
+  for (const row of PILLAR_ROWS) {
+    for (const [from, to] of row.spans) {
+      for (let column = from; column <= to; column += PILLAR_STEP) {
+        seed += 1
+        const broken = hash(seed * 3 + 2) < 0.3
+        const height = broken ? 2.5 + hash(seed * 5) * 3 : 7 + hash(seed * 5) * 13
+        const x = column + (hash(seed * 11) - 0.5) * 4
+        const z = row.z + (hash(seed * 17) - 0.5) * 6
+        if (!pathClearsColumn(x, z, height, scratch)) continue
+        block(pillars, geometry, material, x, height / 2, z, PILLAR_SIDE, height, PILLAR_SIDE)
+      }
     }
   }
   return pillars
@@ -225,7 +256,7 @@ export function setup(ctx) {
     color: 0x7d7469, roughness: 0.95, metalness: 0.0,
   })
   const groundMat = new Three.MeshStandardMaterial({
-    color: 0x6d6459, roughness: 1.0, metalness: 0.0,
+    color: 0x847867, roughness: 1.0, metalness: 0.0,
   })
   const skyTexture = makeSkyTexture()
   const skyMat = new Three.MeshBasicMaterial({
@@ -263,12 +294,11 @@ export function setup(ctx) {
   sun.shadow.camera.near = 1
   sun.shadow.camera.far = 500
   sun.shadow.bias = -0.0008
-  ctx._sun = sun
 
-  const fill = new Three.DirectionalLight(0x5b7fb8, 0.45)
+  const fill = new Three.DirectionalLight(0x6f92c4, 0.9)
   fill.position.set(110, 20, -90)
 
-  const skyLight = new Three.HemisphereLight(0x8fa8d8, 0x6b5a44, 0.6)
+  const skyLight = new Three.HemisphereLight(0x9db4de, 0x7a6752, 0.85)
 
   ctx._roots = [ctx._sky, ctx._ground, ctx._monument, ctx._pillars, ctx._rubble, sun, fill, skyLight]
   for (const root of ctx._roots) ctx.add(root)
@@ -281,14 +311,16 @@ export function update(ctx, dt) {  // eslint-disable-line no-unused-vars
 }
 
 export function teardown(ctx) {
-  for (const root of ctx._roots ?? []) ctx.remove(root)
+  for (const root of ctx._roots ?? []) {
+    ctx.remove(root)
+    root.dispose?.()   // lights own shadow resources; meshes share the pools below
+  }
   for (const geometry of ctx._geometries ?? []) geometry.dispose()
   for (const material of ctx._materials ?? []) material.dispose()
   for (const texture of ctx._textures ?? []) texture.dispose()
-  ctx._sun?.dispose?.()
 
-  ctx.scene.fog = ctx._prevFog ?? null
-  ctx.scene.background = ctx._prevBackground ?? null
+  ctx.scene.fog = ctx._prevFog
+  ctx.scene.background = ctx._prevBackground
   if (ctx.controls) ctx.controls.enabled = true
 
   ctx._roots = null
@@ -300,5 +332,4 @@ export function teardown(ctx) {
   ctx._rubble = null
   ctx._ground = null
   ctx._sky = null
-  ctx._sun = null
 }

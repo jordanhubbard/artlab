@@ -14,29 +14,36 @@ import * as Three from 'three'
 
 // ── Composition ───────────────────────────────────────────────────────────────
 
-const FIELD_SPAN     = 150    // world units across and away
-const FIELD_SEGMENTS = 168    // one continuous sheet, ~56k triangles
-const AMPLITUDE      = 3.2    // vertical reach of the weather swells
-const NORMAL_EPSILON = 0.75   // finite-difference step for analytic normals
+const FIELD_SPAN     = 170    // world units across and away
+const FIELD_SEGMENTS = 192    // one continuous sheet, ~74k triangles
+const AMPLITUDE      = 3.6    // vertical reach of the weather swells
+const NORMAL_EPSILON = 0.7    // finite-difference step for analytic normals
 
-const CAMERA_POSITION = [0, 9, 34]
-const VIEW_TARGET     = [0, 0.5, -16]
+// High enough to read the shape of the weather fronts, low enough that the
+// swells still overlap into a grazing horizon.
+const CAMERA_POSITION = [0, 12.5, 27]
+const VIEW_TARGET     = [0, -1, -20]
 
-const FOG_NEAR = 24
-const FOG_FAR  = 132
+// The far edge of the sheet sits ~113 units out, just past FOG_FAR, so the field
+// dissolves completely into the background instead of ending on a visible cut
+// line. Everything above the dissolve is haze rather than empty void.
+const FOG_NEAR = 22
+const FOG_FAR  = 112
 
 // The two ends of the atmospheric cycle the whole piece breathes between.
-const FOG_DUSK   = new Three.Color(0x131b30)
-const FOG_DAWN   = new Three.Color(0x2e2742)
-const SKY_DUSK   = new Three.Color(0x4c6ea8)
-const SKY_DAWN   = new Three.Color(0x8c6f9c)
+const FOG_DUSK   = new Three.Color(0x363a5e)
+const FOG_DAWN   = new Three.Color(0x5b4460)
+const SKY_DUSK   = new Three.Color(0x4574c4)
+const SKY_DAWN   = new Three.Color(0x7d84c6)
 const LIGHT_DUSK = new Three.Color(0xffd7a4)
-const LIGHT_DAWN = new Three.Color(0xffb9c6)
+const LIGHT_DAWN = new Three.Color(0xffd0bc)
 
 const ATMOSPHERE_RATE = 0.075  // radians/second of the fog + light cycle
 const LIGHT_ORBIT_RATE = 0.062
 const LIGHT_LIFT_RATE  = 0.037
 const WASH_RATE        = 0.071
+const WASH_BASE        = 0.38  // baked pigment vs. drifting wash
+const WASH_SWING       = 0.16
 
 // ── Disturbance ───────────────────────────────────────────────────────────────
 
@@ -131,14 +138,18 @@ const VERTEX_SHADER = /* glsl */`
 
   #include <fog_pars_vertex>
 
-  // Four overlapping low-frequency swells. Every wavelength is an order of
-  // magnitude longer than a cell, so the sheet never reveals its tessellation.
+  // A stack of overlapping swells on rotated axes, so no term lines up with the
+  // tessellation. The shortest wavelength is still ~9 cells across, which keeps
+  // the sheet reading as continuous weather rather than a mesh.
   float weather(vec2 p, float t) {
     float a = sin(p.x * 0.19 + t * 0.23) * cos(p.y * 0.15 - t * 0.17);
     float b = sin((p.x * 0.61 + p.y * 0.79) * 0.14 - t * 0.31);
     float c = sin((p.x * -0.83 + p.y * 0.55) * 0.27 + t * 0.13);
     float d = sin(length(p) * 0.11 - t * 0.21);
-    return a * 0.52 + b * 0.34 + c * 0.19 + d * 0.24;
+    float e = sin((p.x * 0.36 - p.y * 0.93) * 0.47 + t * 0.44) *
+              cos((p.x * 0.91 + p.y * 0.41) * 0.39 - t * 0.29);
+    float f = sin((p.x * 0.71 + p.y * -0.70) * 0.79 - t * 0.57);
+    return a * 0.52 + b * 0.34 + c * 0.19 + d * 0.24 + e * 0.095 + f * 0.045;
   }
 
   float disturbance(vec2 p) {
@@ -208,12 +219,22 @@ ${PIGMENTS.map((_, i) => {
     vec3 n = normalize(vFieldNormal);
     vec3 l = normalize(uLightDir);
 
+    // Warm light against cool skylight: the two-source split is what keeps the
+    // pigment chromatic instead of collapsing into one tinted wash.
     float lambert = max(dot(n, l), 0.0);
-    float sky     = 0.45 + 0.55 * clamp(n.y, 0.0, 1.0);
+    float sky     = 0.40 + 0.60 * clamp(n.y, 0.0, 1.0);
+    float slope   = 1.0 - clamp(n.y, 0.0, 1.0);
 
     // The baked pigment stays legible while a drifting wash migrates a second
     // sample of the same ramp across the relief — pigment moving through water.
-    float drift = vField.x * 0.0072 + vField.y * 0.0104 + uTime * 0.021 + vRelief * 0.13;
+    // The warp terms keep the pigment boundaries irregular so the ramp reads as
+    // mixed paint rather than a mechanical gradient, and the slope term lets
+    // colour run downhill the way wet pigment pools on a tilted surface.
+    float drift = vField.x * 0.030 + vField.y * 0.038 + uTime * 0.021
+                + vRelief * 0.16
+                + sin(vField.x * 0.09 - vField.y * 0.07) * 0.055
+                + sin(vField.x * 0.31 + vField.y * 0.44) * 0.018
+                + slope * 0.22;
     vec3 pigment = mix(vPigment, pigmentRamp(drift), uWash);
 
     // Wherever the pointer stirs, the pigment shifts toward its neighbour hue.
@@ -221,7 +242,7 @@ ${PIGMENTS.map((_, i) => {
     float stirred = exp(-dot(toPointer, toPointer) * 0.0035) * uSwell;
     pigment = mix(pigment, pigmentRamp(drift + 0.34), clamp(stirred, 0.0, 0.8));
 
-    vec3 col = pigment * (uSkyColor * 0.55 * sky + uLightColor * lambert * 1.35);
+    vec3 col = pigment * (uSkyColor * 0.75 * sky + uLightColor * lambert * 1.15);
     col += uLightColor * pow(lambert, 14.0) * 0.55;
 
     // Troughs sink into the atmosphere so the sheet reads as depth, not relief.
@@ -248,7 +269,7 @@ function buildFieldGeometry() {
   for (let i = 0; i < position.count; i++) {
     const x = position.getX(i)
     const z = position.getZ(i)
-    const t = pigmentNoise(x * 0.014, z * 0.017) * 1.35 + x * 0.0033 - z * 0.0027
+    const t = pigmentNoise(x * 0.038, z * 0.044) * 1.35 + x * 0.009 - z * 0.0075
     rampInto(pigment, t)
     colors[i * 3]     = pigment.r
     colors[i * 3 + 1] = pigment.g
@@ -268,7 +289,7 @@ function buildFieldMaterial() {
     uRipple:       { value: 0 },
     uRippleAge:    { value: 0 },
     uSwell:        { value: 0 },
-    uWash:         { value: 0.44 },
+    uWash:         { value: WASH_BASE },
     uLightDir:     { value: new Three.Vector3(0, 0.46, 0.78).normalize() },
     uLightColor:   { value: LIGHT_DUSK.clone() },
     uSkyColor:     { value: SKY_DUSK.clone() },
@@ -356,7 +377,7 @@ export function setup(ctx) {
   applyAtmosphere(ctx, 0)
 
   if (ctx.scene) {
-    ctx.scene.fog = new Three.Fog(ctx._sky.getHex(), FOG_NEAR, FOG_FAR)
+    ctx.scene.fog = new Three.Fog(0x000000, FOG_NEAR, FOG_FAR)
     ctx.scene.fog.color.copy(ctx._sky)
     ctx.scene.background = ctx._sky
   }
@@ -403,7 +424,7 @@ export function update(ctx, dt) {
   const step = Number.isFinite(dt) ? Math.max(0, dt) : 0
 
   u.uTime.value = elapsed
-  u.uWash.value = 0.44 + 0.20 * Math.sin(elapsed * WASH_RATE)
+  u.uWash.value = WASH_BASE + WASH_SWING * Math.sin(elapsed * WASH_RATE)
 
   ctx._swell = Math.max(0, ctx._swell - step * SWELL_DECAY)
   u.uSwell.value = ctx._swell

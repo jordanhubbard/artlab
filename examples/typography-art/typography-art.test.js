@@ -157,9 +157,9 @@ function collectSolidBoxes(ctx) {
   return boxes
 }
 
-// A full camera loop is longer than SAMPLE_COUNT * SAMPLE_STEP seconds.
-const SAMPLE_STEP = 0.75
-const SAMPLE_COUNT = 240
+// A full camera loop is shorter than SAMPLE_COUNT * SAMPLE_STEP seconds.
+const SAMPLE_STEP = 0.35
+const SAMPLE_COUNT = 400
 
 // ── Tests ─────────────────────────────────────────────────────────────────────
 
@@ -264,19 +264,25 @@ describe('typography-art — Monument', () => {
     }
   })
 
-  it('composes a first frame before update() ever runs', () => {
+  it('opens on a reading view where the whole word is legible', () => {
     setup(ctx)
 
     expect(ctx.camera.position.equals(DEFAULT_CAMERA_POSITION)).toBe(false)
-    expect(ctx.camera.position.y).toBeGreaterThan(2)
     expect(ctx.camera.lookAt).toHaveBeenCalled()
 
-    // The word must be somewhere in front of the opening camera.
     ctx._monument.updateMatrixWorld(true)
     const bounds = new Three.Box3().setFromObject(ctx._monument)
+
+    // High above the glyph tops, far enough back to frame all of them, and
+    // aimed at the middle of the word rather than off into empty ground.
+    expect(ctx.camera.position.y).toBeGreaterThan(bounds.max.y * 2)
     const distance = bounds.distanceToPoint(ctx.camera.position)
-    expect(distance).toBeGreaterThan(1)
-    expect(distance).toBeLessThan(120)
+    expect(distance).toBeGreaterThan(80)
+    expect(distance).toBeLessThan(260)
+
+    const [target] = ctx.camera.lookAt.mock.calls.at(-1)
+    expect(Math.abs(target.x)).toBeLessThan(4)
+    expect(Math.abs(target.z)).toBeLessThan(4)
   })
 
   it('drifts the camera between the glyph masses without passing through stone', () => {
@@ -285,8 +291,9 @@ describe('typography-art — Monument', () => {
     const solids = collectSolidBoxes(ctx)
     expect(solids.length).toBeGreaterThan(10)
 
-    let passedThroughWord = false
-    let sweptWide = false
+    let crossedThePlaza = false
+    let walkedAtEyeHeight = false
+    let roseAboveTheWord = false
     const previous = ctx.camera.position.clone()
     let moved = false
 
@@ -297,17 +304,19 @@ describe('typography-art — Monument', () => {
       const p = ctx.camera.position
       expect(Number.isFinite(p.x) && Number.isFinite(p.y) && Number.isFinite(p.z)).toBe(true)
       expect(p.y).toBeGreaterThan(2)
-      expect(p.y).toBeLessThan(20)
+      expect(p.y).toBeLessThan(90)
       expect(solids.some((box) => box.containsPoint(p))).toBe(false)
 
-      if (Math.abs(p.z) < 6 && Math.abs(p.x) < 10) passedThroughWord = true
-      if (Math.abs(p.z) > 20) sweptWide = true
+      if (Math.abs(p.z) < 6 && Math.abs(p.x) < 10) crossedThePlaza = true
+      if (p.y < 12) walkedAtEyeHeight = true
+      if (p.y > 40) roseAboveTheWord = true
       if (!moved && p.distanceTo(previous) > 1) moved = true
     }
 
     expect(moved).toBe(true)
-    expect(passedThroughWord).toBe(true)
-    expect(sweptWide).toBe(true)
+    expect(crossedThePlaza).toBe(true)
+    expect(walkedAtEyeHeight).toBe(true)
+    expect(roseAboveTheWord).toBe(true)
   })
 
   it('adds no scene objects and allocates no geometry while updating', () => {

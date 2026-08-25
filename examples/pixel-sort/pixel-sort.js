@@ -28,19 +28,19 @@ export const SOURCE_LAYERS = [
 
 // Sorting budget. Every value below caps per-frame work so the frame cost is
 // constant regardless of image content.
-export const SORT_THRESHOLD_LOW = 0.22
-export const SORT_THRESHOLD_HIGH = 0.74
-export const TEAR_BAND_HEIGHT = 14
-export const MAX_SORTED_PIXELS_PER_ROW = 96
-const THRESHOLD_DRIFT = 0.08
-const MAX_SPAN = 64
+export const SORT_THRESHOLD_LOW = 0.10
+export const SORT_THRESHOLD_HIGH = 0.94
+export const TEAR_BAND_HEIGHT = 18
+export const MAX_SORTED_PIXELS_PER_ROW = 192
+const THRESHOLD_DRIFT = 0.06
+const MAX_SPAN = 128
 const MIN_SPAN = 4
-const TEAR_EDGE_ROWS = 2
+const GRAIN_AMPLITUDE = 8
 
 const TEAR_TRACKS = [
-  { speed:  0.037, phase: 0.13, descending: false, shear:  5 },
-  { speed: -0.023, phase: 0.52, descending: true,  shear: -8 },
-  { speed:  0.061, phase: 0.81, descending: false, shear:  3 },
+  { speed:  0.041, phase: 0.13, descending: false, shear:  15 },
+  { speed: -0.026, phase: 0.52, descending: true,  shear: -22 },
+  { speed:  0.068, phase: 0.81, descending: false, shear:  11 },
 ]
 
 export const MAX_CORRUPTED_ROWS = TEAR_TRACKS.length * TEAR_BAND_HEIGHT
@@ -237,6 +237,21 @@ export function paintSourceImage(g) {
   return SOURCE_LAYERS.slice()
 }
 
+// Film grain gives the smooth gradients enough per-pixel variation for the
+// threshold sort to bite; without it the sorted spans are already ordered.
+function applyGrain(pixels) {
+  for (let y = 0; y < IMAGE_HEIGHT; y++) {
+    for (let x = 0; x < IMAGE_WIDTH; x++) {
+      const hash = Math.sin(x * 12.9898 + y * 78.233) * 43758.5453
+      const noise = ((hash - Math.floor(hash)) * 2 - 1) * GRAIN_AMPLITUDE
+      const i = (y * IMAGE_WIDTH + x) * 4
+      pixels[i] += noise
+      pixels[i + 1] += noise * 0.8
+      pixels[i + 2] += noise * 0.9
+    }
+  }
+}
+
 // Stand-in used only where no 2D context exists (jsdom, headless hosts). It
 // keeps the same dusk palette and horizontal structure so the sorting pipeline
 // still has real luminance spans to work on.
@@ -372,9 +387,28 @@ function shearRow(pixels, y, offset) {
   }
 }
 
+// Chromatic fringe: the red channel of a row remembers a slightly different
+// address than the other two.
+function bleedRedChannel(pixels, y, offset) {
+  if (offset === 0) return
+  const rowStart = y * IMAGE_WIDTH * 4
+  for (let x = 0; x < IMAGE_WIDTH; x++) rowPixels[x * 4] = pixels[rowStart + x * 4]
+  for (let x = 0; x < IMAGE_WIDTH; x++) {
+    const src = (((x - offset) % IMAGE_WIDTH) + IMAGE_WIDTH) % IMAGE_WIDTH
+    pixels[rowStart + x * 4] = rowPixels[src * 4]
+  }
+}
+
 function copyRow(pixels, source, y) {
   const rowStart = y * IMAGE_WIDTH * 4
   for (let k = 0; k < IMAGE_WIDTH * 4; k++) pixels[rowStart + k] = source[rowStart + k]
+}
+
+// Stuck memory: a row re-reads its neighbour, thickening a sorted streak.
+function holdRow(pixels, from, to) {
+  const src = from * IMAGE_WIDTH * 4
+  const dst = to * IMAGE_WIDTH * 4
+  for (let k = 0; k < IMAGE_WIDTH * 4; k++) pixels[dst + k] = pixels[src + k]
 }
 
 function restoreAnchors(pixels, source, y) {
@@ -402,8 +436,15 @@ function corruptFrame(ctx) {
   let sorted = 0
   for (const band of tearBands(ctx._time)) {
     for (let y = band.y0; y < band.y1; y++) {
-      if (y - band.y0 < TEAR_EDGE_ROWS) shearRow(pixels, y, band.shear)
-      sorted += sortRowSpans(pixels, y, low, high, band.descending)
+      const local = y - band.y0
+      if (local > 0 && local % 5 >= 3) {
+        holdRow(pixels, y - 1, y)
+      } else {
+        const jitter = Math.round(Math.sin(y * 1.7 + band.shear) * 5)
+        shearRow(pixels, y, band.shear + jitter)
+        sorted += sortRowSpans(pixels, y, low, high, band.descending)
+        if (local % 3 === 0) bleedRedChannel(pixels, y, band.shear > 0 ? 4 : -4)
+      }
       restoreAnchors(pixels, source, y)
       ctx._dirtyRows.push(y)
       ctx._sortRow = y
@@ -446,6 +487,7 @@ export function setup(ctx) {
     )
   }
   ctx._texture.colorSpace = Three.SRGBColorSpace
+  applyGrain(ctx._pixelData)
   ctx._sourcePixels = new Uint8ClampedArray(ctx._pixelData)
 
   // Dark mount behind the image so the frame reads as a plate, not a void.
