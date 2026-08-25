@@ -2,16 +2,18 @@
 
 A browser-based creative-coding IDE for building interactive 3D scenes, generative visuals, audio-reactive art, and 3D-printable geometry in JavaScript.
 
+**Live app:** [https://jordanhubbard.github.io/artlab/](https://jordanhubbard.github.io/artlab/)
+
 ## Quick start
 
 ```bash
-git clone <repo-url> artlab
+git clone https://github.com/jordanhubbard/artlab.git
 cd artlab
 npm install
 npm run dev
 ```
 
-Open http://localhost:5173. The IDE opens with an empty preview — pick any entry from the Examples section of the sidebar to load it.
+Open http://localhost:5173, or use the [published GitHub Pages build](https://jordanhubbard.github.io/artlab/). The IDE opens with an empty preview — pick any entry from the Examples section of the sidebar to load it.
 
 ## What it is
 
@@ -23,7 +25,22 @@ Artlab is **synthesis-first**: every reference example generates geometry, textu
 
 ## Examples
 
-About 50 reference packages live in `examples/`. Pick one from the sidebar or click **Examples** in the toolbar.
+About 50 reference packages live in `examples/`. Open them in the [live IDE](https://jordanhubbard.github.io/artlab/), or pick one from the local sidebar / **Examples** toolbar.
+
+Recent gallery pieces:
+
+| Example | What it is |
+|---|---|
+| `typography-art` | **Monument** — the word LANGUAGE as walkable brutalist architecture under a raking dawn sun |
+| `color-fields` | **Chromatic Weather** — one pigment sheet that swells, dissolves into haze, and stirs under the pointer |
+| `orbital-dance` | **Luminous Choreography** — five occluding bodies, ribbon trails, and intersecting orbital planes |
+| `pixel-sort` | **Memory Corruption** — a dusk landscape whose memory fails in traveling sorted bands |
+| `fractal-tree` | **Old Growth** — ground-level view under a finished canopy, roots, fog, and wind |
+| `tide-eroded-vessel` | Printable vase grown by CSG erosion, barnacle crust, and tide-pool windows |
+| `bell-orrery` | Five spatialized singing-bowl rings orbiting a dark obelisk |
+| `motion-scale-lantern` | Webcam mapped onto hinged icosahedron scales that flare open with motion |
+
+Full catalog:
 
 | Category | Examples |
 |---|---|
