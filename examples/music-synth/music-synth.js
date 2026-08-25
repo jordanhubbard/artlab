@@ -161,8 +161,27 @@ function _build3D(ctx) {
 
 // ── Lifecycle ─────────────────────────────────────────────────────────────────
 
+// Both the button and the Space key route through here. A suspended
+// AudioContext only resumes from inside a user gesture, and a keydown is one,
+// so Space can start the music as well as pause it.
+async function _startAudio() {
+  if (_isStarted) return true
+  _startBtn.style.display = 'none'
+  try {
+    await Tone.start()
+    _buildSynths()
+    _buildSequencers()
+    _isStarted = true
+    return true
+  } catch (err) {
+    _startBtn.style.display = ''
+    console.error('[music-synth] failed to start audio:', err)
+    return false
+  }
+}
+
 export function setup(ctx) {
-  ctx.setHelp('Space: start / stop the sequencer')
+  ctx.setHelp('Click Start Music to begin  •  Space: pause / resume')
   ctx.camera.position.set(0, 3, 16)
   ctx.camera.lookAt(0, 0, 0)
 
@@ -187,24 +206,17 @@ export function setup(ctx) {
   _startBtn.textContent = 'Start Music'
   _container.appendChild(_startBtn)
 
-  _startBtn.addEventListener('click', async () => {
-    _startBtn.style.display = 'none'
-    try {
-      await Tone.start()
-      _buildSynths()
-      _buildSequencers()
-      _isStarted = true
-    } catch (err) {
-      _startBtn.style.display = ''
-      console.error('[music-synth] failed to start audio:', err)
-    }
-  }, { once: true })
+  _startBtn.addEventListener('click', _startAudio, { once: true })
 
   _onKey = e => {
-    if ((e.key === ' ' || e.key === 'Spacebar') && _isStarted) {
-      if (Tone.Transport.state === 'started') Tone.Transport.pause()
-      else Tone.Transport.start()
+    if (e.key !== ' ' && e.key !== 'Spacebar') return
+    e.preventDefault()
+    if (!_isStarted) {
+      _startAudio()
+      return
     }
+    if (Tone.Transport.state === 'started') Tone.Transport.pause()
+    else Tone.Transport.start()
   }
   window.addEventListener('keydown', _onKey)
 }

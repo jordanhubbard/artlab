@@ -186,6 +186,55 @@ describe('music-synth', () => {
     expect(Tone.Transport.start).toHaveBeenCalled()
   })
 
+  it('setHelp names the click that actually starts audio', () => {
+    mod.setup(ctx)
+    expect(ctx.setHelp).toHaveBeenCalledTimes(1)
+    const help = ctx.setHelp.mock.calls[0][0].toLowerCase()
+    // Space alone cannot start a suspended AudioContext story: the help must
+    // point at the gesture that does.
+    expect(help).toMatch(/start music/)
+  })
+
+  it('Space starts audio when the sequencer has not been started yet', async () => {
+    const Tone = await import('tone')
+    mod.setup(ctx)
+
+    window.dispatchEvent(new KeyboardEvent('keydown', { key: ' ' }))
+    await new Promise(resolve => setTimeout(resolve, 0))
+
+    expect(Tone.start).toHaveBeenCalled()
+    expect(Tone.Transport.start).toHaveBeenCalled()
+    expect(Tone.Synth).toHaveBeenCalled()
+  })
+
+  it('Space does not build a second set of voices once started', async () => {
+    const Tone = await import('tone')
+    mod.setup(ctx)
+
+    const container = ctx.renderer.domElement.parentElement
+    container.querySelector('button').click()
+    await new Promise(resolve => setTimeout(resolve, 0))
+    const synthCalls = Tone.Synth.mock.calls.length
+
+    Tone.Transport.state = 'started'
+    window.dispatchEvent(new KeyboardEvent('keydown', { key: ' ' }))
+    await new Promise(resolve => setTimeout(resolve, 0))
+
+    expect(Tone.Synth.mock.calls.length).toBe(synthCalls)
+    expect(Tone.Transport.pause).toHaveBeenCalled()
+    Tone.Transport.state = 'stopped'
+  })
+
+  it('starting hides the button so it cannot double-trigger', async () => {
+    mod.setup(ctx)
+    const container = ctx.renderer.domElement.parentElement
+
+    window.dispatchEvent(new KeyboardEvent('keydown', { key: ' ' }))
+    await new Promise(resolve => setTimeout(resolve, 0))
+
+    expect(container.querySelector('button').style.display).toBe('none')
+  })
+
   it('teardown() does not throw', async () => {
     mod.setup(ctx)
     await expect(mod.teardown(ctx)).resolves.not.toThrow()
