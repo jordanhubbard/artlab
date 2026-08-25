@@ -32,11 +32,11 @@ About 50 reference packages live in `examples/`. Pick one from the sidebar or cl
 | Lighting & color | `aurora`, `color-fields`, `neon-city`, `shader-gallery`, `shader-playground` |
 | Procedural & generative | `terrain-flyover`, `wave-sculpture`, `flow-field`, `reaction-diffusion`, `fluid-2d`, `strange-attractor`, `canvas-2d` |
 | Physics | `domino-chain`, `marble-run`, `n-body-gravity`, `physics-particles`, `force-field-playground`, `flocking-boids`, `cloth-sim`, `voronoi-shatter` |
-| Audio | `audio-pulse`, `audio-terrain`, `music-synth`, `music-visualizer`, `synth-keyboard` |
-| Video | `chroma-mirror`, `video-fx`, `video-kaleidoscope`, `video-broadcast` |
+| Audio | `audio-pulse`, `audio-terrain`, `music-synth`, `music-visualizer`, `synth-keyboard`, `bell-orrery` |
+| Video | `chroma-mirror`, `video-fx`, `video-kaleidoscope`, `video-broadcast`, `motion-scale-lantern` |
 | Data & UI | `data-sculpture`, `ui-showcase`, `typography-art`, `clock-3d`, `clock-kinetic` |
 | Camera & motion | `camera-journey`, `orbital-dance`, `solar-system`, `particle-storm`, `pixel-sort` |
-| 3D printing & CSG | `printable-bracket` — parametric solid built with `manifold-3d`, exports STL / OBJ |
+| 3D printing & CSG | `printable-bracket`, `tide-eroded-vessel` — parametric solids with `manifold-3d`, export STL / OBJ |
 
 ## The `ctx` object
 

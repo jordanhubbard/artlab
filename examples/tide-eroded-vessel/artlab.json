@@ -1,0 +1,8 @@
+{
+  "name": "tide-eroded-vessel",
+  "version": "1.0.0",
+  "entry": "tide-eroded-vessel.js",
+  "description": "Generative printable vase grown by CSG erosion, barnacle crust, and tide-pool windows",
+  "category": "print",
+  "tags": ["csg", "manifold", "printable"]
+}

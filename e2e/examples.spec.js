@@ -23,6 +23,7 @@ const MEDIA_EXAMPLES = new Set([
   'video-fx',
   'video-broadcast',
   'video-kaleidoscope',
+  'motion-scale-lantern',
 ])
 
 // Examples with heavier async setup (texture loads, audio graph, many bodies).
@@ -40,12 +41,15 @@ const SLOW_EXAMPLES = new Set([
   'music-visualizer',
   'synth-keyboard',
   'reaction-diffusion',
+  'tide-eroded-vessel',
+  'bell-orrery',
 ])
 
 const EXAMPLES = [
   'audio-pulse',
   'audio-terrain',
   'aurora',
+  'bell-orrery',
   'camera-journey',
   'canvas-2d',
   'chroma-mirror',
@@ -63,6 +67,7 @@ const EXAMPLES = [
   'hello-cube',
   'marble-run',
   'mobius-strip',
+  'motion-scale-lantern',
   'music-synth',
   'music-visualizer',
   'n-body-gravity',
@@ -80,6 +85,7 @@ const EXAMPLES = [
   'strange-attractor',
   'synth-keyboard',
   'terrain-flyover',
+  'tide-eroded-vessel',
   'tutorial-01-geometry',
   'tutorial-02-lights',
   'tutorial-03-animation',

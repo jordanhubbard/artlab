@@ -1,0 +1,8 @@
+{
+  "name": "motion-scale-lantern",
+  "version": "1.0.0",
+  "entry": "motion-scale-lantern.js",
+  "description": "Webcam mapped onto hinged icosahedron scales that flare open with motion",
+  "category": "video",
+  "tags": ["webcam", "shader"]
+}
