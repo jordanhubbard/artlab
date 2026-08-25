@@ -2,7 +2,8 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import * as Three from 'three'
 
-const spatializeHandle = { update: vi.fn(), disconnect: vi.fn() }
+// Panner3D instances created by the example, in construction order.
+const panners = []
 
 vi.mock('../../src/stdlib/audio.js', () => ({
   engine: {
@@ -22,7 +23,6 @@ vi.mock('../../src/stdlib/audio.js', () => ({
       },
     },
   },
-  spatialize: vi.fn(() => spatializeHandle),
 }))
 
 vi.mock('tone', () => ({
@@ -38,6 +38,17 @@ vi.mock('tone', () => ({
       volume: { value: -12 },
       output: { connect: vi.fn() },
     }
+  }),
+  Panner3D: vi.fn(function Panner3D() {
+    const panner = {
+      positionX: { value: 0 },
+      positionY: { value: 0 },
+      positionZ: { value: 0 },
+      toDestination: vi.fn().mockReturnThis(),
+      dispose: vi.fn(),
+    }
+    panners.push(panner)
+    return panner
   }),
 }))
 
@@ -69,8 +80,7 @@ describe('bell-orrery', () => {
   beforeEach(async () => {
     document.body.innerHTML = ''
     vi.clearAllMocks()
-    spatializeHandle.update.mockClear()
-    spatializeHandle.disconnect.mockClear()
+    panners.length = 0
     ctx = makeMockCtx()
     mod = await import('./bell-orrery.js')
   })
@@ -98,8 +108,8 @@ describe('bell-orrery', () => {
     }).not.toThrow()
   })
 
-  it('Start button starts the engine and spatializes each bell', async () => {
-    const { engine, spatialize } = await import('../../src/stdlib/audio.js')
+  it('Start button starts the engine and gives every bell its own Panner3D', async () => {
+    const { engine } = await import('../../src/stdlib/audio.js')
     const Tone = await import('tone')
     mod.setup(ctx)
     const btn = ctx.renderer.domElement.parentElement.querySelector('button')
@@ -108,8 +118,39 @@ describe('bell-orrery', () => {
     await Promise.resolve()
     expect(engine.start).toHaveBeenCalled()
     expect(Tone.FMSynth).toHaveBeenCalled()
-    expect(spatialize).toHaveBeenCalled()
-    expect(spatialize.mock.calls.length).toBe(5)
+    // Tone sources must be panned by a Tone node, never stdlib spatialize().
+    expect(Tone.Panner3D.mock.calls.length).toBe(5)
+    expect(panners.length).toBe(5)
+    for (const p of panners) expect(p.toDestination).toHaveBeenCalled()
+  })
+
+  it('Start button hides before the engine promise settles', async () => {
+    const { engine } = await import('../../src/stdlib/audio.js')
+    let release
+    engine.start.mockImplementationOnce(() => new Promise(r => { release = r }))
+    mod.setup(ctx)
+    const btn = ctx.renderer.domElement.parentElement.querySelector('button')
+    btn.click()
+    expect(btn.style.display).toBe('none')
+    release()
+  })
+
+  it('Start button returns for a retry when audio init fails', async () => {
+    const { engine } = await import('../../src/stdlib/audio.js')
+    engine.start.mockRejectedValueOnce(new Error('no audio device'))
+    mod.setup(ctx)
+    const btn = ctx.renderer.domElement.parentElement.querySelector('button')
+    btn.click()
+    await Promise.resolve()
+    await Promise.resolve()
+    await Promise.resolve()
+    expect(btn.style.display).not.toBe('none')
+    expect(btn.textContent).toMatch(/retry/i)
+
+    btn.click()
+    await Promise.resolve()
+    await Promise.resolve()
+    expect(engine.start).toHaveBeenCalledTimes(2)
   })
 
   it('update() after start tracks panners to ring meshes', async () => {
@@ -118,7 +159,10 @@ describe('bell-orrery', () => {
     await Promise.resolve()
     await Promise.resolve()
     mod.update(ctx, 0.016)
-    expect(spatializeHandle.update).toHaveBeenCalled()
+    // Rings orbit off-centre, so at least one panner must hold a non-zero position.
+    const moved = panners.some(p =>
+      p.positionX.value !== 0 || p.positionY.value !== 0 || p.positionZ.value !== 0)
+    expect(moved).toBe(true)
   })
 
   it('teardown() removes UI, disconnects spatializers, and stops the engine', async () => {
@@ -130,7 +174,7 @@ describe('bell-orrery', () => {
     const addCount = ctx.add.mock.calls.length
     await mod.teardown(ctx)
     expect(ctx.remove.mock.calls.length).toBe(addCount)
-    expect(spatializeHandle.disconnect).toHaveBeenCalled()
+    for (const p of panners) expect(p.dispose).toHaveBeenCalled()
     expect(engine.stop).toHaveBeenCalled()
     expect(ctx.renderer.domElement.parentElement.querySelector('button')).toBeNull()
   })

@@ -1,7 +1,7 @@
 // Spatial bell orrery — five FM bowls orbit an obelisk; listener follows the camera.
 import * as Three from 'three'
 import * as Tone from 'tone'
-import { engine, spatialize } from '../../src/stdlib/audio.js'
+import { engine } from '../../src/stdlib/audio.js'
 
 const NOTES = ['C3', 'E3', 'G3', 'A3', 'D4']
 const COLORS = [0xc9a227, 0xd4b45a, 0xaa8844, 0xe8d48a, 0x8a7030]
@@ -13,6 +13,7 @@ let added = []
 let bells = []
 let startBtn = null
 let started = false
+let starting = false
 let showTrails = true
 let onKey = null
 let onClick = null
@@ -101,18 +102,28 @@ async function startAudio() {
       modulation: { type: 'square' },
       volume: -10,
     })
-    synth.disconnect()
-    bell.synth = synth
-    bell.spatial = spatialize(synth.output ?? synth, {
+    // Tone sources must be panned by a Tone node: stdlib spatialize() builds its
+    // PannerNode on the raw AudioContext, which Tone's wrapper won't accept as a
+    // connect target. Panner3D writes to the same native listener syncListener uses.
+    const panner = new Tone.Panner3D({
+      panningModel: 'HRTF',
       refDistance: 2.5,
       maxDistance: 40,
       rolloffFactor: 1.2,
-      panningModel: 'HRTF',
-    })
+    }).toDestination()
+    synth.connect(panner)
+    bell.synth = synth
+    bell.spatial = {
+      update(obj) {
+        obj.getWorldPosition(_pos)
+        panner.positionX.value = _pos.x
+        panner.positionY.value = _pos.y
+        panner.positionZ.value = _pos.z
+      },
+      disconnect() { panner.dispose() },
+    }
   }
   started = true
-  startBtn?.remove()
-  startBtn = null
 }
 
 export function setup(ctx) {
@@ -159,7 +170,24 @@ export function setup(ctx) {
   startBtn = document.createElement('button')
   startBtn.textContent = 'Start Bells'
   styleButton(startBtn)
-  startBtn.addEventListener('click', () => { startAudio() }, { once: true })
+  // Hide before awaiting: if audio init stalls the button must not linger,
+  // and it has to come back clickable when init fails outright.
+  startBtn.addEventListener('click', async () => {
+    if (started || starting) return
+    starting = true
+    startBtn.style.display = 'none'
+    try {
+      await startAudio()
+      startBtn?.remove()
+      startBtn = null
+    } catch (err) {
+      console.error('bell-orrery: audio init failed', err)
+      startBtn.textContent = 'Retry Bells'
+      startBtn.style.display = ''
+    } finally {
+      starting = false
+    }
+  })
   container.appendChild(startBtn)
 
   onKey = (e) => {
@@ -225,5 +253,6 @@ export async function teardown(ctx) {
   for (const obj of added) ctx.remove(obj)
   added = []
   started = false
+  starting = false
   await engine.stop()
 }
