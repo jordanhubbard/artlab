@@ -475,6 +475,10 @@ export function teardown(ctx) {
   ctx.renderer?.domElement.parentElement.querySelector('#start-btn')?.remove()
   ctx._ssHint?.remove()
   ctx._ssMissionHud?.remove()
+  // Label divs live in the CSS2D overlay, not the scene graph, so detaching the
+  // orbit groups they ride on does not take them with it.
+  for (const { div } of ctx._labelDivs ?? []) div.remove()
+  if (ctx._labelDivs) ctx._labelDivs.length = 0
 }
 
 // ── Private ────────────────────────────────────────────────────────────────────

@@ -326,6 +326,9 @@ export class PreviewPane {
 
     for (const obj of [...(this._ctx?._added ?? [])]) {
       this._scene.remove(obj)
+      // Three only drops a CSS2DObject's div when that object itself is removed,
+      // so nested labels would otherwise be orphaned in the overlay forever.
+      obj.traverse?.(o => { if (o.isCSS2DObject) o.element?.remove() })
       obj.geometry?.dispose?.()
       if (Array.isArray(obj.material)) obj.material.forEach(m => m.dispose?.())
       else obj.material?.dispose?.()

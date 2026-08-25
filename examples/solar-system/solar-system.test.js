@@ -185,4 +185,18 @@ describe('solar-system', () => {
     await setup(ctx)
     expect(() => teardown(ctx)).not.toThrow()
   })
+
+  it('teardown() clears the planet labels out of the CSS2D overlay', async () => {
+    await setup(ctx)
+    const overlay = ctx.labelRenderer.domElement
+    // The real CSS2DRenderer parents each label div into its overlay on render,
+    // which is where they would otherwise survive a switch to another example.
+    for (const { div } of ctx._labelDivs) overlay.appendChild(div)
+    expect(overlay.children.length).toBe(8)
+
+    teardown(ctx)
+
+    expect(overlay.children.length).toBe(0)
+    expect(ctx._labelDivs).toHaveLength(0)
+  })
 })
