@@ -98,6 +98,25 @@ describe('Signal Salvage game model', () => {
       .toEqual(['resonance', 'prism', 'repair'])
   })
 
+  it('telegraphs the first anomaly at the same time in every mission', () => {
+    // Later anomalies are randomly spaced, but a first one that can arrive
+    // anywhere between 4.5s and 10.5s leaves players unsure the telegraph
+    // exists at all, and leaves the browser test with no bounded wait.
+    for (const seed of [0, 0.5, 0.99]) {
+      const state = createGame({ random: fixedRandom(seed) })
+      startGame(state)
+      state.spawnFragmentIn = 100
+      state.spawnHazardIn = 100
+
+      expect(stepGame(state, idleInput, 4.4)).not.toContainEqual(
+        expect.objectContaining({ type: 'event-warning' }),
+      )
+      expect(stepGame(state, idleInput, 0.2)).toContainEqual(
+        expect.objectContaining({ type: 'event-warning' }),
+      )
+    }
+  })
+
   it('telegraphs seeded chaos events and excludes incompatible overlaps', () => {
     const state = createGame({ random: fixedRandom(0.99) })
     startGame(state)
@@ -117,7 +136,7 @@ describe('Signal Salvage game model', () => {
   })
 
   it('naturally overlaps compatible events while keeping the two-event cap', () => {
-    const state = createGame({ random: fixedRandom(0, 0.99, 0, 0) })
+    const state = createGame({ random: fixedRandom(0.99, 0, 0, 0) })
     startGame(state)
     state.spawnFragmentIn = 100
     state.spawnHazardIn = 100

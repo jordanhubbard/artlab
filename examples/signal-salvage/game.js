@@ -10,6 +10,9 @@ const COMBO_WINDOW = 3
 const EVENT_WARNING_TIME = 1.5
 const EVENT_INTERVAL_MIN = 6
 const EVENT_INTERVAL_RANGE = 6
+// The opening anomaly is deliberately not random: players need to see one
+// telegraph land early to learn what the warning line means.
+const FIRST_EVENT_LEAD = EVENT_INTERVAL_MIN - EVENT_WARNING_TIME
 const EVENT_DEFINITIONS = [
   { type: 'debris-stream', duration: 5 },
   { type: 'corruption-swarm', duration: 6 },
@@ -43,7 +46,7 @@ export function createGame({ random = Math.random } = {}) {
     eventWarning: null,
     eventWarningFor: 0,
     pendingEvent: null,
-    nextEventIn: EVENT_INTERVAL_MIN - EVENT_WARNING_TIME,
+    nextEventIn: FIRST_EVENT_LEAD,
     nextEntityId: 1,
   }
 }
@@ -105,7 +108,7 @@ function resetMission(state) {
   state.eventWarning = null
   state.eventWarningFor = 0
   state.pendingEvent = null
-  state.nextEventIn = nextWarningDelay(state)
+  state.nextEventIn = FIRST_EVENT_LEAD
   state.nextEntityId = 1
 }
 

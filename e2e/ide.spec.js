@@ -50,7 +50,7 @@ test.describe('IDE shell', () => {
   })
 
   test('Signal Salvage plays with keyboard fallback and tears down cleanly', async ({ page }) => {
-    test.setTimeout(45_000)
+    test.setTimeout(75_000)
     await page.goto('./#signal-salvage', { waitUntil: 'domcontentloaded' })
     const game = page.locator('[data-signal-salvage]')
     await expect(game.getByRole('button', { name: 'START MISSION' })).toBeVisible()
@@ -71,9 +71,14 @@ test.describe('IDE shell', () => {
     await page.keyboard.up('Space')
     await page.waitForTimeout(750)
     await expect(hud).toContainText(/TIME\s+8[0-9]/)
+    // The first anomaly is telegraphed 4.5s into mission time, but the example
+    // clamps each frame's delta to 50ms so a stall cannot tunnel entities
+    // through the player. Under software WebGL the render loop can fall below
+    // that clamp, which makes mission time run slower than wall clock, so this
+    // wait has to be several times the nominal 4.5s.
     await expect(hud).toContainText(
       /EVENT\s+(WARNING:|DEBRIS|CORRUPTION|GRAVITY|BLACKOUT|SIGNAL)/,
-      { timeout: 16_000 },
+      { timeout: 30_000 },
     )
 
     await page.evaluate(() => { location.hash = '#hello-cube' })
