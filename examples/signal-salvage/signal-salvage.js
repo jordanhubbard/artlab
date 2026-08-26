@@ -3,7 +3,10 @@ import { createMediaInput } from './media-input.js'
 import { createSignalScene } from './scene.js'
 import { createSoundtrack } from './soundtrack.js'
 
-const HELP = 'WASD / arrows: steer • Space: charge / pulse • P: pause • R: restart'
+const HELP = [
+  'WASD / arrows: steer • Space: charge / pulse • P: pause • R: restart',
+  'Camera: signal veil / motion ripples • Mic: pulse charge / world intensity',
+].join(' • ')
 const CONTROL_KEYS = new Set([
   'arrowleft', 'arrowright', 'arrowup', 'arrowdown',
   'a', 'd', 'w', 's', ' ', 'spacebar',
@@ -61,7 +64,10 @@ export function update(ctx, dt) {
     current.soundtrack.handle(events)
     current.soundtrack.update(current.state, current.media.micEnergy)
   }
-  current.view.sync(current.state, events, frameDt)
+  current.view.sync(current.state, events, frameDt, {
+    motion: current.media.motion,
+    micEnergy: current.media.micEnergy,
+  })
   updateHud(current)
 }
 
@@ -123,8 +129,8 @@ function readInput(current) {
   const keyboardX = axis(keys, 'arrowleft', 'a', 'arrowright', 'd')
   const keyboardY = axis(keys, 'arrowdown', 's', 'arrowup', 'w')
   return {
-    x: clamp(keyboardX + current.media.motion.x * 0.45, -1, 1),
-    y: clamp(keyboardY + current.media.motion.y * 0.45, -1, 1),
+    x: clamp(keyboardX, -1, 1),
+    y: clamp(keyboardY, -1, 1),
     pulseHeld: keys.has(' ') || keys.has('spacebar'),
     pulseReleased: current.pulseReleased,
     micEnergy: current.media.micEnergy,
@@ -166,8 +172,10 @@ function buildUi(container) {
   })
   onboarding.innerHTML = [
     '<strong style="font-size:18px;letter-spacing:.25em">SIGNAL SALVAGE</strong>',
-    '<p>Pilot a living skiff. Gather memory seeds. Repel corruption blooms.</p>',
-    '<p style="color:#83b9aa">Camera motion and microphone energy enhance play. ',
+    '<p>Pilot a living skiff. Gather four signal species. Survive random anomalies.</p>',
+    '<p style="color:#9cebd4">Camera → signal veil &amp; motion ripples</p>',
+    '<p style="color:#9cebd4">Microphone → pulse charge &amp; world intensity</p>',
+    '<p style="color:#83b9aa">Keyboard is always the flight control. ',
     'Media is processed locally and is never recorded, uploaded, or retained.</p>',
     `<p>${HELP}</p>`,
   ].join('')
@@ -213,14 +221,22 @@ function updateHud(current) {
   const state = current.state
   const seconds = Math.ceil(state.timeRemaining)
   const phase = state.phase === 'paused' ? 'PAUSED' : state.phase.toUpperCase()
+  const runningEvents = state.activeEvents?.map(event => event.type).join(' + ')
+  const activeEvent = [
+    state.eventWarning ? `WARNING: ${state.eventWarning}` : '',
+    runningEvents,
+  ].filter(Boolean).join(' | ') || 'CALM'
   const text = [
     `SIGNAL SALVAGE  ${phase}`,
     `SCORE   ${String(state.score).padStart(6, '0')}   COMBO  ×${state.combo}`,
     `TIME    ${String(seconds).padStart(2, '0')}       WAVE   ${state.wave}/3`,
     `HEALTH  ${'●'.repeat(state.health)}${'○'.repeat(3 - state.health)}`,
     `PULSE   ${meter(state.pulseCharge)}`,
+    `EVENT   ${activeEvent.toUpperCase()}`,
     `CAMERA  ${current.media.cameraStatus.toUpperCase()}`,
+    `CAM MOTION ${meter(current.media.motion.amount)}`,
     `MIC     ${current.media.microphoneStatus.toUpperCase()}`,
+    `MIC ENERGY ${meter(current.media.micEnergy)}`,
     `AUDIO   ${current.soundtrack.status.toUpperCase()}`,
   ].join('\n')
   if (text !== current.lastHud) {

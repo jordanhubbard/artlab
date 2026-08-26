@@ -54,6 +54,8 @@ describe('Signal Salvage lifecycle', () => {
 
   beforeEach(async () => {
     vi.clearAllMocks()
+    media.motion = { x: 0, y: 0, amount: 0 }
+    media.micEnergy = 0
     document.body.innerHTML = ''
     ctx = makeCtx()
     mod = await import('./signal-salvage.js')
@@ -68,6 +70,8 @@ describe('Signal Salvage lifecycle', () => {
 
     expect(ctx.setHelp).toHaveBeenCalledWith(expect.stringMatching(/WASD.*Space.*P.*R/))
     expect(ctx.container.textContent).toMatch(/processed locally/i)
+    expect(ctx.container.textContent).toMatch(/Camera.*signal veil.*motion ripples/i)
+    expect(ctx.container.textContent).toMatch(/Microphone.*pulse charge.*world intensity/i)
     expect(media.start).not.toHaveBeenCalled()
     expect(soundtrack.start).not.toHaveBeenCalled()
   })
@@ -84,6 +88,26 @@ describe('Signal Salvage lifecycle', () => {
     expect(view.setTexture).toHaveBeenCalledWith(media.texture)
     expect(view.sync).toHaveBeenCalled()
     expect(ctx.container.textContent).toMatch(/CAMERA\s+DENIED/i)
+  })
+
+  it('keeps camera motion out of steering and routes it to scene effects', async () => {
+    media.motion = { x: 1, y: -0.5, amount: 0.8 }
+    media.micEnergy = 0.65
+    mod.setup(ctx)
+    ctx.container.querySelector('button').click()
+    await new Promise(resolve => setTimeout(resolve, 0))
+
+    mod.update(ctx, 0.5)
+
+    const [state, , , signals] = view.sync.mock.calls.at(-1)
+    expect(state.player.x).toBe(0)
+    expect(state.player.y).toBe(0)
+    expect(signals).toEqual({
+      motion: media.motion,
+      micEnergy: media.micEnergy,
+    })
+    expect(ctx.container.textContent).toMatch(/CAM MOTION\s+████████░░/)
+    expect(ctx.container.textContent).toMatch(/MIC ENERGY\s+███████░░░/)
   })
 
   it('supports pause and restart controls', async () => {

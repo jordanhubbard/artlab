@@ -17,6 +17,7 @@ function node() {
 
 function toneMock({ rejectStart = false } = {}) {
   const nodes = []
+  let scheduleId = 40
   const make = vi.fn(function () {
     const result = node()
     nodes.push(result)
@@ -32,13 +33,14 @@ function toneMock({ rejectStart = false } = {}) {
     Filter: make,
     Volume: make,
     PolySynth: make,
+    MonoSynth: make,
     FMSynth: vi.fn(),
     Synth: make,
     MembraneSynth: make,
     NoiseSynth: make,
     Transport: {
       bpm: { value: 0 },
-      scheduleRepeat: vi.fn(() => 42),
+      scheduleRepeat: vi.fn(() => ++scheduleId),
       clear: vi.fn(),
       start: vi.fn(),
       stop: vi.fn(),
@@ -81,13 +83,47 @@ describe('Signal Salvage soundtrack', () => {
       { type: 'collected', combo: 3 },
       { type: 'hit', health: 2 },
       { type: 'pulse', strength: 0.8 },
+      { type: 'event-warning', event: 'signal-storm' },
+      { type: 'event-started', event: 'signal-storm' },
     ])
 
     const triggerCount = Tone.nodes.reduce(
       (sum, item) => sum + item.triggerAttackRelease.mock.calls.length,
       0,
     )
-    expect(triggerCount).toBe(3)
+    expect(triggerCount).toBe(5)
+  })
+
+  it('changes to a non-repeating harmonic scene every four measures', async () => {
+    const Tone = toneMock()
+    const soundtrack = createSoundtrack({ Tone, random: () => 0 })
+    await soundtrack.start()
+
+    const chordSchedule = Tone.Transport.scheduleRepeat.mock.calls
+      .find(([, interval]) => interval === '1m')
+    expect(chordSchedule).toBeTruthy()
+
+    const initialScene = soundtrack.sceneIndex
+    chordSchedule[0](0)
+    const initialChord = Tone.nodes
+      .flatMap(item => item.triggerAttackRelease.mock.calls)
+      .find(([notes]) => Array.isArray(notes))?.[0]
+    chordSchedule[0](2)
+    chordSchedule[0](4)
+    chordSchedule[0](6)
+    chordSchedule[0](10)
+    expect(soundtrack.sceneIndex).not.toBe(initialScene)
+    const padChords = Tone.nodes
+      .flatMap(item => item.triggerAttackRelease.mock.calls)
+      .filter(([notes]) => Array.isArray(notes))
+    expect(padChords.at(-1)[0]).not.toEqual(initialChord)
+
+    const previousScene = soundtrack.sceneIndex
+    chordSchedule[0](12)
+    chordSchedule[0](14)
+    chordSchedule[0](16)
+    chordSchedule[0](20)
+    expect(soundtrack.sceneIndex).not.toBe(previousScene)
   })
 
   it('reacts to game intensity and disposes all resources', async () => {
@@ -101,7 +137,7 @@ describe('Signal Salvage soundtrack', () => {
 
     expect(Tone.Transport.bpm.value).toBe(104)
     expect(Tone.nodes.some(item => item.frequency.rampTo.mock.calls.length > 0)).toBe(true)
-    expect(Tone.Transport.clear).toHaveBeenCalledWith(42)
+    expect(Tone.Transport.clear).toHaveBeenCalledTimes(1)
     expect(Tone.Transport.stop).toHaveBeenCalledTimes(1)
     expect(Tone.nodes.every(item => item.dispose.mock.calls.length === 1)).toBe(true)
   })

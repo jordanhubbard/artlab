@@ -54,6 +54,8 @@ test.describe('IDE shell', () => {
     await page.goto('./#signal-salvage', { waitUntil: 'domcontentloaded' })
     const game = page.locator('[data-signal-salvage]')
     await expect(game.getByRole('button', { name: 'START MISSION' })).toBeVisible()
+    await expect(game).toContainText('Camera → signal veil & motion ripples')
+    await expect(game).toContainText('Microphone → pulse charge & world intensity')
     await game.getByRole('button', { name: 'START MISSION' }).click()
 
     const hud = game.locator('pre')
@@ -69,9 +71,78 @@ test.describe('IDE shell', () => {
     await page.keyboard.up('Space')
     await page.waitForTimeout(750)
     await expect(hud).toContainText(/TIME\s+8[0-9]/)
+    await expect(hud).toContainText(
+      /EVENT\s+(WARNING:|DEBRIS|CORRUPTION|GRAVITY|BLACKOUT|SIGNAL)/,
+      { timeout: 16_000 },
+    )
 
     await page.evaluate(() => { location.hash = '#hello-cube' })
     await expect(game).toHaveCount(0)
+  })
+
+  test('Signal Salvage makes synthetic camera and microphone input visible', async ({ page }) => {
+    test.setTimeout(45_000)
+    await page.evaluate(() => {
+      window.__signalInitError = null
+      try {
+        const canvas = document.createElement('canvas')
+        canvas.width = 64
+        canvas.height = 48
+        const context = canvas.getContext('2d')
+        const cameraStream = canvas.captureStream(0)
+        const videoTrack = cameraStream.getVideoTracks()[0]
+        let phase = false
+        const animation = setInterval(() => {
+          phase = !phase
+          context.fillStyle = '#001122'
+          context.fillRect(0, 0, 64, 48)
+          context.fillStyle = '#ffffff'
+          context.fillRect(phase ? 0 : 32, 0, 32, 48)
+          videoTrack.requestFrame()
+        }, 80)
+        const sourceContext = new AudioContext()
+        const oscillator = sourceContext.createOscillator()
+        const gain = sourceContext.createGain()
+        const destination = sourceContext.createMediaStreamDestination()
+        gain.gain.value = 0.65
+        oscillator.connect(gain).connect(destination)
+        oscillator.start()
+        window.__signalSyntheticMedia = {
+          animation,
+          cameraStream,
+          sourceContext,
+          oscillator,
+          microphoneStream: destination.stream,
+        }
+        Object.defineProperty(navigator, 'mediaDevices', {
+          configurable: true,
+          value: {
+            getUserMedia: constraints => Promise.resolve(
+              constraints.video ? cameraStream : destination.stream,
+            ),
+          },
+        })
+      } catch (error) {
+        window.__signalInitError = error.message
+      }
+    })
+    await page.goto('./#signal-salvage', { waitUntil: 'domcontentloaded' })
+    expect(await page.evaluate(() => window.__signalInitError)).toBeNull()
+    await page.getByRole('button', { name: 'START MISSION' }).click()
+    const hud = page.locator('[data-signal-salvage] pre')
+
+    await expect(hud).toContainText(/CAMERA\s+ACTIVE/, { timeout: 15_000 })
+    await expect(hud).toContainText(/MIC\s+ACTIVE/, { timeout: 15_000 })
+    await expect.poll(async () => hud.textContent()).not.toMatch(/CAM MOTION\s+░{10}/)
+    await expect.poll(async () => hud.textContent()).not.toMatch(/MIC ENERGY\s+░{10}/)
+
+    await page.evaluate(() => { location.hash = '#hello-cube' })
+    await page.evaluate(async () => {
+      const media = window.__signalSyntheticMedia
+      clearInterval(media.animation)
+      media.oscillator.stop()
+      await media.sourceContext.close()
+    })
   })
 
   test('Signal Salvage stops media that resolves after switching examples', async ({ page }) => {

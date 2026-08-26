@@ -15,6 +15,14 @@ Translucent signal fragments use the webcam feed as a refracted membrane;
 corruption blooms damage the player. Collecting fragments builds score and a
 combo multiplier. Three escalating waves culminate in a signal storm.
 
+The entity mix changes throughout every run. Memory seeds build the normal
+score and combo, resonance blooms amplify pulse strength, prism shards grant a
+short score multiplier, and rare repair spores restore health. A seeded chaos
+director starts a telegraphed event every 6–12 seconds. Debris streams,
+corruption swarms, gravity wells, blackout surges, and signal storms alter
+movement, visibility, speed, or spawn density for 4–8 seconds. At most two
+compatible modifiers overlap, keeping surprising runs fair and reproducible.
+
 Controls:
 
 - WASD or arrow keys steer.
@@ -30,9 +38,17 @@ locally and never retained.
 ## Media and audio
 
 A single user-gesture button starts Tone.js and requests camera and
-microphone access independently. Camera frames provide the fragment texture
-and low-resolution motion steering. Microphone RMS energy accelerates pulse
-charging and increases the harmonic density of a pentatonic ambient score.
+microphone access independently. Camera frames texture prism shards and a
+large translucent signal veil. Low-resolution camera motion produces ripples,
+glow, and turbulence but does not steer the craft. Microphone RMS energy
+accelerates pulse charging, expands the craft aura, brightens the world, and
+opens the soundtrack filter.
+
+The soundtrack contains 6–8 four-chord harmonic scenes with alternate
+voicings, bass patterns, and sparse motifs. A different scene is selected at
+each four-measure boundary, approximately every 9–11 seconds over the game's
+tempo range. Immediate scene repeats are excluded. Chaos events may change
+orchestration and rhythm, but harmonic changes never occur between bars.
 The microphone signal is analyzed only; it is never played, recorded,
 uploaded, or retained.
 
@@ -46,9 +62,11 @@ Permission failures are non-fatal:
 ## Architecture
 
 `game.js` is a deterministic model for game state, waves, scoring, spawning,
-movement, sphere collisions, and pulse behavior. `media-input.js` normalizes
-camera motion and microphone energy. `soundtrack.js` owns all Tone.js nodes
-and musical events. `scene.js` owns Three.js resources and pooled entities.
+the chaos director, typed entities, movement, sphere collisions, and pulse
+behavior. `media-input.js` normalizes camera motion and microphone energy.
+`soundtrack.js` owns all Tone.js nodes, bar-aligned harmonic scenes, and
+musical events. `scene.js` owns Three.js resources, the signal veil, sensor
+effects, and pooled entities.
 `signal-salvage.js` coordinates those modules through Artlab's
 `setup`/`update`/`teardown` lifecycle.
 
@@ -77,10 +95,17 @@ for permission again.
 ## Acceptance criteria
 
 - A complete 90-second keyboard-only game works without media devices.
-- Camera motion influences steering and webcam video textures fragments when
-  camera access is available.
-- Microphone energy influences pulse charging and the soundtrack when
-  microphone access is available.
+- Keyboard input is the only steering control.
+- Camera video textures the signal veil and prism shards; camera motion
+  visibly drives ripples and turbulence when camera access is available.
+- Microphone energy visibly influences pulse charging, aura, world intensity,
+  and the soundtrack when microphone access is available.
+- The HUD and onboarding explicitly name each sensor's effect and expose live
+  camera-motion and microphone-energy feedback.
+- Four collectible types and five telegraphed chaos events produce varied,
+  seeded runs without exceeding the fixed entity caps.
+- The soundtrack changes to a non-repeating harmonic scene every four measures
+  without cutting across a bar.
 - Music and game cues reach the Tone.js destination after the start gesture.
 - Entity counts stay within fixed caps throughout repeated runs.
 - Permission denial is visible but never crashes or blocks play.
