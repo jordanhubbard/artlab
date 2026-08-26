@@ -31,6 +31,7 @@ Recent gallery pieces:
 
 | Example | What it is |
 |---|---|
+| `signal-salvage` | **Signal Salvage** — a sensor-enhanced organic-cosmos game with webcam membranes, microphone-charged pulses, procedural music, and 3D flight |
 | `typography-art` | **Monument** — the word LANGUAGE as walkable brutalist architecture under a raking dawn sun |
 | `color-fields` | **Chromatic Weather** — one pigment sheet that swells, dissolves into haze, and stirs under the pointer |
 | `orbital-dance` | **Luminous Choreography** — five occluding bodies, ribbon trails, and intersecting orbital planes |
@@ -53,6 +54,7 @@ Full catalog:
 | Video | `chroma-mirror`, `video-fx`, `video-kaleidoscope`, `video-broadcast`, `motion-scale-lantern` |
 | Data & UI | `data-sculpture`, `ui-showcase`, `typography-art`, `clock-3d`, `clock-kinetic` |
 | Camera & motion | `camera-journey`, `orbital-dance`, `solar-system`, `particle-storm`, `pixel-sort` |
+| Games & multimodal | `signal-salvage` — webcam motion, microphone energy, procedural audio, and 3D score attack |
 | 3D printing & CSG | `printable-bracket`, `tide-eroded-vessel` — parametric solids with `manifold-3d`, export STL / OBJ |
 
 ## The `ctx` object

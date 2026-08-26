@@ -1,0 +1,6 @@
+{
+  "name": "signal-salvage",
+  "version": "1.0.0",
+  "entry": "signal-salvage.js",
+  "description": "Signal Salvage — a sensor-enhanced organic-cosmos game combining webcam motion, microphone energy, procedural music, particles, and 3D flight"
+}

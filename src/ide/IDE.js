@@ -143,6 +143,7 @@ const EXAMPLES = [
   { name: 'recursive-spirals', entry: 'recursive-spirals.js', description: 'Nested spirals of spirals — each arm of a golden spiral spawns smaller spirals at its tips, creating a fractal spiral galaxy' },
   { name: 'shader-gallery', entry: 'shader-gallery.js', description: 'A virtual art gallery with five live shader paintings — pixelate, color waves, glitch, julia fractal, and animated noise' },
   { name: 'shader-playground', entry: 'shader-playground.js', description: 'A ShaderMaterial raymarching signed-distance functions — sphere, torus, and plane with smooth union and animated deformation' },
+  { name: 'signal-salvage', entry: 'signal-salvage.js', description: 'Sensor-enhanced organic-cosmos game combining webcam motion, microphone energy, procedural music, particles, and 3D flight' },
   { name: 'solar-system', entry: 'solar-system.js', description: 'Audio-reactive 3D solar system — the Artlab reference demo' },
   { name: 'strange-attractor', entry: 'strange-attractor.js', description: 'Lorenz butterfly attractor animated in real-time with velocity-colored trail and glowing sphere follower' },
   { name: 'synth-keyboard', entry: 'synth-keyboard.js', description: 'On-screen piano keys that spawn colored particle fountains per note with reverb trails in 3D' },

@@ -24,6 +24,7 @@ const MEDIA_EXAMPLES = new Set([
   'video-broadcast',
   'video-kaleidoscope',
   'motion-scale-lantern',
+  'signal-salvage',
 ])
 
 // Examples with heavier async setup (texture loads, audio graph, many bodies).
@@ -44,6 +45,7 @@ const SLOW_EXAMPLES = new Set([
   'tide-eroded-vessel',
   'bell-orrery',
   'printable-bracket',
+  'signal-salvage',
 ])
 
 const EXAMPLES = [
@@ -83,6 +85,7 @@ const EXAMPLES = [
   'recursive-spirals',
   'shader-gallery',
   'shader-playground',
+  'signal-salvage',
   'solar-system',
   'strange-attractor',
   'synth-keyboard',
