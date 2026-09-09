@@ -18,16 +18,32 @@ const DAY  = YEAR / 365.25
 
 const MOON_ORBIT_R = 8    // scaled-up moon orbit (0.00257 AU is sub-visual)
 
+export const TEXTURES = Object.freeze({
+  mercury:      'mercury/8k_mercury.jpg',
+  venusSurface: 'venus/8k_venus_surface.jpg',
+  venusClouds:  'venus/4k_venus_atmosphere.jpg',
+  earthDay:     'earth/8k_earth_daymap.jpg',
+  earthNight:   'earth/8k_earth_nightmap.jpg',
+  earthClouds:  'earth/8k_earth_clouds.jpg',
+  mars:         'mars/8k_mars.jpg',
+  jupiter:      'jupiter/8k_jupiter.jpg',
+  saturn:       'saturn/8k_saturn.jpg',
+  saturnRings:  'saturn/8k_saturn_ring_alpha.png',
+  uranus:       'uranus/2k_uranus.jpg',
+  neptune:      'neptune/2k_neptune.jpg',
+  moon:         'moon/8k_moon.jpg',
+})
+
 // ── Planet catalogue ───────────────────────────────────────────────────────────
 const PLANETS = {
-  mercury: { a: 0.387, T: 0.241,  e: 0.206, r: 0.383,  tilt:   0.03, rot:   58.6,  color: 0x9e9e9e, tex: 'mercury/2k_mercury.jpg' },
-  venus:   { a: 0.723, T: 0.615,  e: 0.007, r: 0.949,  tilt: 177.4,  rot: -243,    color: 0xe8c870, tex: 'venus/2k_venus_atmosphere.jpg',   atm: [1.0, 0.85, 0.50] },
-  earth:   { a: 1.000, T: 1.000,  e: 0.017, r: 1.000,  tilt:  23.44, rot:    1.0,  color: 0x2255aa, tex: 'earth/2k_earth_daymap.jpg',       atm: [0.3, 0.6,  1.0 ], clouds: 'earth/2k_earth_clouds.jpg' },
-  mars:    { a: 1.524, T: 1.881,  e: 0.093, r: 0.532,  tilt:  25.19, rot:    1.026,color: 0xc1440e, tex: 'mars/2k_mars.jpg',                atm: [0.9, 0.4,  0.2 ] },
-  jupiter: { a: 5.204, T: 11.86,  e: 0.049, r: 11.209, tilt:   3.13, rot:    0.413,color: 0xc88b3a, tex: 'jupiter/2k_jupiter.jpg' },
-  saturn:  { a: 9.537, T: 29.46,  e: 0.057, r: 9.449,  tilt:  26.73, rot:    0.444,color: 0xead6a5, tex: 'saturn/2k_saturn.jpg',            rings: true },
-  uranus:  { a: 19.19, T: 84.01,  e: 0.046, r: 4.007,  tilt:  97.77, rot:   -0.718,color: 0x7de8e8, tex: 'uranus/2k_uranus.jpg',            atm: [0.5, 0.9,  0.9 ] },
-  neptune: { a: 30.07, T: 164.8,  e: 0.010, r: 3.883,  tilt:  28.32, rot:    0.671,color: 0x3f54ba, tex: 'neptune/2k_neptune.jpg',          atm: [0.2, 0.4,  1.0 ] },
+  mercury: { a: 0.387, T: 0.241,  e: 0.206, r: 0.383,  tilt:   0.03, rot:   58.6,  color: 0x9e9e9e, tex: TEXTURES.mercury },
+  venus:   { a: 0.723, T: 0.615,  e: 0.007, r: 0.949,  tilt: 177.4,  rot: -243,    color: 0xe8c870, tex: TEXTURES.venusSurface,             atm: [1.0, 0.85, 0.50], clouds: TEXTURES.venusClouds },
+  earth:   { a: 1.000, T: 1.000,  e: 0.017, r: 1.000,  tilt:  23.44, rot:    1.0,  color: 0x2255aa, tex: TEXTURES.earthDay,                 atm: [0.3, 0.6,  1.0 ], clouds: TEXTURES.earthClouds, night: TEXTURES.earthNight },
+  mars:    { a: 1.524, T: 1.881,  e: 0.093, r: 0.532,  tilt:  25.19, rot:    1.026,color: 0xc1440e, tex: TEXTURES.mars,                     atm: [0.9, 0.4,  0.2 ] },
+  jupiter: { a: 5.204, T: 11.86,  e: 0.049, r: 11.209, tilt:   3.13, rot:    0.413,color: 0xc88b3a, tex: TEXTURES.jupiter },
+  saturn:  { a: 9.537, T: 29.46,  e: 0.057, r: 9.449,  tilt:  26.73, rot:    0.444,color: 0xead6a5, tex: TEXTURES.saturn,                  rings: true },
+  uranus:  { a: 19.19, T: 84.01,  e: 0.046, r: 4.007,  tilt:  97.77, rot:   -0.718,color: 0x7de8e8, tex: TEXTURES.uranus,                  atm: [0.5, 0.9,  0.9 ] },
+  neptune: { a: 30.07, T: 164.8,  e: 0.010, r: 3.883,  tilt:  28.32, rot:    0.671,color: 0x3f54ba, tex: TEXTURES.neptune,                atm: [0.2, 0.4,  1.0 ] },
 }
 const PLANET_ORDER = ['mercury','venus','earth','mars','jupiter','saturn','uranus','neptune']
 
@@ -81,28 +97,6 @@ function makeAtmosphere(Three, parent, r, rgb) {
   })
   parent.add(new Three.Mesh(geo, mkMat(Three.BackSide)))
   parent.add(new Three.Mesh(geo, mkMat(Three.FrontSide)))
-}
-
-function makeRingTexture(Three, size = 512) {
-  const cv = document.createElement('canvas')
-  cv.width = size; cv.height = 4
-  const c = cv.getContext('2d')
-  const g = c.createLinearGradient(0, 0, size, 0)
-  g.addColorStop(0.00, 'rgba(80,65,50,0)')
-  g.addColorStop(0.05, 'rgba(80,65,50,0.3)')
-  g.addColorStop(0.08, 'rgba(100,80,60,0.45)')
-  g.addColorStop(0.25, 'rgba(200,175,140,0.85)')
-  g.addColorStop(0.35, 'rgba(215,190,155,0.95)')
-  g.addColorStop(0.50, 'rgba(190,165,130,0.88)')
-  g.addColorStop(0.55, 'rgba(15,10,8,0.05)')    // Cassini division
-  g.addColorStop(0.58, 'rgba(15,10,8,0.05)')
-  g.addColorStop(0.60, 'rgba(180,155,120,0.7)')
-  g.addColorStop(0.74, 'rgba(170,145,110,0.65)')
-  g.addColorStop(0.82, 'rgba(20,15,10,0.1)')    // Encke gap
-  g.addColorStop(0.92, 'rgba(140,115,85,0.2)')
-  g.addColorStop(1.00, 'rgba(140,115,85,0)')
-  c.fillStyle = g; c.fillRect(0, 0, size, 4)
-  return new Three.CanvasTexture(cv)
 }
 
 function fixRingUVs(geo, innerR, outerR) {
@@ -193,7 +187,13 @@ export async function setup(ctx) {
     orbit.add(tilted)
 
     // Planet sphere with LOD
-    const mat = new Three.MeshStandardMaterial({ map: loadTex(Three, d.tex), roughness: 0.85 })
+    const materialOptions = { map: loadTex(Three, d.tex), roughness: 0.85 }
+    if (d.night) {
+      materialOptions.emissive = new Three.Color(0xffffff)
+      materialOptions.emissiveMap = loadTex(Three, d.night)
+      materialOptions.emissiveIntensity = 0.35
+    }
+    const mat = new Three.MeshStandardMaterial(materialOptions)
     const mkSphere = (segs) => {
       const m = new Three.Mesh(new Three.SphereGeometry(r, segs, Math.round(segs / 2)), mat)
       m.castShadow = m.receiveShadow = true
@@ -208,13 +208,14 @@ export async function setup(ctx) {
     ctx._lodRoots[name] = lod
     lod.children.forEach(c => { if (c.isMesh) pickMeshes.push({ m: c, name }) })
 
-    // Earth cloud layer
+    // Cloud layers
     if (d.clouds) {
-      ctx._earthClouds = new Three.Mesh(
+      const clouds = new Three.Mesh(
         new Three.SphereGeometry(r * 1.008, 64, 32),
         new Three.MeshStandardMaterial({ map: loadTex(Three, d.clouds), transparent: true, opacity: 0.5, depthWrite: false })
       )
-      tilted.add(ctx._earthClouds)
+      tilted.add(clouds)
+      if (name === 'earth') ctx._earthClouds = clouds
     }
 
     // Atmosphere rim glow
@@ -226,7 +227,7 @@ export async function setup(ctx) {
       const ringGeo = new Three.RingGeometry(innerR, outerR, 128)
       fixRingUVs(ringGeo, innerR, outerR)
       const ring = new Three.Mesh(ringGeo, new Three.MeshBasicMaterial({
-        map: makeRingTexture(Three), transparent: true, depthWrite: false,
+        map: loadTex(Three, TEXTURES.saturnRings), transparent: true, depthWrite: false,
         side: Three.DoubleSide, opacity: 0.95,
       }))
       ring.rotation.x = Math.PI / 2
@@ -266,7 +267,7 @@ export async function setup(ctx) {
   ctx._moonGroup = new Three.Group()
   ctx._moonGroup.add(new Three.Mesh(
     new Three.SphereGeometry(moonR, 32, 16),
-    new Three.MeshStandardMaterial({ map: loadTex(Three, 'moon/2k_moon.jpg'), roughness: 0.95 })
+    new Three.MeshStandardMaterial({ map: loadTex(Three, TEXTURES.moon), roughness: 0.95 })
   ))
   ctx.add(ctx._moonGroup)
 

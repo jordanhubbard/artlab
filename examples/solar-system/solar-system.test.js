@@ -39,31 +39,13 @@ vi.mock('three/addons/renderers/CSS2DRenderer.js', async () => {
   return { CSS2DObject, CSS2DRenderer }
 })
 
-// ── Canvas 2D context mock ────────────────────────────────────────────────────
-// jsdom doesn't implement canvas.getContext('2d') without the 'canvas' package.
-// solar-system uses it inside makeRingTexture() for Saturn's rings.
-
-HTMLCanvasElement.prototype.getContext = vi.fn((type) => {
-  if (type === '2d') {
-    const gradient = { addColorStop: vi.fn() }
-    return {
-      clearRect: vi.fn(),
-      fillRect: vi.fn(),
-      fillText: vi.fn(),
-      strokeText: vi.fn(),
-      beginPath: vi.fn(),
-      moveTo: vi.fn(),
-      lineTo: vi.fn(),
-      stroke: vi.fn(),
-      fill: vi.fn(),
-      createLinearGradient: vi.fn(() => gradient),
-      createRadialGradient: vi.fn(() => gradient),
-      save: vi.fn(),
-      restore: vi.fn(),
-    }
-  }
-  return null
-})
+// Vite resolves the package's image URLs during tests, which makes jsdom probe
+// a 2D canvas while decoding them. A lightweight context keeps that path quiet.
+HTMLCanvasElement.prototype.getContext = vi.fn(() => ({
+  clearRect: vi.fn(),
+  drawImage: vi.fn(),
+  getImageData: vi.fn(() => ({ data: new Uint8ClampedArray() })),
+}))
 
 // ── Audio mocks ───────────────────────────────────────────────────────────────
 
@@ -147,11 +129,11 @@ function makeMockCtx(overrides = {}) {
 
 describe('solar-system', () => {
   let ctx
-  let setup, update, teardown
+  let setup, update, teardown, TEXTURES
 
   beforeEach(async () => {
     ctx = makeMockCtx()
-    ;({ setup, update, teardown } = await import('./solar-system.js'))
+    ;({ setup, update, teardown, TEXTURES } = await import('./solar-system.js'))
   })
 
   afterEach(() => {
@@ -170,6 +152,25 @@ describe('solar-system', () => {
     for (const name of PLANET_ORDER) {
       expect(ctx._planets[name]).toBeDefined()
     }
+  })
+
+  it('uses the high-resolution texture set where available', () => {
+    const expectedTextures = [
+      'mercury/8k_mercury.jpg',
+      'venus/8k_venus_surface.jpg',
+      'venus/4k_venus_atmosphere.jpg',
+      'earth/8k_earth_daymap.jpg',
+      'earth/8k_earth_nightmap.jpg',
+      'earth/8k_earth_clouds.jpg',
+      'mars/8k_mars.jpg',
+      'jupiter/8k_jupiter.jpg',
+      'saturn/8k_saturn.jpg',
+      'saturn/8k_saturn_ring_alpha.png',
+      'moon/8k_moon.jpg',
+    ]
+    const textures = Object.values(TEXTURES)
+    expect(textures).toEqual(expect.arrayContaining(expectedTextures))
+    expect(textures.filter(url => url.includes('/2k_'))).toHaveLength(2)
   })
 
   it('update() runs 3 frames without throwing', async () => {
