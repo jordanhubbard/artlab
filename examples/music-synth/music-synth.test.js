@@ -63,7 +63,7 @@ vi.mock('../../src/stdlib/audio.js', () => ({
     ['G2', 'B2', 'D3'],
   ]),
   sequencer:   vi.fn(() => ({ start: vi.fn(), stop: vi.fn(), dispose: vi.fn() })),
-  reverb:      vi.fn(() => ({ connect: vi.fn().mockReturnThis(), dispose: vi.fn() })),
+  reverb:      vi.fn(() => ({ connect: vi.fn().mockReturnThis(), toDestination: vi.fn().mockReturnThis(), dispose: vi.fn() })),
   delay:       vi.fn(() => ({ connect: vi.fn().mockReturnThis(), dispose: vi.fn() })),
 }))
 

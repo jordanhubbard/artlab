@@ -14,11 +14,15 @@ function setupMediaMocks() {
 }
 
 function makeMockCtx() {
+  const container = document.createElement('div')
+  document.body.appendChild(container)
+  const canvas = document.createElement('canvas')
+  container.appendChild(canvas)
   const scene = { add: vi.fn(), remove: vi.fn(), children: [], fog: null }
   return {
     Three, scene,
     camera: { position: new Three.Vector3(0, 0, 50), lookAt: vi.fn(), aspect: 1, fov: 60, updateProjectionMatrix: vi.fn() },
-    renderer: { domElement: document.createElement('canvas'), shadowMap: { enabled: false }, setSize: vi.fn() },
+    renderer: { domElement: canvas, shadowMap: { enabled: false }, setSize: vi.fn() },
     controls: { update: vi.fn(), target: new Three.Vector3(), enabled: true },
     add: vi.fn(obj => { scene.children.push(obj); return obj }),
     remove: vi.fn(),
@@ -32,6 +36,7 @@ describe('music-visualizer', () => {
   let ctx, setup, update, teardown
 
   beforeEach(async () => {
+    document.body.innerHTML = ''
     vi.clearAllMocks()
     setupMediaMocks()
     ctx = makeMockCtx()
