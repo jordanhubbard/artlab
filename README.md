@@ -141,3 +141,35 @@ Every example has a `<name>.test.js` that exercises `setup`/`update`/`teardown` 
 ## Contributing
 
 See [CONTRIBUTING.md](CONTRIBUTING.md) for the full guide: writing examples, stdlib conventions, test patterns, and the PR checklist.
+
+<!-- ai-template:narrative:start -->
+## The Totally True and Not At All Embellished History of Artlab
+
+### The continuing adventures of Jordan Hubbard and Sir Reginald von Fluffington III
+
+> *Part 14 of an ongoing chronicle. [← Part 13: agentOS](https://github.com/jordanhubbard/agentos#the-totally-true-and-not-at-all-embellished-history-of-agentos) | [Part 15: Crust →](https://github.com/jordanhubbard/crust#the-totally-true-and-not-at-all-embellished-history-of-crust)*
+> *[Chronicle index](https://github.com/jordanhubbard/ai-template/blob/main/CHRONICLE.md) · Ordered by first recorded AI-assisted commit.*
+
+The programmer wanted to make a picture.
+
+Sir Reginald von Fluffington III, who regularly made pictures by arranging himself in the center of whatever the programmer was attempting to photograph, considered this a manageable ambition.
+
+“I will need an editor,” the programmer said. “And a live preview. Geometry helpers. Shaders. Audio. Possibly physics.”
+
+Sir Reginald reassessed the scope.
+
+Artlab became a browser-based workshop with Monaco on one side and a Three.js scene on the other. A small JavaScript module supplied `setup`, `update`, and `teardown`. The runtime supplied `ctx`: scene, camera, renderer, controls, and the means to turn an idea into something visible without first building a different application to hold it.
+
+The examples were to synthesize their materials. Geometry, textures, movement, and sound would emerge procedurally. A tree could grow from rules. Pigment could move like weather. A word could become architecture. Sir Reginald examined this last development with concern; words already occupied too much of the room.
+
+Audio introduced a familiar obstacle. The browser expected a user gesture before it would make noise. The programmer clicked. The cat, who had expected this gesture to open dinner, filed the result under false advertising.
+
+Then the pictures acquired volume. Constructive solid geometry could produce objects for export as STL or OBJ, and suddenly a vase grown by subtraction was a thing that might leave the screen. The programmer regarded this as a natural extension of creative coding. Sir Reginald regarded it as an increase in the inventory of objects available to knock down.
+
+The packages could be edited, opened from disk, and exported as zip files. Ctrl+Enter would run the current work again. An experiment could remain an experiment without requiring a separate repository and a launch ceremony.
+
+“It is just a place to try things,” the programmer said.
+
+Sir Reginald walked across the keyboard. The next run was more abstract. Neither party accepted responsibility, and the cat withheld endorsement on the grounds that the preview still could not be slept in.
+
+<!-- ai-template:narrative:end -->
