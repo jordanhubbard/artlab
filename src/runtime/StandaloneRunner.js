@@ -1,4 +1,5 @@
 import * as Three from 'three'
+import { SceneContext } from './SceneContext.js'
 import { OrbitControls }  from 'three/addons/controls/OrbitControls.js'
 import { CSS2DRenderer }  from 'three/addons/renderers/CSS2DRenderer.js'
 import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js'
@@ -74,6 +75,9 @@ export class StandaloneRunner {
    * @param {{ setup?: Function, update?: Function, teardown?: Function }} mod
    */
   async run(mod) {
+    cancelAnimationFrame(this._animationId)
+    if (this._mod) await this._mod.teardown?.(this._ctx)
+    await this._ctx?.dispose()
     this._mod = mod
     this._ctx = this._makeCtx()
 
@@ -92,22 +96,10 @@ export class StandaloneRunner {
   // ── Context ──────────────────────────────────────────────────────────────────
 
   _makeCtx() {
-    const self = this
-    return {
-      Three,
-      scene:         this._scene,
-      camera:        this._camera,
-      renderer:      this._renderer,
-      controls:      this._controls,
-      labelRenderer: this._labelRenderer,
-
-      add:    (obj) => { self._scene.add(obj); return obj },
-      remove: (obj) => { self._scene.remove(obj) },
-
-      setBloom(strength) {
-        if (self._bloomPass) self._bloomPass.strength = strength
-      },
-
+    return new SceneContext({
+      scene: this._scene, camera: this._camera, renderer: this._renderer,
+      controls: this._controls, labelRenderer: this._labelRenderer,
+      setBloom: (strength = 0) => { this._bloomPass.strength = Math.max(0, strength) },
       /**
        * setHelp(text) — display a one-line interaction hint. In the standalone
        * runtime this renders as a small overlay at the top of the canvas; the
@@ -133,20 +125,7 @@ export class StandaloneRunner {
         el.style.display = t ? 'block' : 'none'
       },
 
-      // Three.js shorthand constructors (mirrors PreviewPane ctx)
-      vec2:  (x, y)       => new Three.Vector2(x, y),
-      vec3:  (x, y, z)    => new Three.Vector3(x, y, z),
-      vec4:  (x, y, z, w) => new Three.Vector4(x, y, z, w),
-      color: (r, g, b)    => new Three.Color(r, g, b),
-      quat:  (x, y, z, w) => new Three.Quaternion(x, y, z, w),
-      range: (a, b) => {
-        const start = b === undefined ? 0 : a
-        const end   = b === undefined ? a : b
-        return Array.from({ length: Math.max(0, end - start) }, (_, i) => start + i)
-      },
-
-      elapsed: 0,
-    }
+    })
   }
 
   // ── Internal ─────────────────────────────────────────────────────────────────
@@ -167,10 +146,10 @@ export class StandaloneRunner {
   }
 
   _loop() {
-    requestAnimationFrame(() => this._loop())
+    this._animationId = requestAnimationFrame(() => this._loop())
 
     const dt = this._clock.getDelta()
-    if (this._ctx) this._ctx.elapsed = this._clock.getElapsedTime()
+    if (this._ctx) this._ctx.elapsed += dt
 
     this._controls.update()
 

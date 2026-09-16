@@ -1,6 +1,7 @@
 // audio-terrain.js — Microphone-driven terrain with reactive particles and height-mapped vertex colors
 import * as THREE from 'three'
-import { start, update as audioUpdate, band, stop } from '../../src/stdlib/audio.js'
+import { MicrophoneInput } from '../../src/stdlib/media.js'
+import { ResourceScope, GestureButton } from '../../src/stdlib/scene.js'
 import { createParticleWorld, emitter, forceField } from '../../src/stdlib/physics/particles.js'
 
 // ── Constants ─────────────────────────────────────────────────────────────────
@@ -20,19 +21,21 @@ let _terrain, _terrainGeo, _posAttr, _colAttr
 let _pworld, _spark
 let _ambLight, _hemiLight
 let _startBtn
-let _audioOn = false
+let _microphone, _scope
 
 // ── Lifecycle ─────────────────────────────────────────────────────────────────
 
 export async function setup(ctx) {
+  _scope = new ResourceScope()
+  _microphone = _scope.own(new MicrophoneInput())
   ctx.camera.position.set(28, 14, 0)
   ctx.camera.lookAt(0, 0, 0)
 
   _ambLight = new THREE.AmbientLight(0x110022, 0.8)
-  ctx.add(_ambLight)
+  _scope.add(ctx, _ambLight)
 
   _hemiLight = new THREE.HemisphereLight(0x0033bb, 0x110022, 0.5)
-  ctx.add(_hemiLight)
+  _scope.add(ctx, _hemiLight)
 
   // Terrain: flat grid rotated to lie in XZ plane; Y becomes height
   _terrainGeo = new THREE.PlaneGeometry(TERRAIN_W, TERRAIN_W, SEGS, SEGS)
@@ -50,7 +53,7 @@ export async function setup(ctx) {
     _terrainGeo,
     new THREE.MeshBasicMaterial({ vertexColors: true }),
   )
-  ctx.add(_terrain)
+  _scope.add(ctx, _terrain)
 
   // Sparkle particles — emitter position tracks terrain peak each frame
   _pworld = createParticleWorld()
@@ -61,29 +64,12 @@ export async function setup(ctx) {
 
   ctx.setBloom(0.9)
 
-  // Mic permission button — audio requires a user gesture
-  const container = ctx.renderer.domElement.parentElement
-  _startBtn = document.createElement('button')
-  Object.assign(_startBtn.style, {
-    position: 'absolute', bottom: '24px', left: '50%', transform: 'translateX(-50%)',
-    background: 'rgba(5,8,24,0.92)', border: '1px solid rgba(0,180,255,0.45)',
-    color: '#00ccff', padding: '10px 32px', cursor: 'pointer',
-    fontFamily: 'monospace', fontSize: '12px', letterSpacing: '.2em',
-    borderRadius: '3px', zIndex: '100',
-  })
-  _startBtn.textContent = 'Enable Microphone'
-  container.appendChild(_startBtn)
+  const microphone = _microphone
+  _startBtn = _scope.own(new GestureButton(ctx.renderer.domElement.parentElement, {
+    label: 'Enable Microphone', start: () => microphone.start(),
+  }))
+  _scope.own(_spark)
 
-  _startBtn.addEventListener('click', async () => {
-    try {
-      await start()
-      _audioOn = true
-      _startBtn.style.display = 'none'
-    } catch (_) {
-      _startBtn.textContent = 'No mic — procedural mode'
-      _startBtn.style.pointerEvents = 'none'
-    }
-  }, { once: true })
 }
 
 export function update(ctx, dt) {
@@ -91,11 +77,11 @@ export function update(ctx, dt) {
 
   // Get audio bands, or use gentle procedural fallback when mic is off
   let bass, mid, high
-  if (_audioOn) {
-    audioUpdate()
-    bass = band('bass')
-    mid  = band('mid')
-    high = band('high')
+  _microphone.update()
+  if (_microphone.active) {
+    bass = _microphone.level(0, 0.1)
+    mid = _microphone.level(0.1, 0.5)
+    high = _microphone.level(0.5, 1)
   } else {
     bass = 0.28 + 0.18 * Math.sin(t * 0.37)
     mid  = 0.18 + 0.14 * Math.sin(t * 0.83 + 1.1)
@@ -164,21 +150,4 @@ export function update(ctx, dt) {
   ctx.camera.lookAt(0, 1, 0)
 }
 
-export async function teardown(ctx) {
-  _startBtn?.remove()
-
-  // dispose() internally calls scene.remove(points)
-  _spark.dispose()
-
-  ctx.remove(_terrain)
-  _terrainGeo.dispose()
-  _terrain.material.dispose()
-
-  ctx.remove(_ambLight)
-  ctx.remove(_hemiLight)
-
-  if (_audioOn) {
-    await stop()
-    _audioOn = false
-  }
-}
+export function teardown() { return _scope.dispose() }

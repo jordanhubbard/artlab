@@ -1,32 +1,47 @@
 {
-  "title": "Particle Storm — Erupting Sphere Emitter",
+  "title": "Particle Storm \u2014 a composed effect",
   "pages": [
     {
       "id": "intro",
-      "title": "Overview",
-      "body": "Five hundred tiny spheres erupt from the origin along randomised directions, spiral outward in the XZ plane, and reset back to the centre when they reach the scene radius. Colour transitions from hot white at the core through orange to deep red at the fringe, mimicking plasma or fire.\n\nNavigate through the pages below to walk through each section of this file.",
-      "lines": [1, 111]
+      "title": "Composition",
+      "body": "This entire scene is a small composition. Scene owns components, defineScene exports the Artlab lifecycle, and EmberField contains the motion and color rules. Change count or radius and press Run.",
+      "lines": [
+        1,
+        13
+      ]
     },
     {
-      "id": "spawn-helper",
-      "title": "Spawn & Color Helpers",
+      "id": "embers",
       "parent": "intro",
-      "body": "randVel() converts an integer seed into a pseudo-random float in [-1, 1] using a two-frequency sine-cosine hash, giving deterministic but visually uncorrelated velocities without requiring a PRNG state.\n\nfireColor() maps radial distance to a packed RGB integer through three piecewise linear segments: white-to-yellow for the inner 30%, yellow-to-orange for the middle 30%, and orange-to-dark-red for the outer 40%. spawn() normalises the random velocity vector and scales it to a random speed in [1.5, 4.5], then scatters the particle's starting position within a 0.3-unit jitter sphere around the origin.",
-      "lines": [10, 50]
+      "title": "Ember motion",
+      "file": "examples/particle-storm/EmberField.js",
+      "body": "EmberField extends InstanceField. It keeps particle positions and velocities, rotates their motion, respawns escaped particles, and writes transforms and colors into shared instance buffers. The artistic rules stay here; Three setup and buffer ownership live in the shared class.",
+      "lines": [
+        54,
+        79
+      ]
     },
     {
-      "id": "setup",
-      "title": "Setup",
+      "id": "instances",
       "parent": "intro",
-      "body": "setup() adds a near-black ambient light and a bright orange-red PointLight at the origin, which illuminates the innermost particles most strongly and falls off naturally with distance. All 500 particles share the same low-poly SphereGeometry (subdivision level 4) to keep draw calls fast; each has its own MeshStandardMaterial so colour and emissive can be set individually per frame.",
-      "lines": [52, 75]
+      "title": "Shared rendering class",
+      "file": "src/stdlib/scene/InstanceField.js",
+      "body": "InstanceField owns one geometry and material, one InstancedMesh, and reusable scratch transforms. Each set call changes one particle; commit marks the buffers for upload. Edit this class and Run to see the change in the scene. The exported package includes your edited class.",
+      "lines": [
+        1,
+        37
+      ]
     },
     {
-      "id": "update",
-      "title": "Update",
+      "id": "lifecycle",
       "parent": "intro",
-      "body": "Each frame every particle's XZ velocity components are rotated by a small angle (0.6 × dt radians) using a 2D rotation matrix, creating a gradual spiral without requiring trigonometry on the position. The particle is then translated by its velocity scaled by dt. When the radial distance exceeds RESET_DIST, spawn() is called again with a seed perturbed by elapsed time, producing variation in the reborn direction.\n\nColour and emissive are both set from fireColor(dist) so particles self-illuminate, and scale shrinks from 1.0 at the centre to 0.15 at the edge to reinforce the distance cue.",
-      "lines": [77, 108]
+      "title": "Scene lifecycle",
+      "file": "src/stdlib/scene/Scene.js",
+      "body": "Scene.use attaches a component and registers ownership. The update loop calls each component; disposal releases them. defineScene keeps a distinct instance for each runtime context and translates the class into setup/update/teardown exports.",
+      "lines": [
+        1,
+        67
+      ]
     }
   ]
 }

@@ -14,12 +14,38 @@ function copyDir(src, dest) {
   }
 }
 
+function exampleAssets(directory = 'examples') {
+  const paths = []
+  for (const entry of readdirSync(directory, { withFileTypes: true })) {
+    const path = `${directory}/${entry.name}`
+    if (entry.isDirectory()) paths.push(...exampleAssets(path))
+    else if (path.includes('/assets/')) paths.push(path)
+  }
+  return paths
+}
+
+const assetCatalogPlugin = {
+  name: 'example-asset-catalog',
+  configureServer(server) {
+    server.middlewares.use((request, response, next) => {
+      if (!request.url?.split('?')[0].endsWith('/examples-assets.json')) return next()
+      response.setHeader('Content-Type', 'application/json')
+      response.end(JSON.stringify(exampleAssets()))
+    })
+  },
+  generateBundle() {
+    this.emitFile({ type: 'asset', fileName: 'examples-assets.json', source: JSON.stringify(exampleAssets()) })
+  },
+}
+
 // Copy examples/ and the src modules that examples import at runtime
 // so relative paths like ../../src/physics/Physics.js resolve in production.
 const copyExamplesPlugin = {
   name: 'copy-examples',
   async closeBundle() {
     if (existsSync('examples'))     copyDir('examples',     'dist/examples')
+    if (existsSync('src/runtime')) copyDir('src/runtime', 'dist/src/runtime')
+    if (existsSync('src/utils')) copyDir('src/utils', 'dist/src/utils')
     if (existsSync('src/stdlib'))   copyDir('src/stdlib',   'dist/src/stdlib')
     if (existsSync('src/physics'))  copyDir('src/physics',  'dist/src/physics')
     if (existsSync('src/audio'))    copyDir('src/audio',    'dist/src/audio')
@@ -44,16 +70,9 @@ const copyExamplesPlugin = {
       minify:      true,
       outfile:     'dist/vendors/tone.esm.js',
     })
-    // three/addons — copy only the specific addon files used by static assets
-    // (examples, stdlib, physics).  The importmap prefix "three/addons/" routes
-    // all such imports here.  Add new entries as needed when examples grow.
-    const jsm = 'node_modules/three/examples/jsm'
-    const addons = 'dist/vendors/three-addons'
-    mkdirSync(`${addons}/renderers`,  { recursive: true })
-    mkdirSync(`${addons}/exporters`,  { recursive: true })
-    copyFileSync(`${jsm}/renderers/CSS2DRenderer.js`, `${addons}/renderers/CSS2DRenderer.js`)
-    copyFileSync(`${jsm}/exporters/STLExporter.js`,   `${addons}/exporters/STLExporter.js`)
-    copyFileSync(`${jsm}/exporters/OBJExporter.js`,   `${addons}/exporters/OBJExporter.js`)
+    // Preserve addon-relative imports so every browsable Three helper can run.
+    copyDir('node_modules/three/examples/jsm', 'dist/vendors/three-addons')
+    copyFileSync('node_modules/@dimforge/rapier3d-compat/rapier.mjs', 'dist/vendors/rapier.mjs')
 
     // manifold-3d ships an ESM wrapper that detects browser vs. Node at runtime.
     // Copy it directly; bundling tries to resolve its guarded node:module import.
@@ -76,18 +95,24 @@ const copyExamplesPlugin = {
 // specifiers in raw static JS files that are not processed by Vite's bundler.
 const importMapPlugin = {
   name: 'inject-import-map',
-  apply: 'build',
   transformIndexHtml: {
     order: 'post',
     handler(html, ctx) {
-      if (!ctx.bundle) return html
       const base = process.env.BASE_URL ?? '/'
       const imports = {
         'three':         `${base}vendors/three.esm.js`,
         'tone':          `${base}vendors/tone.esm.js`,
         'manifold-3d':   `${base}vendors/manifold.esm.js`,
+        '@dimforge/rapier3d-compat': `${base}vendors/rapier.mjs`,
         // Prefix mapping: three/addons/X → vendors/three-addons/X
         'three/addons/': `${base}vendors/three-addons/`,
+      }
+      if (!ctx.bundle) {
+        imports.three = `${base}node_modules/three/build/three.module.js`
+        imports.tone = `${base}node_modules/tone/build/esm/index.js`
+        imports['manifold-3d'] = `${base}node_modules/manifold-3d/manifold.js`
+        imports['@dimforge/rapier3d-compat'] = `${base}node_modules/@dimforge/rapier3d-compat/rapier.mjs`
+        imports['three/addons/'] = `${base}node_modules/three/examples/jsm/`
       }
       const tag = `<script type="importmap">\n${JSON.stringify({ imports }, null, 2)}\n</script>`
       return html.replace('<head>', `<head>\n    ${tag}`)
@@ -101,7 +126,7 @@ export default defineConfig({
   // Defaults to '/' for local dev and root-hosted deployments.
   base: process.env.BASE_URL ?? '/',
 
-  plugins: [copyExamplesPlugin, importMapPlugin],
+  plugins: [assetCatalogPlugin, copyExamplesPlugin, importMapPlugin],
 
   build: {
     target: 'esnext',
@@ -130,5 +155,5 @@ export default defineConfig({
   },
 
   assetsInclude: ['**/*.glsl'],
-  optimizeDeps: { exclude: ['three', 'manifold-3d'] },
+  optimizeDeps: { exclude: ['three', 'manifold-3d', '@rollup/browser'] },
 })

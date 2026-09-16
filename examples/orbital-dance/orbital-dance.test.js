@@ -139,6 +139,7 @@ describe('orbital-dance — Luminous Choreography', () => {
 
   it('trail buffers are fixed size and reused across frames', () => {
     mod.setup(ctx)
+    const added = ctx.add.mock.calls.length
     const body = ctx._bodies[0]
     const lineArray   = body.line.geometry.getAttribute('position').array
     const ribbonArray = body.ribbon.geometry.getAttribute('position').array
@@ -147,7 +148,7 @@ describe('orbital-dance — Luminous Choreography', () => {
 
     expect(body.line.geometry.getAttribute('position').array).toBe(lineArray)
     expect(body.ribbon.geometry.getAttribute('position').array).toBe(ribbonArray)
-    expect(ctx.add).toHaveBeenCalledTimes(ctx._objects.length)
+    expect(ctx.add).toHaveBeenCalledTimes(added)
   })
 
   it('setup() creates translucent orbital veils on intersecting planes', () => {
@@ -233,17 +234,20 @@ describe('orbital-dance — Luminous Choreography', () => {
 
   it('teardown() disposes every geometry and material it created', () => {
     mod.setup(ctx)
-    expect(Array.isArray(ctx._disposables)).toBe(true)
-    expect(ctx._disposables.length).toBeGreaterThan(10)
-
-    const spies = ctx._disposables.map(d => vi.spyOn(d, 'dispose'))
+    const resources = new Set()
+    for (const [root] of ctx.add.mock.calls) root.traverse(object => {
+      if (object.geometry) resources.add(object.geometry)
+      if (object.material) resources.add(object.material)
+    })
+    expect(resources.size).toBeGreaterThan(10)
+    const spies = [...resources].map(d => vi.spyOn(d, 'dispose'))
     mod.teardown(ctx)
     for (const spy of spies) expect(spy).toHaveBeenCalled()
   })
 
   it('teardown() removes every object it added to the scene', () => {
     mod.setup(ctx)
-    const objects = [...ctx._objects]
+    const objects = ctx.add.mock.calls.map(([object]) => object)
     expect(objects.length).toBeGreaterThan(0)
 
     mod.teardown(ctx)

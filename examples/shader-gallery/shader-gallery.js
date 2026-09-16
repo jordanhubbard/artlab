@@ -1,5 +1,6 @@
 // shader-gallery.js — Virtual art gallery with five live shader paintings
 import * as THREE from 'three'
+import { ResourceScope } from '../../src/stdlib/scene/ResourceScope.js'
 import { pixelate, glitch } from '../../src/stdlib/video.js'
 
 const ROOM_W = 16
@@ -15,7 +16,7 @@ const FRAME_D = 0.12
 // Module-level refs so teardown can reach them
 let galleryGroup, ambientLight
 let pixMat, glitchMat, wavesMat, fractalMat, noiseMat
-let disposables
+let scope
 
 // ---------------------------------------------------------------------------
 // Canvas helpers (used as texture source for pixelate + glitch paintings)
@@ -183,7 +184,6 @@ function addWall(parent, w, h, d, x, y, z) {
   const mesh = new THREE.Mesh(geo, mat)
   mesh.position.set(x, y, z)
   parent.add(mesh)
-  disposables.push(geo, mat)
 }
 
 // Mounts a painting plane + gold/dark-wood frame + a warm point light on the wall.
@@ -195,25 +195,21 @@ function addPainting(parent, x, y, z, rotY, mat, frameColor = 0xc9a84c) {
 
   const pGeo = new THREE.PlaneGeometry(PAINT_W, PAINT_H)
   group.add(new THREE.Mesh(pGeo, mat))
-  disposables.push(pGeo)
 
   // Frame: 4 thin bars slightly proud of the painting plane (local +z)
   const fMat = new THREE.MeshStandardMaterial({ color: frameColor, roughness: 0.35, metalness: 0.65 })
-  disposables.push(fMat)
   const FZ = 0.05
   for (const sy of [-1, 1]) {
     const geo = new THREE.BoxGeometry(PAINT_W + FRAME_T * 2, FRAME_T, FRAME_D)
     const bar = new THREE.Mesh(geo, fMat)
     bar.position.set(0, sy * (PAINT_H / 2 + FRAME_T / 2), FZ)
     group.add(bar)
-    disposables.push(geo)
   }
   for (const sx of [-1, 1]) {
     const geo = new THREE.BoxGeometry(FRAME_T, PAINT_H, FRAME_D)
     const bar = new THREE.Mesh(geo, fMat)
     bar.position.set(sx * (PAINT_W / 2 + FRAME_T / 2), 0, FZ)
     group.add(bar)
-    disposables.push(geo)
   }
 
   // Warm spotlight above and slightly in front of the painting
@@ -229,7 +225,7 @@ function addPainting(parent, x, y, z, rotY, mat, frameColor = 0xc9a84c) {
 // ---------------------------------------------------------------------------
 
 export function setup(ctx) {
-  disposables = []
+  scope = new ResourceScope()
 
   ctx.camera.position.set(0, 2.5, 7)
   ctx.camera.lookAt(0, 2, 0)
@@ -237,11 +233,11 @@ export function setup(ctx) {
 
   // Soft warm ambient
   ambientLight = new THREE.AmbientLight(0xffe8cc, 0.4)
-  ctx.add(ambientLight)
+  scope.add(ctx, ambientLight)
 
   // Root group — a single ctx.remove() clears the whole room
   galleryGroup = new THREE.Group()
-  ctx.add(galleryGroup)
+  scope.add(ctx, galleryGroup)
 
   // Floor (dark wood)
   const floorGeo = new THREE.PlaneGeometry(ROOM_W, ROOM_D)
@@ -249,7 +245,6 @@ export function setup(ctx) {
   const floor = new THREE.Mesh(floorGeo, floorMat)
   floor.rotation.x = -Math.PI / 2
   galleryGroup.add(floor)
-  disposables.push(floorGeo, floorMat)
 
   // Three walls (back, left, right) — open front lets the camera look in
   addWall(galleryGroup, ROOM_W, ROOM_H, WALL_T,           0, ROOM_H / 2, -ROOM_D / 2)  // back
@@ -264,28 +259,23 @@ export function setup(ctx) {
   const pixTex = new THREE.CanvasTexture(makeColorCanvas())
   pixMat = pixelate(pixTex, 20)
   addPainting(galleryGroup, -4.5, 3, BZ, 0, pixMat)
-  disposables.push(pixTex, pixMat)
 
   // 2. Animated color waves (custom GLSL) — back wall center, gold frame
   wavesMat = makeWavesMat()
   addPainting(galleryGroup, 0, 3, BZ, 0, wavesMat)
-  disposables.push(wavesMat)
 
   // 3. Glitch (stdlib) — back wall right, dark-wood frame
   const glitchTex = new THREE.CanvasTexture(makeGlitchCanvas())
   glitchMat = glitch(glitchTex, { intensity: 0.025, speed: 1.4 })
   addPainting(galleryGroup, 4.5, 3, BZ, 0, glitchMat, 0x2a1a0a)
-  disposables.push(glitchTex, glitchMat)
 
   // 4. Julia fractal (custom GLSL) — left wall
   fractalMat = makeFractalMat()
   addPainting(galleryGroup, LX, 3, -1, Math.PI / 2, fractalMat)
-  disposables.push(fractalMat)
 
   // 5. Animated noise (custom GLSL) — right wall
   noiseMat = makeNoiseMat()
   addPainting(galleryGroup, RX, 3, -1, -Math.PI / 2, noiseMat)
-  disposables.push(noiseMat)
 }
 
 export function update(ctx, dt) {   // eslint-disable-line no-unused-vars
@@ -299,11 +289,9 @@ export function update(ctx, dt) {   // eslint-disable-line no-unused-vars
 }
 
 export function teardown(ctx) {
-  ctx.remove(ambientLight)
-  ctx.remove(galleryGroup)
-  for (const d of disposables) d.dispose?.()
+  const done = scope.dispose()
   ambientLight = null
   galleryGroup = null
   pixMat = glitchMat = wavesMat = fractalMat = noiseMat = null
-  disposables = []
+  return done
 }

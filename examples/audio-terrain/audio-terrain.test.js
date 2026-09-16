@@ -4,11 +4,15 @@ import * as Three from 'three'
 
 vi.mock('three', async () => await vi.importActual('three'))
 
-vi.mock('../../src/stdlib/audio.js', () => ({
-  start:  vi.fn().mockResolvedValue(undefined),
-  stop:   vi.fn().mockResolvedValue(undefined),
-  update: vi.fn(() => ({ bass: 0.5, mid: 0.3, high: 0.2, raw: null })),
-  band:   vi.fn(() => 0.3),
+const mic = vi.hoisted(() => ({ start: vi.fn(), dispose: vi.fn() }))
+vi.mock('../../src/stdlib/media.js', () => ({
+  MicrophoneInput: class {
+    active = false
+    async start() { mic.start(); this.active = true }
+    update() {}
+    level() { return 0.3 }
+    dispose() { mic.dispose(); this.active = false }
+  },
 }))
 
 vi.mock('../../src/stdlib/physics/particles.js', () => ({
@@ -117,13 +121,12 @@ describe('audio-terrain', () => {
     expect(ctx.camera.position.x).toBeCloseTo(Math.cos(0.09) * 28, 3)
   })
 
-  it('clicking mic button calls audio start()', async () => {
-    const audioMod = await import('../../src/stdlib/audio.js')
+  it('clicking mic button calls microphone start()', async () => {
     await mod.setup(ctx)
     const btn = ctx.renderer.domElement.parentElement.querySelector('button')
     btn.click()
     await new Promise(resolve => setTimeout(resolve, 0))
-    expect(audioMod.start).toHaveBeenCalled()
+    expect(mic.start).toHaveBeenCalled()
   })
 
   it('teardown() does not throw', async () => {
@@ -145,15 +148,14 @@ describe('audio-terrain', () => {
     expect(ctx.renderer.domElement.parentElement.querySelector('button')).toBeNull()
   })
 
-  it('teardown() calls audio stop() when mic was enabled', async () => {
-    const audioMod = await import('../../src/stdlib/audio.js')
+  it('teardown() calls microphone disposal when mic was enabled', async () => {
     await mod.setup(ctx)
     // Simulate mic button click to set _audioOn = true
     const btn = ctx.renderer.domElement.parentElement.querySelector('button')
     btn.click()
     await new Promise(resolve => setTimeout(resolve, 0))
     await mod.teardown(ctx)
-    expect(audioMod.stop).toHaveBeenCalled()
+    expect(mic.dispose).toHaveBeenCalled()
   })
 
   it('teardown() followed by setup() does not throw (state reset)', async () => {

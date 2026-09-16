@@ -1,5 +1,7 @@
 // music-visualizer — 3 concentric torus rings pulsing with bass/mid/treble FFT bands.
 import * as Three from 'three'
+import { ResourceScope, ParticleField, GestureButton } from '../../src/stdlib/scene.js'
+import { MicrophoneInput } from '../../src/stdlib/media.js'
 
 const RING_COUNT = 3
 const BANDS = [
@@ -17,52 +19,24 @@ function overlayContainer(ctx) {
 }
 
 export async function setup(ctx) {
+  const scope = ctx._scope = new ResourceScope()
   ctx.setHelp('Click Start to enable microphone — rings pulse with bass / mid / treble')
   ctx.camera.position.set(0, 4, 10)
   ctx.camera.lookAt(0, 0, 0)
   ctx.setBloom(1.2)
 
   const ambient = new Three.AmbientLight(0x111122, 0.8)
-  ctx.add(ambient)
+  scope.add(ctx, ambient)
   const pt = new Three.PointLight(0xffffff, 1.5, 30)
   pt.position.set(0, 5, 5)
-  ctx.add(pt)
+  scope.add(ctx, pt)
   ctx._lights = [ambient, pt]
 
-  // FFT setup — wired up from the start button (requires user gesture)
-  ctx._audioCtx = null
-  ctx._analyser = null
-  ctx._fftData = null
-  ctx._stream = null
-
-  const container = overlayContainer(ctx)
-  ctx._startBtn = document.createElement('button')
-  Object.assign(ctx._startBtn.style, {
-    position: 'absolute', bottom: '24px', left: '50%', transform: 'translateX(-50%)',
-    background: 'rgba(10,14,36,0.92)', border: '1px solid rgba(80,140,255,0.5)',
-    color: '#88aaff', padding: '11px 36px', cursor: 'pointer',
-    fontFamily: 'monospace', fontSize: '12px', letterSpacing: '.25em',
-    borderRadius: '3px', zIndex: '100',
-  })
-  ctx._startBtn.textContent = 'Start Visualizer'
-  container.appendChild(ctx._startBtn)
-
-  ctx._startBtn.addEventListener('click', async () => {
-    ctx._startBtn.style.display = 'none'
-    try {
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false })
-      ctx._stream = stream
-      ctx._audioCtx = new (window.AudioContext || window.webkitAudioContext)()
-      const source = ctx._audioCtx.createMediaStreamSource(stream)
-      const analyser = ctx._audioCtx.createAnalyser()
-      analyser.fftSize = FFT_SIZE
-      source.connect(analyser)
-      ctx._analyser = analyser
-      ctx._fftData = new Uint8Array(analyser.frequencyBinCount)
-    } catch (_e) {
-      ctx._analyser = null
-    }
-  }, { once: true })
+  ctx._microphone = scope.own(new MicrophoneInput({ fftSize: FFT_SIZE }))
+  const gesture = scope.own(new GestureButton(overlayContainer(ctx), {
+    label: 'Start Visualizer', start: () => ctx._microphone.start(),
+  }))
+  ctx._startBtn = gesture.button
 
   // Create rings
   ctx._rings = BANDS.map(band => {
@@ -74,14 +48,13 @@ export async function setup(ctx) {
       metalness: 0.6,
     })
     const mesh = new Three.Mesh(geo, mat)
-    ctx.add(mesh)
+    scope.add(ctx, mesh)
     return { mesh, band, baseScale: 1.0 }
   })
 
   // Sparkle particles
-  const sparkGeo = new Three.BufferGeometry()
-  const positions = new Float32Array(PARTICLE_COUNT * 3)
-  const colors = new Float32Array(PARTICLE_COUNT * 3)
+  const field = scope.own(new ParticleField(PARTICLE_COUNT, { size: 0.06, opacity: 0.7 }))
+  const { positions, colors } = field
   for (let i = 0; i < PARTICLE_COUNT; i++) {
     const theta = Math.random() * Math.PI * 2
     const r = 1.5 + Math.random() * 4
@@ -93,35 +66,20 @@ export async function setup(ctx) {
     colors[i * 3 + 1] = 0.5 + Math.random() * 0.5
     colors[i * 3 + 2] = 0.8 + Math.random() * 0.2
   }
-  sparkGeo.setAttribute('position', new Three.BufferAttribute(positions, 3))
-  sparkGeo.setAttribute('color', new Three.BufferAttribute(colors, 3))
-  sparkGeo.attributes.position.setUsage(Three.DynamicDrawUsage)
-  const sparkMat = new Three.PointsMaterial({
-    size: 0.06, vertexColors: true, transparent: true, opacity: 0.7,
-    blending: Three.AdditiveBlending, depthWrite: false,
-  })
-  ctx._particles = new Three.Points(sparkGeo, sparkMat)
-  ctx.add(ctx._particles)
+  field.commit()
+  ctx._particles = field.object
+  ctx.add(field.object)
+  scope.defer(() => ctx.remove(field.object))
 
   ctx._camAngle = 0
-}
-
-function getBandLevel(fftData, lo, hi) {
-  if (!fftData) return 0
-  const len = fftData.length
-  const start = Math.floor(lo * len)
-  const end = Math.floor(hi * len)
-  let sum = 0
-  for (let i = start; i < end; i++) sum += fftData[i]
-  return sum / ((end - start) * 255)
 }
 
 export function update(ctx, dt) {
   let levels = [0, 0, 0]
 
-  if (ctx._analyser && ctx._fftData) {
-    ctx._analyser.getByteFrequencyData(ctx._fftData)
-    levels = BANDS.map(b => getBandLevel(ctx._fftData, b.lo, b.hi))
+  ctx._microphone.update()
+  if (ctx._microphone.active) {
+    levels = BANDS.map(b => ctx._microphone.level(b.lo, b.hi))
   } else {
     // Sine fallback
     levels = [
@@ -170,15 +128,4 @@ export function update(ctx, dt) {
   ctx.camera.lookAt(0, 0, 0)
 }
 
-export function teardown(ctx) {
-  ctx._startBtn?.remove()
-  for (const { mesh } of ctx._rings ?? []) ctx.remove(mesh)
-  if (ctx._particles) {
-    ctx.remove(ctx._particles)
-    ctx._particles.geometry.dispose()
-    ctx._particles.material.dispose()
-  }
-  for (const l of ctx._lights ?? []) ctx.remove(l)
-  if (ctx._stream) ctx._stream.getTracks().forEach(t => t.stop())
-  if (ctx._audioCtx) ctx._audioCtx.close()
-}
+export function teardown(ctx) { return ctx._scope.dispose() }

@@ -1,6 +1,9 @@
 // @vitest-environment jsdom
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import * as Three from 'three'
+import { FlowParticles } from './FlowParticles.js'
+
+const points = ctx => ctx.add.mock.calls.find(([obj]) => obj.isPoints)[0]
 
 vi.mock('three', async () => await vi.importActual('three'))
 
@@ -41,8 +44,8 @@ describe('flow-field', () => {
 
   it('setup() creates Points with position and color attributes', () => {
     setup(ctx)
-    expect(ctx._points).toBeInstanceOf(Three.Points)
-    const geo = ctx._points.geometry
+    expect(points(ctx)).toBeInstanceOf(Three.Points)
+    const geo = points(ctx).geometry
     expect(geo.attributes.position).toBeDefined()
     expect(geo.attributes.color).toBeDefined()
     expect(geo.attributes.position.count).toBe(4000)
@@ -51,7 +54,7 @@ describe('flow-field', () => {
 
   it('setup() uses additive blending', () => {
     setup(ctx)
-    expect(ctx._points.material.blending).toBe(Three.AdditiveBlending)
+    expect(points(ctx).material.blending).toBe(Three.AdditiveBlending)
   })
 
   it('update() runs multiple frames without throwing', () => {
@@ -64,28 +67,27 @@ describe('flow-field', () => {
 
   it('particle positions change after update', () => {
     setup(ctx)
-    const posBefore = ctx._px[0]
+    const posBefore = points(ctx).geometry.attributes.position.array[0]
     update(ctx, 0.016)
     update(ctx, 0.016)
-    expect(ctx._px[0]).not.toBe(posBefore)
+    expect(points(ctx).geometry.attributes.position.array[0]).not.toBe(posBefore)
   })
 
   it('particles respawn when alpha fades out', () => {
-    setup(ctx)
-    // Force a particle to fade
-    ctx._alpha[0] = 0.001
-    const oldX = ctx._px[0]
-    update(ctx, 0.016)
-    // Alpha should have been reset (respawned)
-    expect(ctx._alpha[0]).toBeGreaterThan(0.5)
+    const field = new FlowParticles({ count: 4 })
+    field.alpha[0] = 0.001
+    field.update(0.016, 0)
+    expect(field.alpha[0]).toBeGreaterThan(0.5)
+    expect(Math.abs(field.positions[0])).toBeLessThanOrEqual(50)
+    field.dispose()
   })
 
   it('teardown() removes points and disposes', () => {
     setup(ctx)
-    const geoDispose = vi.spyOn(ctx._points.geometry, 'dispose')
-    const matDispose = vi.spyOn(ctx._points.material, 'dispose')
+    const geoDispose = vi.spyOn(points(ctx).geometry, 'dispose')
+    const matDispose = vi.spyOn(points(ctx).material, 'dispose')
     teardown(ctx)
-    expect(ctx.remove).toHaveBeenCalledWith(ctx._points)
+    expect(ctx.remove).toHaveBeenCalledWith(points(ctx))
     expect(geoDispose).toHaveBeenCalled()
     expect(matDispose).toHaveBeenCalled()
   })

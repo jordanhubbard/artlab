@@ -26,9 +26,8 @@ import { RenderPass }       from 'three/addons/postprocessing/RenderPass.js'
 import { UnrealBloomPass }  from 'three/addons/postprocessing/UnrealBloomPass.js'
 import { OutputPass }       from 'three/addons/postprocessing/OutputPass.js'
 import { CSS2DRenderer }    from 'three/addons/renderers/CSS2DRenderer.js'
-import * as _geo    from '../stdlib/geometry.js'
-import * as _lights from '../stdlib/lights.js'
-import * as _math   from '../stdlib/math.js'
+import { SceneContext } from '../runtime/SceneContext.js'
+import { ModuleCompiler } from './ModuleCompiler.js'
 
 export class PreviewPane {
   /** @param {HTMLElement} container */
@@ -104,79 +103,51 @@ export class PreviewPane {
    * @param {{ manifest: object, artFiles: Map<string,string> }} pkg
    */
   async run(pkg) {
-    const { manifest, artFiles, assetFiles = new Map() } = pkg
-    this._assetFiles = assetFiles
-    this._unloadModule()
-
-    const entryName = manifest.entry
-      ?? [...artFiles.keys()].find(k => k.endsWith('.js'))
-      ?? ''
-
-    if (!entryName || !artFiles.has(entryName)) {
-      this._showError(`Entry file "${entryName}" not found in package`)
-      return
-    }
-
-    const jsSrc  = artFiles.get(entryName)
-    const blobUrl = URL.createObjectURL(new Blob([jsSrc], { type: 'text/javascript' }))
-    this._blobUrl = blobUrl
-
-    let mod
-    try {
-      mod = await import(/* @vite-ignore */ blobUrl)
-    } catch (err) {
-      URL.revokeObjectURL(blobUrl)
-      this._blobUrl = null
-      this._showError(`Import failed:\n${err.message}`)
-      return
-    }
-
-    this._currentMod = mod
-    this._elapsed    = 0
-    this._ctx        = this._makeContext()
-
-    this._clearUserObjects()
-
-    if (typeof mod.setup === 'function') {
-      try {
-        await mod.setup(this._ctx)
-      } catch (err) {
-        this._showError(`setup() threw:\n${err.message}\n${err.stack ?? ''}`)
-        return
-      }
-    }
-
-    this._running = true
-    this._clock.start()
+    const { code, dispose } = await new ModuleCompiler().compile(pkg)
+    return this.runCode(code, pkg.assetFiles, dispose)
   }
 
   async reload(pkg) { return this.run(pkg) }
 
-  /**
-   * Run an already-imported ES module directly, skipping the blob URL step.
-   * Used by the Examples gallery to load built-in examples that have real URLs
-   * and may use relative imports (which blob URLs would break).
-   * @param {object} mod — an ES module object with optional setup/update/teardown exports
-   */
+  async runCode(code, assetFiles = new Map(), cleanup = () => {}) {
+    const url = URL.createObjectURL(new Blob([code], { type: 'text/javascript' }))
+    return this._startModule(() => import(/* @vite-ignore */ url), assetFiles, url, cleanup)
+  }
+
   async runFromModule(mod) {
-    this._unloadModule()
-    this._currentMod = mod
-    this._elapsed    = 0
-    this._ctx        = this._makeContext()
-    this._clearUserObjects()
-    if (typeof mod.setup === 'function') {
-      try {
-        await mod.setup(this._ctx)
-      } catch (err) {
-        this._showError(`setup() threw:\n${err.message}\n${err.stack ?? ''}`)
-        return
+    return this._startModule(() => Promise.resolve(mod))
+  }
+
+  async _startModule(load, assetFiles = new Map(), url = null, cleanup = () => {}) {
+    const token = this._runToken = (this._runToken ?? 0) + 1
+    try {
+      await this._unloadModule()
+      const mod = await load()
+      if (token !== this._runToken) { if (url) URL.revokeObjectURL(url); cleanup(); return }
+      this._assetCleanup = cleanup
+      this._assetFiles = assetFiles
+      this._currentMod = mod
+      this._blobUrl = url
+      this._elapsed = 0
+      this._clearUserObjects()
+      const ctx = this._ctx = this._makeContext()
+      if (typeof mod.setup !== 'function') throw new Error('The entry module must export setup(ctx). Choose a scene entry to run.')
+      await mod.setup(ctx)
+      if (token !== this._runToken) return
+      this._running = true
+      this._clock.start()
+    } catch (error) {
+      if (url && url !== this._blobUrl) { URL.revokeObjectURL(url); cleanup() }
+      if (token === this._runToken) {
+        await this._unloadModule()
+        this._showError(error.message)
+        throw error
       }
     }
-    this._running = true
-    this._clock.start()
   }
 
   dispose() {
+    this._runToken = (this._runToken ?? 0) + 1
     this._running = false
     cancelAnimationFrame(this._animationId)
     this._unloadModule()
@@ -191,106 +162,22 @@ export class PreviewPane {
   // ── Context object ──────────────────────────────────────────────────────────
 
   _makeContext() {
-    const self  = this
-    const added = []
-
-    const ctx = {
-      // ── Three.js core ───────────────────────────────────────────────────────
-      Three,
-      scene:         this._scene,
-      camera:        this._camera,
-      renderer:      this._renderer,
-      /** OrbitControls instance — configure target, min/maxDistance, etc. */
-      controls:      this._controls,
-      /** CSS2DRenderer — use with Three.CSS2DObject for 3D-tracked DOM labels */
-      labelRenderer: this._css2DRenderer,
-
-      // ── Scene management ────────────────────────────────────────────────────
-      add(obj)    { self._scene.add(obj); added.push(obj); return obj },
-      remove(obj) {
-        self._scene.remove(obj)
-        const i = added.indexOf(obj); if (i >= 0) added.splice(i, 1)
+    return new SceneContext({
+      scene: this._scene, camera: this._camera, renderer: this._renderer,
+      controls: this._controls, labelRenderer: this._css2DRenderer,
+      setBloom: (strength = 0) => { this._bloomPass.strength = Math.max(0, strength) },
+      setHelp: text => {
+        const element = document.getElementById('canvas-help')
+        if (element) element.textContent = text == null ? '' : String(text)
       },
-
-      // ── Geometry factories ──────────────────────────────────────────────────
-      sphere:   _geo.sphere,
-      box:      _geo.box,
-      cylinder: _geo.cylinder,
-      torus:    _geo.torus,
-      plane:    _geo.plane,
-      ring:     _geo.ring,
-      cone:     _geo.cone,
-      /** mesh(geometry, options) — options support all MeshStandardMaterial props */
-      mesh:     _geo.mesh,
-
-      // ── Light factories ─────────────────────────────────────────────────────
-      ambient:     _lights.ambient,
-      point:       _lights.point,
-      directional: _lights.directional,
-      spot:        _lights.spot,
-      hemisphere:  _lights.hemisphere,
-
-      // ── Math helpers ────────────────────────────────────────────────────────
-      lerp:       _math.lerp,
-      clamp:      _math.clamp,
-      map:        _math.map,
-      smoothstep: _math.smoothstep,
-      rad:        _math.rad,
-      deg:        _math.deg,
-
-      // ── Three.js shorthand constructors ─────────────────────────────────────
-      // These replace what the DSL provided as syntax; e.g. ctx.vec3(1,2,3)
-      // instead of new Three.Vector3(1,2,3).
-      vec2:  (x, y)          => new Three.Vector2(x, y),
-      vec3:  (x, y, z)       => new Three.Vector3(x, y, z),
-      vec4:  (x, y, z, w)    => new Three.Vector4(x, y, z, w),
-      color: (r, g, b)       => new Three.Color(r, g, b),
-      quat:  (x, y, z, w)    => new Three.Quaternion(x, y, z, w),
-
-      // ── Iteration helpers ────────────────────────────────────────────────────
-      /** range(n) → [0,1,…,n-1]  or  range(a,b) → [a,a+1,…,b-1] */
-      range: (a, b) => {
-        const start = b === undefined ? 0 : a
-        const end   = b === undefined ? a : b
-        return Array.from({ length: Math.max(0, end - start) }, (_, i) => start + i)
+      loadTexture: path => {
+        const bytes = this._assetFiles.get(path)
+        if (!bytes) return new Three.TextureLoader().load(path)
+        const url = URL.createObjectURL(new Blob([bytes]))
+        this._textureBlobUrls.push(url)
+        return new Three.TextureLoader().load(url)
       },
-
-      // ── Assets ──────────────────────────────────────────────────────────────
-      loadTexture(path) {
-        const bytes = self._assetFiles?.get(path)
-        if (bytes) {
-          const ext  = path.split('.').pop().toLowerCase()
-          const mime = ext === 'png' ? 'image/png' : 'image/jpeg'
-          const url  = URL.createObjectURL(new Blob([bytes], { type: mime }))
-          self._textureBlobUrls.push(url)
-          return new Three.TextureLoader().load(url)
-        }
-        return new Three.TextureLoader().load(path)
-      },
-
-      // ── Time ────────────────────────────────────────────────────────────────
-      elapsed: 0,
-
-      // ── Post-processing ─────────────────────────────────────────────────────
-      /** setBloom(strength) — 0 disables, typical range 0.3–2.0 */
-      setBloom(strength = 0) { self._bloomPass.strength = Math.max(0, strength) },
-
-      // ── UI hints ────────────────────────────────────────────────────────────
-      /**
-       * setHelp(text) — show a one-line interaction hint above the preview
-       * (e.g. "Click to spawn, Space to reset"). Pass '' or null to clear.
-       * Call this in setup() whenever your sketch responds to mouse or keyboard.
-       */
-      setHelp(text) {
-        const el = document.getElementById('canvas-help')
-        if (el) el.textContent = text == null ? '' : String(text)
-      },
-
-      _added:    added,
-      _userVars: {},
-    }
-
-    return ctx
+    })
   }
 
   // ── Render loop ─────────────────────────────────────────────────────────────
@@ -324,16 +211,7 @@ export class PreviewPane {
     // Remove idle placeholder light when a module takes over
     if (this._idleLight.parent) this._scene.remove(this._idleLight)
 
-    for (const obj of [...(this._ctx?._added ?? [])]) {
-      this._scene.remove(obj)
-      // Three only drops a CSS2DObject's div when that object itself is removed,
-      // so nested labels would otherwise be orphaned in the overlay forever.
-      obj.traverse?.(o => { if (o.isCSS2DObject) o.element?.remove() })
-      obj.geometry?.dispose?.()
-      if (Array.isArray(obj.material)) obj.material.forEach(m => m.dispose?.())
-      else obj.material?.dispose?.()
-    }
-    if (this._ctx) this._ctx._added.length = 0
+    this._ctx?.dispose().catch(error => console.error('[PreviewPane] cleanup:', error))
 
     // Reset bloom to off between examples
     this._bloomPass.strength = 0
@@ -349,25 +227,28 @@ export class PreviewPane {
   }
 
   _unloadModule() {
-    if (this._currentMod) {
-      try { this._currentMod.teardown?.(this._ctx) } catch {}
-    }
-    this._clearUserObjects()
-    if (this._blobUrl) { URL.revokeObjectURL(this._blobUrl); this._blobUrl = null }
-    for (const url of this._textureBlobUrls) URL.revokeObjectURL(url)
-    this._textureBlobUrls = []
-    this._currentMod = null
-    this._ctx        = null
-    this._running    = false
+    if (!this._currentMod) return this._unloading ?? Promise.resolve()
+    this._running = false
     this._clock.stop()
-
-    // Clear any interaction hint from the previous example.
-    const helpEl = document.getElementById('canvas-help')
-    if (helpEl) helpEl.textContent = ''
-    this._clearError()
-
-    // Restore idle light when no module is loaded
-    this._scene.add(this._idleLight)
+    const mod = this._currentMod
+    const ctx = this._ctx
+    this._currentMod = null
+    this._unloading = (async () => {
+      try { await mod.teardown?.(ctx) } catch (error) { console.error('[PreviewPane] teardown:', error) }
+      this._clearUserObjects()
+      if (this._blobUrl) URL.revokeObjectURL(this._blobUrl)
+      this._blobUrl = null
+      this._assetCleanup?.()
+      this._assetCleanup = null
+      for (const url of this._textureBlobUrls) URL.revokeObjectURL(url)
+      this._textureBlobUrls = []
+      this._ctx = null
+      const helpEl = document.getElementById('canvas-help')
+      if (helpEl) helpEl.textContent = ''
+      this._clearError()
+      this._scene.add(this._idleLight)
+    })()
+    return this._unloading
   }
 
   _onResize() {

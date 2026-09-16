@@ -47,17 +47,17 @@ describe('shader-playground', () => {
 
   it('setup() creates quad with ShaderMaterial and uniforms', () => {
     setup(ctx)
-    expect(ctx._quad).toBeInstanceOf(Three.Mesh)
-    expect(ctx._quad.material).toBeInstanceOf(Three.ShaderMaterial)
-    expect(ctx._uniforms.uTime).toBeDefined()
-    expect(ctx._uniforms.uResolution).toBeDefined()
+    expect(ctx.scene.children[0]).toBeInstanceOf(Three.Mesh)
+    expect(ctx.scene.children[0].material).toBeInstanceOf(Three.ShaderMaterial)
+    expect(ctx.scene.children[0].material.uniforms.uTime).toBeDefined()
+    expect(ctx.scene.children[0].material.uniforms.uResolution).toBeDefined()
   })
 
   it('update() advances uTime uniform', () => {
     setup(ctx)
     ctx.elapsed = 1.5
     update(ctx, 0.016)
-    expect(ctx._uniforms.uTime.value).toBe(1.5)
+    expect(ctx.scene.children[0].material.uniforms.uTime.value).toBe(1.5)
   })
 
   it('update() runs 5 frames without throwing', () => {
@@ -68,11 +68,14 @@ describe('shader-playground', () => {
     }
   })
 
-  it('teardown() removes resize listener and quad from camera', () => {
+  it('teardown() removes and disposes its shader surface', async () => {
     setup(ctx)
-    const removeSpy = vi.spyOn(window, 'removeEventListener')
-    teardown(ctx)
-    expect(removeSpy).toHaveBeenCalledWith('resize', ctx._onResize)
-    expect(ctx.camera.remove).toHaveBeenCalledWith(ctx._quad)
+    const quad = ctx.scene.children[0]
+    const geometry = vi.spyOn(quad.geometry, 'dispose')
+    const material = vi.spyOn(quad.material, 'dispose')
+    await teardown(ctx)
+    expect(ctx.remove).toHaveBeenCalledWith(quad)
+    expect(geometry).toHaveBeenCalledTimes(1)
+    expect(material).toHaveBeenCalledTimes(1)
   })
 })

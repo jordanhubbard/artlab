@@ -6,6 +6,8 @@
 // A slow cinematic camera rises, dollies, and swings through the system.
 
 import * as Three from 'three'
+import { ResourceScope } from '../../src/stdlib/scene/ResourceScope.js'
+import { ParticleField } from '../../src/stdlib/scene/ParticleField.js'
 import { keplerPosition } from '../../src/physics/Physics.js'
 
 const TRAIL_SAMPLES    = 72     // fixed vertices per trail — buffers never resize
@@ -39,18 +41,6 @@ function mulberry32(seed) {
   }
 }
 
-/** Register geometries/materials for disposal in teardown(). */
-function track(ctx, ...disposables) {
-  ctx._disposables.push(...disposables)
-}
-
-/** Add a root object to the scene and remember it for teardown(). */
-function addRoot(ctx, obj) {
-  ctx._objects.push(obj)
-  ctx.add(obj)
-  return obj
-}
-
 function clamp01(v) {
   return v < 0 ? 0 : v > 1 ? 1 : v
 }
@@ -81,14 +71,15 @@ function buildBackdrop(ctx) {
   const material = new Three.MeshBasicMaterial({
     vertexColors: true, side: Three.BackSide, depthWrite: false,
   })
-  track(ctx, geometry, material)
   return new Three.Mesh(geometry, material)
 }
 
 function buildStarfield(ctx) {
   const random    = mulberry32(0x51a4)
-  const positions = new Float32Array(STARFIELD_COUNT * 3)
-  const colors    = new Float32Array(STARFIELD_COUNT * 3)
+  const field = ctx._scope.own(new ParticleField(STARFIELD_COUNT, {
+    size: 1.9, sizeAttenuation: false, opacity: 0.9, blending: Three.NormalBlending,
+  }))
+  const { positions, colors } = field
   const swatch    = new Three.Color()
 
   for (let i = 0; i < STARFIELD_COUNT; i++) {
@@ -109,16 +100,8 @@ function buildStarfield(ctx) {
     colors[i * 3 + 2] = swatch.b
   }
 
-  const geometry = new Three.BufferGeometry()
-  geometry.setAttribute('position', new Three.BufferAttribute(positions, 3))
-  geometry.setAttribute('color', new Three.BufferAttribute(colors, 3))
-
-  const material = new Three.PointsMaterial({
-    size: 1.9, sizeAttenuation: false, vertexColors: true,
-    transparent: true, opacity: 0.9, depthWrite: false,
-  })
-  track(ctx, geometry, material)
-  return new Three.Points(geometry, material)
+  field.commit()
+  return field.object
 }
 
 function buildStar(ctx) {
@@ -129,7 +112,6 @@ function buildStar(ctx) {
     color: 0xfff6e0, emissive: new Three.Color(0xffe0a0),
     emissiveIntensity: 2.4, roughness: 1, metalness: 0,
   })
-  track(ctx, coreGeometry, coreMaterial)
   const core = new Three.Mesh(coreGeometry, coreMaterial)
   group.add(core)
 
@@ -139,7 +121,6 @@ function buildStar(ctx) {
       color: 0xffc773, transparent: true, opacity,
       blending: Three.AdditiveBlending, depthWrite: false,
     })
-    track(ctx, geometry, material)
     group.add(new Three.Mesh(geometry, material))
   }
 
@@ -154,7 +135,6 @@ function buildVeil(ctx, data, innerScale, outerScale, opacity) {
     color: data.color, transparent: true, opacity, side: Three.DoubleSide,
     blending: Three.AdditiveBlending, depthWrite: false,
   })
-  track(ctx, geometry, material)
 
   const veil = new Three.Mesh(geometry, material)
   veil.rotation.x = -Math.PI / 2
@@ -216,7 +196,6 @@ function buildTrail(ctx, data) {
     vertexColors: true, transparent: true,
     blending: Three.AdditiveBlending, depthWrite: false,
   })
-  track(ctx, lineGeometry, lineMaterial)
   const line = new Three.Line(lineGeometry, lineMaterial)
   line.frustumCulled = false
 
@@ -228,7 +207,6 @@ function buildTrail(ctx, data) {
     vertexColors: true, transparent: true, opacity: 0.75, side: Three.DoubleSide,
     blending: Three.AdditiveBlending, depthWrite: false,
   })
-  track(ctx, ribbonGeometry, ribbonMaterial)
   const ribbon = new Three.Mesh(ribbonGeometry, ribbonMaterial)
   ribbon.frustumCulled = false
 
@@ -248,7 +226,6 @@ function buildBody(ctx, data) {
     color: data.color, roughness: 0.55, metalness: 0.15,
     emissive: new Three.Color(data.glow), emissiveIntensity: BODY_EMISSIVE,
   })
-  track(ctx, geometry, material)
   const mesh = new Three.Mesh(geometry, material)
   mesh.castShadow    = true
   mesh.receiveShadow = true
@@ -361,8 +338,7 @@ function poseSystem(ctx, elapsed) {
 export function setup(ctx) {
   ctx.setHelp('Five worlds orbit a burning star — watch for eclipses as the camera drifts')
 
-  ctx._disposables = []
-  ctx._objects     = []
+  ctx._scope = new ResourceScope()
   ctx._restore     = {
     controlsEnabled: ctx.controls.enabled,
     shadowsEnabled:  ctx.renderer.shadowMap.enabled,
@@ -372,26 +348,27 @@ export function setup(ctx) {
   ctx.renderer.shadowMap.enabled = true
   ctx.setBloom(0.6)
 
-  ctx._backdrop  = addRoot(ctx, buildBackdrop(ctx))
-  ctx._starfield = addRoot(ctx, buildStarfield(ctx))
+  ctx._backdrop  = ctx._scope.add(ctx, buildBackdrop(ctx))
+  ctx._starfield = ctx.add(buildStarfield(ctx))
+  ctx._scope.defer(() => ctx.remove(ctx._starfield))
 
   const star = buildStar(ctx)
   ctx._star = star.core
-  addRoot(ctx, star.group)
+  ctx._scope.add(ctx, star.group)
 
-  addRoot(ctx, new Three.AmbientLight(0x161d38, 0.6))
+  ctx._scope.add(ctx, new Three.AmbientLight(0x161d38, 0.6))
 
   const sunLight = new Three.PointLight(0xffe0b0, 620, 0, 2)
   sunLight.castShadow = true
   sunLight.shadow.mapSize.set(1024, 1024)
   sunLight.shadow.camera.near = 0.5
   sunLight.shadow.camera.far  = 60
-  addRoot(ctx, sunLight)
+  ctx._scope.add(ctx, sunLight)
 
   ctx._bodies   = BODIES.map(data => buildBody(ctx, data))
   ctx._worldPos = new Float64Array(ctx._bodies.length * 3)
   ctx._eclipse  = new Float32Array(ctx._bodies.length)
-  for (const body of ctx._bodies) addRoot(ctx, body.group)
+  for (const body of ctx._bodies) ctx._scope.add(ctx, body.group)
 
   // Compose the very first frame so nothing appears at the origin unlit.
   poseSystem(ctx, 0)
@@ -405,21 +382,10 @@ export function update(ctx) {
 }
 
 export function teardown(ctx) {
-  if (!ctx._objects) return
-
-  for (const obj of ctx._objects) ctx.remove(obj)
-  for (const disposable of ctx._disposables) disposable.dispose()
-
+  if (!ctx._scope) return
   if (ctx._restore) {
     ctx.controls.enabled = ctx._restore.controlsEnabled
     ctx.renderer.shadowMap.enabled = ctx._restore.shadowsEnabled
   }
-
-  ctx._objects = null
-  ctx._disposables = null
-  ctx._bodies = null
-  ctx._backdrop = null
-  ctx._starfield = null
-  ctx._star = null
-  ctx._restore = null
+  return ctx._scope.dispose()
 }

@@ -1,5 +1,6 @@
 // n-body-gravity — Gravitational N-body simulation with trails, merging, and click-to-spawn.
 import * as Three from 'three'
+import { Trail } from '../../src/stdlib/scene/Trail.js'
 import { body, integrate, applyForce } from '../../src/physics/Physics.js'
 
 const G           = 40
@@ -46,25 +47,18 @@ function createBody(ctx, pos, vel, mass) {
   mesh.position.copy(pb.position)
   ctx.add(mesh)
 
-  // Trail
-  const trailPositions = new Float32Array(TRAIL_LEN * 3)
-  for (let i = 0; i < TRAIL_LEN; i++) {
-    trailPositions[i * 3]     = pb.position.x
-    trailPositions[i * 3 + 1] = pb.position.y
-    trailPositions[i * 3 + 2] = pb.position.z
-  }
-  const trailGeo = new Three.BufferGeometry()
-  trailGeo.setAttribute('position', new Three.BufferAttribute(trailPositions, 3))
-  const trailMat = new Three.LineBasicMaterial({ color, transparent: true, opacity: 0.4 })
-  const trail = new Three.Line(trailGeo, trailMat)
+  const trailBuffer = new Trail(TRAIL_LEN, { color, transparent: true, opacity: 0.4 })
+  trailBuffer.push(pb.position)
+  const trail = trailBuffer.object
   ctx.add(trail)
 
   return {
     phys: pb,
     mesh,
     trail,
-    trailGeo,
-    trailMat,
+    trailBuffer,
+    trailGeo: trail.geometry,
+    trailMat: trail.material,
     radius,
     color,
     alive: true,
@@ -94,8 +88,7 @@ function mergeBodies(ctx, a, b) {
   ctx.remove(b.trail)
   b.mesh.geometry.dispose()
   b.mesh.material.dispose()
-  b.trailGeo.dispose()
-  b.trailMat.dispose()
+  b.trailBuffer.dispose()
 }
 
 export function setup(ctx) {
@@ -165,18 +158,7 @@ export function update(ctx, dt) {
     integrate(b.phys, dt_)
     b.mesh.position.copy(b.phys.position)
 
-    // Update trail
-    const pos = b.trailGeo.attributes.position.array
-    // Shift trail positions
-    for (let i = TRAIL_LEN - 1; i > 0; i--) {
-      pos[i * 3]     = pos[(i - 1) * 3]
-      pos[i * 3 + 1] = pos[(i - 1) * 3 + 1]
-      pos[i * 3 + 2] = pos[(i - 1) * 3 + 2]
-    }
-    pos[0] = b.phys.position.x
-    pos[1] = b.phys.position.y
-    pos[2] = b.phys.position.z
-    b.trailGeo.attributes.position.needsUpdate = true
+    b.trailBuffer.push(b.phys.position)
   }
 
   // Check for merges
@@ -206,8 +188,7 @@ export function teardown(ctx) {
     ctx.remove(b.trail)
     b.mesh.geometry.dispose()
     b.mesh.material.dispose()
-    b.trailGeo.dispose()
-    b.trailMat.dispose()
+    b.trailBuffer.dispose()
   }
   ctx.remove(ctx._clickPlane)
   ctx._clickPlane.geometry.dispose()

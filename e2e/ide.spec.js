@@ -51,6 +51,14 @@ test.describe('IDE shell', () => {
 
   test('Signal Salvage plays with keyboard fallback and tears down cleanly', async ({ page }) => {
     test.setTimeout(75_000)
+    // Exercise denial deterministically even when the host has available devices
+    // and the suite grants media permissions to its other examples.
+    await page.evaluate(() => {
+      Object.defineProperty(navigator, 'mediaDevices', {
+        configurable: true,
+        value: { getUserMedia: () => Promise.reject(new DOMException('Permission denied', 'NotAllowedError')) },
+      })
+    })
     await page.goto('./#signal-salvage', { waitUntil: 'domcontentloaded' })
     const game = page.locator('[data-signal-salvage]')
     await expect(game.getByRole('button', { name: 'START MISSION' })).toBeVisible()

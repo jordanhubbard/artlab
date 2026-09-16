@@ -89,8 +89,9 @@ describe('particle-storm', () => {
 
   it('setup() creates 500 particles', () => {
     setup(ctx)
-    expect(Array.isArray(ctx._particles)).toBe(true)
-    expect(ctx._particles.length).toBe(500)
+    const instances = ctx.add.mock.calls.map(([object]) => object).filter(object => object.isInstancedMesh)
+    expect(instances).toHaveLength(1)
+    expect(instances[0].count).toBe(500)
   })
 
   it('update() runs 3 frames without throwing', () => {

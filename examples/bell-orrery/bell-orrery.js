@@ -1,6 +1,7 @@
 // Spatial bell orrery — five FM bowls orbit an obelisk; listener follows the camera.
 import * as Three from 'three'
 import * as Tone from 'tone'
+import { Trail } from '../../src/stdlib/scene/Trail.js'
 import { engine } from '../../src/stdlib/audio.js'
 
 const NOTES = ['C3', 'E3', 'G3', 'A3', 'D4']
@@ -48,17 +49,12 @@ function makeBell(i) {
   mesh.rotation.x = Math.PI / 2
   pivot.add(mesh)
 
-  const trailGeo = new Three.BufferGeometry()
-  const trailCount = 48
-  const trailPos = new Float32Array(trailCount * 3)
-  trailGeo.setAttribute('position', new Three.BufferAttribute(trailPos, 3))
-  const trail = new Three.Line(trailGeo, new Three.LineBasicMaterial({
-    color: COLORS[i], transparent: true, opacity: 0.35,
-  }))
+  const trailBuffer = new Trail(48, { color: COLORS[i], transparent: true, opacity: 0.35 })
+  const trail = trailBuffer.object
   trail.visible = showTrails
 
   return {
-    pivot, mesh, trail, trailPos, trailCount, trailHead: 0,
+    pivot, mesh, trail, trailBuffer,
     speed: SPEEDS[i],
     note: NOTES[i],
     prevZ: mesh.position.z,
@@ -230,13 +226,7 @@ export function update(ctx, dt) {
     bell.glow = Math.max(0, bell.glow - dt * 2.2)
     bell.mesh.material.emissiveIntensity = 0.18 + bell.glow * 1.4
 
-    const attr = bell.trail.geometry.attributes.position
-    const i = bell.trailHead % bell.trailCount
-    attr.array[i * 3] = _pos.x
-    attr.array[i * 3 + 1] = _pos.y
-    attr.array[i * 3 + 2] = _pos.z
-    bell.trailHead++
-    attr.needsUpdate = true
+    bell.trailBuffer.push(_pos)
   }
 }
 
@@ -246,6 +236,7 @@ export async function teardown(ctx) {
   startBtn?.remove()
   startBtn = null
   for (const bell of bells) {
+    bell.trailBuffer.dispose()
     bell.spatial?.disconnect()
     bell.synth?.dispose()
   }

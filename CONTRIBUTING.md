@@ -117,10 +117,9 @@ Both `StandaloneRunner` and `PreviewPane` inject the same context shape:
 | `setHelp(text)` | function | One-line interaction hint shown above the preview; clears automatically on reload |
 | `elapsed` | number | Seconds since setup completed (read-only, updated each frame) |
 
-The PreviewPane ctx also exposes the stdlib helpers as top-level fields
+Both runtime contexts expose the stdlib helpers as top-level fields
 (`sphere`, `box`, `mesh`, `ambient`, `point`, `lerp`, `smoothstep`, `vec3`,
-`color`, etc.) so IDE examples can use them without imports. Standalone /
-exported packages use explicit imports instead.
+`color`, etc.) through the shared `SceneContext` class.
 
 ### Interaction hints — `setHelp(text)`
 
@@ -203,6 +202,14 @@ slicer input.
 Start at the basic tier unless the task explicitly requires more.
 
 ---
+
+## Composing reusable scenes
+
+Use `Scene` and `defineScene` for stateful compositions, and give independently
+updatable effects their own classes. Keep artistic choices in the example; place
+repeated resource, rendering, and lifecycle mechanics in the shared library.
+[The architecture guide](docs/scene-architecture.md) documents ownership, source
+browsing, JS/TS module execution, and the classes extracted from existing examples.
 
 ## Writing a stdlib module
 
@@ -326,11 +333,11 @@ landing a change, work is not complete until `git push` succeeds.
 
 ## Code style
 
-- ES6 modules throughout. No TypeScript, no JSX.
+- ES modules throughout. JavaScript and TypeScript are supported in the source workspace; avoid JSX.
 - Inline comments only when the **why** is non-obvious. Do not comment what the
   code already says.
 - No docstrings beyond the one-line JSDoc on exported functions.
-- Prefer small focused functions over classes.
+- Prefer focused functions for stateless helpers and small composable classes for stateful components.
 - No feature flags, no backwards-compatibility shims. Change the code.
 - `const` by default; `let` when reassignment is necessary; never `var`.
 

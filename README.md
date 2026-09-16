@@ -1,6 +1,6 @@
 # Artlab
 
-A browser-based creative-coding IDE for building interactive 3D scenes, generative visuals, audio-reactive art, and 3D-printable geometry in JavaScript.
+A browser-based creative-coding IDE for building interactive 3D scenes, generative visuals, audio-reactive art, and 3D-printable geometry in JavaScript or TypeScript.
 
 **Live app:** [https://jordanhubbard.github.io/artlab/](https://jordanhubbard.github.io/artlab/)
 
@@ -17,11 +17,24 @@ Open http://localhost:5173, or use the [published GitHub Pages build](https://jo
 
 ## What it is
 
-Artlab is an in-browser IDE backed by a Three.js / WebGL runtime. You write a small JavaScript module that exports `setup`, `update`, and `teardown`; the runtime calls them and injects a `ctx` object with the scene, camera, renderer, OrbitControls, and a stdlib of helpers for geometry, lights, math, physics, audio, video, and UI.
+Artlab is an in-browser IDE backed by a Three.js / WebGL runtime. You write a small JavaScript or TypeScript module that exports `setup`, `update`, and `teardown`; the runtime calls them and injects a `ctx` object with the scene, camera, renderer, OrbitControls, and a stdlib of helpers for geometry, lights, math, physics, audio, video, and UI.
 
 The editor (Monaco) lives on the left, a live preview on the right. Re-run with Ctrl+Enter. Packages are directories with an `artlab.json` manifest; they can be opened from disk, edited, and exported as `.zip`.
 
 Artlab is **synthesis-first**: every reference example generates geometry, textures, audio, and motion procedurally. Asset loading exists (GLTF, OBJ, textures, audio clips) but the built-in examples don't lean on it.
+
+## Explore the implementation
+
+Choosing an example opens its entry and helper modules. **Environment source** in the
+sidebar lets you browse and edit Artlab's shared classes. **Run** rebuilds the complete
+JS/TS module graph, so changes in a helper or library class affect the scene immediately.
+Export keeps your source and its shared dependencies together.
+
+New compositions can extend `Scene` and combine `ParticleField`, `InstanceField`,
+`Trail`, `ShaderSurface`, and other independently owned components. See the
+[scene architecture guide](docs/scene-architecture.md) for the API, ownership rules,
+and refactoring audit, and [Long Winter](docs/demoscene-direction.md) for the proposed
+Amiga-inspired production direction.
 
 ## Examples
 

@@ -17,6 +17,9 @@
  */
 
 import { PreviewPane } from './PreviewPane.js'
+import { SourceLibrary } from './SourceLibrary.js'
+import { SourceBrowser } from './SourceBrowser.js'
+import { ModuleCompiler } from './ModuleCompiler.js'
 import { lint, THREE_TYPES_DTS, TONE_TYPES_DTS } from './ArtlabLinter.js'
 import JSZip from 'jszip'
 import * as monacoApi from 'monaco-editor/esm/vs/editor/editor.api.js'
@@ -278,6 +281,11 @@ export class IDE {
     this.artFiles   = new Map()  // filename → content string (text only)
     this.assetFiles = new Map()  // filename → Uint8Array (binary)
 
+    this.library = new SourceLibrary()
+    this.compiler = new ModuleCompiler({ library: this.library })
+    this._buildId = 0
+    this._exampleLoadId = 0
+
     // Editor state
     this._openFiles  = []         // ordered list of open filenames
     this._activeFile = null
@@ -297,7 +305,7 @@ export class IDE {
     // Debounced auto-compile
     this._compile = debounce(() => this.compile(), DEBOUNCE_MS)
 
-    // True while a built-in example is the active view (edits are not persisted)
+    // True while a built-in example is the active view
     this._fromExample = false
   }
 
@@ -338,6 +346,7 @@ export class IDE {
     }
 
     this._buildExamplesNav()
+    this._sourceBrowser = new SourceBrowser(document.getElementById('file-tree'), this.library, path => this.openSource(path))
     this._initTutorial()
 
     // Deep-link: load example from URL hash; fall back to saved project.
@@ -346,7 +355,10 @@ export class IDE {
       const name = location.hash.slice(1)
       if (!name) return false
       const ex = EXAMPLES.find(e => e.name === name)
-      if (ex) { this._loadExample(ex); return true }
+      if (ex) {
+        if (!this._restoreProject(ex.name)) this._loadExample(ex)
+        return true
+      }
       return false
     }
     if (!_loadFromHash()) this._restoreProject()
@@ -360,6 +372,15 @@ export class IDE {
     this._configureJS(monacoApi)
     this._defineTheme(monacoApi)
     this._createEditor(monacoApi)
+    monacoApi.editor.registerEditorOpener({
+      openCodeEditor: (_editor, resource, selection) => {
+        const path = decodeURIComponent(resource.path.replace('/workspace/', ''))
+        if (!this.artFiles.has(path)) return false
+        this.openFile(path)
+        if (selection) this.editor.setPosition({ lineNumber: selection.startLineNumber ?? selection.lineNumber, column: selection.startColumn ?? selection.column })
+        return true
+      },
+    })
   }
 
   _configureJS(monaco) {
@@ -461,6 +482,7 @@ export class IDE {
     // Auto-compile on change
     this.editor.onDidChangeModelContent(() => {
       if (this._activeFile) {
+        this.artFiles.set(this._activeFile, this.editor.getValue())
         this._dirty.add(this._activeFile)
         this._renderTabs()
       }
@@ -487,6 +509,8 @@ export class IDE {
       return
     }
 
+    this._exampleLoadId++
+    this._buildId++
     const manifestHandle = await dirHandle.getFileHandle('artlab.json', { create: false }).catch(() => null)
     if (!manifestHandle) { toast('artlab.json not found in directory', 4000); return }
 
@@ -538,6 +562,8 @@ export class IDE {
   }
 
   async loadPackage(file) {
+    this._exampleLoadId++
+    this._buildId++
     const JSZip = await getJSZip()
     let zip
     try { zip = await JSZip.loadAsync(file) } catch (e) {
@@ -614,7 +640,7 @@ export class IDE {
                    : filename.endsWith('.css')  ? 'css'
                    : filename.endsWith('.html') ? 'html'
                    : 'plaintext'
-        model = this._monaco.editor.createModel(src, lang)
+        model = this._monaco.editor.createModel(src, lang, this._monaco.Uri.parse(`file:///workspace/${filename}`))
         this._models.set(filename, model)
       }
       this.editor.setModel(model)
@@ -667,6 +693,7 @@ export class IDE {
     this.artFiles.set(this._activeFile, content)
     this._dirty.delete(this._activeFile)
     this._renderTabs()
+    this._saveProject()
     // Sync model so it matches artFiles
     toast('Saved')
   }
@@ -676,10 +703,10 @@ export class IDE {
       name = window.prompt('New file name (e.g. scene.js):')
       if (!name) return
     }
-    if (!name.endsWith('.js') && !name.endsWith('.json') && !name.endsWith('.css')) name += '.js'
+    if (!name.endsWith('.js') && !name.endsWith('.ts') && !name.endsWith('.json') && !name.endsWith('.css')) name += '.js'
     if (this.artFiles.has(name)) { toast('File already exists'); return }
 
-    const stub = name.endsWith('.js') ? [
+    const stub = /\.[jt]s$/.test(name) ? [
       `// ${name}`,
       '',
       'export function setup(ctx) {',
@@ -749,33 +776,31 @@ export class IDE {
 
   async exportPackage() {
     if (!this.manifest) { toast('No package loaded'); return }
-
-    // Flush active file
-    if (this._activeFile && this.editor) {
-      this.artFiles.set(this._activeFile, this.editor.getValue())
+    this._flushModels()
+    const files = new Map(this.artFiles)
+    const assets = new Map(this.assetFiles)
+    try {
+      const manifest = parseManifest(files.get('artlab.json'))
+      const build = await this.compiler.compile({ manifest, artFiles: files })
+      for (const [path, source] of build.dependencies) if (!files.has(path)) files.set(path, source)
+      build.dispose()
+      for (const [path, bytes] of await this.library.assetsFor(manifest.entry, assets)) assets.set(path, bytes)
+      const JSZip = await getJSZip()
+      const zip = new JSZip()
+      for (const [path, content] of files) zip.file(path, content)
+      for (const [path, bytes] of assets) zip.file(path, bytes)
+      const blob = await zip.generateAsync({ type: 'blob', compression: 'DEFLATE' })
+      const name = `${manifest.name}-${manifest.version}.zip`
+      const url = URL.createObjectURL(blob)
+      const anchor = document.createElement('a')
+      anchor.href = url
+      anchor.download = name
+      anchor.click()
+      setTimeout(() => URL.revokeObjectURL(url), 5000)
+      toast(`Exported ${name}`)
+    } catch (error) {
+      toast(`Export failed: ${error.message}`, 5000)
     }
-
-    const JSZip = await getJSZip()
-    const zip   = new JSZip()
-
-    // Always write manifest (possibly edited)
-    const manifestSrc = this.artFiles.get('artlab.json') ?? JSON.stringify(this.manifest, null, 2)
-    zip.file('artlab.json', manifestSrc)
-
-    for (const [path, content] of this.artFiles) {
-      if (path !== 'artlab.json') zip.file(path, content)
-    }
-    for (const [path, bytes] of this.assetFiles) {
-      zip.file(path, bytes)
-    }
-
-    const blob = await zip.generateAsync({ type: 'blob', compression: 'DEFLATE' })
-    const name = `${this.manifest.name}-${this.manifest.version}.zip`
-    const url  = URL.createObjectURL(blob)
-    const a    = document.createElement('a')
-    a.href = url; a.download = name; a.click()
-    setTimeout(() => URL.revokeObjectURL(url), 5000)
-    toast(`Exported ${name}`)
   }
 
   // ── Compilation ─────────────────────────────────────────────────────────────
@@ -783,21 +808,31 @@ export class IDE {
   async compile() {
     if (!this.manifest || !this.preview) return
 
-    // Flush active editor content
-    if (this._activeFile && this.editor) {
-      this.artFiles.set(this._activeFile, this.editor.getValue())
-    }
+    this._flushModels()
+    const buildId = ++this._buildId
+    const workspace = this.artFiles
+    this._saveProject()
 
     this._setBuild('building', 'Building…')
     this._logCompile(`[${ts()}] Building ${this.manifest.name}…`)
 
     try {
-      await this.preview.run({ manifest: this.manifest, artFiles: this.artFiles, assetFiles: this.assetFiles })
+      if (this.artFiles.has('artlab.json')) this.manifest = parseManifest(this.artFiles.get('artlab.json'))
+      const { code, dependencies, dispose } = await this.compiler.compile({ manifest: this.manifest, artFiles: workspace, assetFiles: this.assetFiles })
+      if (buildId !== this._buildId || workspace !== this.artFiles) { dispose(); return }
+      for (const [path, source] of dependencies) {
+        if (!workspace.has(path)) workspace.set(path, source)
+        this._sourceModel(path)
+      }
+      this._renderFileTree()
+      await this.preview.runCode(code, this.assetFiles, dispose)
+      if (buildId !== this._buildId) return
       this._setBuild('ok', '✓ OK')
       this._setErrors([])
       this._logCompile(`[${ts()}] Build OK`)
       this._saveProject()
     } catch (err) {
+      if (buildId !== this._buildId) return
       this._setBuild('error', '✗ Error')
       const diags = this._parseError(err.message)
       this._setErrors(diags)
@@ -813,7 +848,7 @@ export class IDE {
     if (!filename.endsWith('.js')) return
 
     const source = this.editor.getValue()
-    const diags  = lint(source, filename)
+    const diags  = lint(source, filename, { entry: filename === this.manifest?.entry })
 
     const model = this.editor.getModel()
     if (!model) return
@@ -837,7 +872,7 @@ export class IDE {
   // ── localStorage project persistence ────────────────────────────────────────
 
   _saveProject() {
-    if (!this.manifest || this._fromExample) return
+    if (!this.manifest) return
     try {
       localStorage.setItem('artlab:project', JSON.stringify({
         manifest:   this.manifest,
@@ -849,18 +884,20 @@ export class IDE {
     }
   }
 
-  _restoreProject() {
+  _restoreProject(expectedName) {
     let data
     try {
       const raw = localStorage.getItem('artlab:project')
       if (!raw) return
       data = JSON.parse(raw)
-      if (!data?.manifest?.name || !data?.manifest?.entry) return
+      if (!data?.manifest?.name || !data?.manifest?.entry) return false
+      if (expectedName && data.manifest.name !== expectedName) return false
     } catch (e) {
       console.warn('[IDE] localStorage restore failed:', e.message)
       return
     }
 
+    this._exampleLoadId++
     this.manifest = data.manifest
     this.artFiles = new Map(Object.entries(data.artFiles ?? {}))
     this.assetFiles.clear()
@@ -875,11 +912,12 @@ export class IDE {
     if (file && this.artFiles.has(file)) this.openFile(file)
 
     this.compile()
+    return true
   }
 
   _parseError(msg) {
     // Try to extract file:line:col from error messages
-    const match = msg.match(/([^:]+\.js):(\d+)(?::(\d+))?/)
+    const match = msg.match(/([^:]+\.[jt]s):(\d+)(?::(\d+))?/)
     if (match) {
       return [{ severity: 'error', message: msg, file: match[1], line: Number(match[2]), col: Number(match[3] ?? 1) }]
     }
@@ -1180,7 +1218,7 @@ export class IDE {
       }
     }
 
-    tree.appendChild(list)
+    tree.insertBefore(list, tree.querySelector('#nav-examples'))
   }
 
   // ── Status + build ──────────────────────────────────────────────────────────
@@ -1212,6 +1250,7 @@ export class IDE {
   }
 
   _reset() {
+    this._buildId++
     // Close all open files
     for (const [, model] of this._models) model.dispose()
     this._models.clear()
@@ -1233,34 +1272,30 @@ export class IDE {
   newPackage() {
     const name = window.prompt('Package name (kebab-case):', 'my-scene')
     if (!name) return
+    this._exampleLoadId++
 
     this.manifest = { name, version: '1.0.0', entry: 'main.js' }
     this.artFiles.clear()
     this.assetFiles.clear()
 
-    const stub = [
-      `// ${name} — Artlab scene`,
-      '',
-      'export function setup(ctx) {',
-      '  const { Three, sphere, mesh, box, ambient, point } = ctx',
-      '',
-      '  const geo = box(1, 1, 1)',
-      '  const mat = new Three.MeshStandardMaterial({ color: 0x4488cc })',
-      '  const cube = new Three.Mesh(geo, mat)',
-      '  ctx.add(cube)',
-      '  ctx.add(ambient(0x404060, 0.8))',
-      '  ctx.add(point(0xffffff, 200, 0, 0, 0, 2))',
-      '',
-      '  ctx._cube = cube',
-      '}',
-      '',
-      'export function update(ctx, dt) {',
-      '  if (ctx._cube) {',
-      '    ctx._cube.rotation.x += dt * 0.4',
-      '    ctx._cube.rotation.y += dt * 0.7',
-      '  }',
-      '}',
-    ].join('\n')
+    const stub = `import { Scene, defineScene } from './src/stdlib/scene.js'
+
+class Composition extends Scene {
+  setup() {
+    this.camera([0, 2, 6])
+    this.cube = this.add(this.ctx.mesh(this.ctx.box(), { color: 0x4488cc }))
+    this.add(this.ctx.ambient(0x404060, 0.8))
+    this.add(this.ctx.point(0xffffff, 100))
+  }
+
+  update(dt, elapsed) {
+    super.update(dt, elapsed)
+    this.cube.rotation.set(elapsed * 0.4, elapsed * 0.7, 0)
+  }
+}
+
+export const { setup, update, teardown } = defineScene(Composition)
+`
 
     this.artFiles.set('main.js', stub)
     this.artFiles.set('artlab.json', JSON.stringify(this.manifest, null, 2))
@@ -1567,60 +1602,58 @@ export class IDE {
   }
 
   async _loadExample(ex) {
-    this._fromExample = true
-    // Clear previous runtime errors when switching examples
+    const loadId = ++this._exampleLoadId
+    this._buildId++
     this._setErrors([])
-
-    // Highlight in tree
-    document.querySelectorAll('.ex-row').forEach(r => {
-      r.classList.remove('active')
-      r.removeAttribute('aria-current')
-    })
-    const row = document.querySelector(`.ex-row[data-name="${ex.name}"]`)
-    row?.classList.add('active')
-    row?.setAttribute('aria-current', 'true')
-
-    // Update sidebar label
-    const pkgName = document.getElementById('pkg-name')
-    if (pkgName) { pkgName.textContent = ex.name; pkgName.classList.add('loaded') }
-
-    // Load into preview via real URL (supports relative imports).
-    // import.meta.env.BASE_URL is '/' in dev and the configured base in prod
-    // (e.g. '/artlab/' on GitHub Pages), so paths resolve correctly everywhere.
-    const url = new URL(
-      `${import.meta.env.BASE_URL}examples/${ex.name}/${ex.entry}`,
-      location.href,
-    ).href
-    let mod
-    try { mod = await import(/* @vite-ignore */ url) } catch (err) {
-      console.error('[IDE] Example load failed:', err)
-      this._runtimeError(`Failed to load '${ex.name}': ${err.message || String(err)}`)
-      return
-    }
-    this.preview?.runFromModule(mod)
-
-    // Fetch source and show in Monaco
     try {
-      const raw = await fetch(url).then(r => r.text())
-      const src = raw.replace(/\/\/# sourceMappingURL=data:[^\n]+\n?$/, '')
-      // Store in artFiles so openFile() can find it
-      this.artFiles.set(ex.entry, src)
-      // Open in editor
-      if (this.editor && this._monaco) {
-        // Dispose old model for this file if it exists
-        const old = this._models.get(ex.entry)
-        if (old) { old.dispose(); this._models.delete(ex.entry) }
-        this.openFile(ex.entry)
-      }
-    } catch (err) {
-      console.warn('[IDE] Could not fetch example source:', err)
+      const workspace = await this.library.example(ex.name)
+      if (loadId !== this._exampleLoadId) return
+      this.manifest = workspace.manifest
+      this.artFiles = workspace.artFiles
+      this.assetFiles = new Map()
+      this._fromExample = true
+      this._reset()
+      this._updatePkgLabel()
+      this._enablePkgButtons(true)
+      document.querySelectorAll('.ex-row').forEach(row => {
+        const active = row.dataset.name === ex.name
+        row.classList.toggle('active', active)
+        if (active) row.setAttribute('aria-current', 'true')
+        else row.removeAttribute('aria-current')
+      })
+      for (const path of this.artFiles.keys()) this._sourceModel(path)
+      this.openFile(this.manifest.entry)
+      history.replaceState(null, '', `#${ex.name}`)
+      await this._tut?.tryLoad({ ...ex, entry: this.manifest.entry })
+      if (loadId !== this._exampleLoadId) return
+      await this.compile()
+    } catch (error) {
+      if (loadId === this._exampleLoadId) this._runtimeError(error.message)
     }
+  }
 
-    toast(`Loaded example: ${ex.name}`)
-    this._tut?.tryLoad(ex)
+  _flushModels() {
+    for (const [path, model] of this._models) this.artFiles.set(path, model.getValue())
+  }
 
-    // Update the URL hash so this view is bookmarkable and shareable
-    history.replaceState(null, '', `#${ex.name}`)
+  _sourceModel(path) {
+    if (!this._monaco || this._models.has(path)) return
+    const language = path.endsWith('.ts') ? 'typescript' : path.endsWith('.json') ? 'json' : 'javascript'
+    this._models.set(path, this._monaco.editor.createModel(
+      this.artFiles.get(path), language, this._monaco.Uri.parse(`file:///workspace/${path}`),
+    ))
+  }
+
+  async openSource(path) {
+    try {
+      const workspace = this.artFiles
+      if (!workspace.has(path)) {
+        const source = await this.library.read(path)
+        if (workspace !== this.artFiles) return
+        workspace.set(path, source)
+      }
+      this.openFile(path)
+    } catch (error) { toast(error.message, 4000) }
   }
 
   // ── Project Navigator ────────────────────────────────────────────────────────
@@ -1851,9 +1884,18 @@ class TutorialMgr {
     this._pageIdx = 0
     this._clearHighlight()
     try {
-      const res = await fetch(`${import.meta.env.BASE_URL}examples/${ex.name}/tutorial.json`)
-      if (!res.ok) { this.close(); return }
-      this._data = await res.json()
+      const path = `examples/${ex.name}/tutorial.json`
+      if (!this._ide.library.has(path)) { this.close(); return }
+      const data = JSON.parse(await this._ide.library.read(path))
+      if (this._ex !== ex) return
+      for (const page of data.pages) {
+        if (page.file && !this._ide.artFiles.has(page.file)) {
+          const source = await this._ide.library.read(page.file)
+          if (this._ex !== ex) return
+          this._ide.artFiles.set(page.file, source)
+        }
+      }
+      this._data = data
       this._render()
       this._pane.classList.add('open')
     } catch {
@@ -1906,7 +1948,7 @@ class TutorialMgr {
 
     // Code highlight
     if (page.lines) {
-      this._highlight(page.lines[0], page.lines[1])
+      this._highlight(page.lines[0], page.lines[1], page.file)
     } else {
       this._clearHighlight()
     }
@@ -1917,12 +1959,12 @@ class TutorialMgr {
     this._btnUp.disabled   = !page.parent
   }
 
-  _highlight(startLine, endLine) {
+  _highlight(startLine, endLine, file) {
     const ide = this._ide
     if (!ide?.editor || !ide?._monaco) return
 
     // Ensure the example source file is active in the editor
-    if (this._ex) ide.openFile(this._ex.entry)
+    if (this._ex) ide.openFile(file ?? this._ex.entry)
 
     const monaco = ide._monaco
     const editor = ide.editor

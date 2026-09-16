@@ -133,7 +133,7 @@ const TONE_KNOWN = new Set([
 
 // ── Import rules ───────────────────────────────────────────────────────────────
 
-const IMPORTMAP_BARE = new Set(['three', 'tone'])
+const IMPORTMAP_BARE = new Set(['three', 'tone', 'manifold-3d', '@dimforge/rapier3d-compat'])
 
 // three/addons paths that are guaranteed present in the vendor bundle
 const SAFE_THREE_ADDONS = new Set([
@@ -161,7 +161,7 @@ const SAFE_SRC_PREFIXES = [
  * @param {string} [filename] — used in diagnostic file fields
  * @returns {Array<{severity:'error'|'warn'|'info', message:string, file:string, line:number, col:number}>}
  */
-export function lint(source, filename = 'script.js') {
+export function lint(source, filename = 'script.js', { entry = true } = {}) {
   // Test files are not Artlab entry points — skip all checks
   if (filename.endsWith('.test.js') || filename.endsWith('.spec.js')) return []
 
@@ -172,8 +172,10 @@ export function lint(source, filename = 'script.js') {
     diags.push({ severity, message, file: filename, line: lineIdx + 1, col: col + 1 })
   }
 
-  _checkExports(source, push)
-  _checkTeardown(source, push)
+  if (entry) {
+    _checkExports(source, push)
+    _checkTeardown(source, push)
+  }
 
   // Strip block comments before line analysis (simple, non-nested)
   const stripped = _stripBlockComments(source).split('\n')
@@ -240,21 +242,13 @@ function _checkImports(line, i, push) {
         continue
       }
 
-      // three/addons/ prefix
-      if (spec.startsWith('three/addons/')) {
-        if (!SAFE_THREE_ADDONS.has(spec)) {
-          push('warn', i, col,
-            `'${spec}': only 'three/addons/renderers/CSS2DRenderer.js' is in the vendor bundle. ` +
-            `Wrap this import in try { } catch { } so the example degrades gracefully if the file is absent.`)
-        }
-        continue
-      }
+      if (spec.startsWith('three/addons/')) continue
 
       // Bare specifiers must be in importmap
       if (!IMPORTMAP_BARE.has(spec)) {
         push('error', i, col,
           `Cannot import '${spec}' — bare specifier not in importmap. ` +
-          `Only 'three' and 'tone' are available. Use a relative path (../../src/...) for local modules.`)
+          `Use a configured library (three, tone, manifold-3d, or @dimforge/rapier3d-compat). Use a relative path (../../src/...) for local modules.`)
       }
     }
   }
