@@ -1,8 +1,9 @@
 # Long Winter — production direction
 
-Status: design proposal. No tracker player or finished demo is included in this pass.
+Status: implemented as the `long-winter` example. It uses an original synthesized
+tracker-style score, so the production has no external music or asset license.
 
-The proposed flagship is a roughly two-minute performance with a strong melody,
+The flagship is a roughly two-minute performance with a strong melody,
 deliberate musical changes, a mischievous character, and a technical climax. One Start
 button begins the show. The first viewing should require no IDE knowledge or media
 permissions. The code view should reveal an equally deliberate composition underneath.
@@ -18,8 +19,8 @@ permissions. The code view should reveal an equally deliberate composition under
 | Climax | Several visual systems combine with a coherent silhouette | Layers accumulate through a planned musical build | Measured workload at a defined frame-time budget |
 | Return | The original character and stage reappear, followed by credits | Resolve the opening phrase | Show actual object counts, frame timings, asset size, and source links |
 
-The exact scenes should follow the chosen tune. Select a redistributable tracker
-module with a memorable beat and explicit attribution, or commission an original MOD.
+The exact scenes should follow the chosen tune. Long Winter uses an original score
+written directly as patterns and synthesized in the browser.
 The song is a collaborator, not background wallpaper. A historical module should be
 replayed with its timing/effects intact, not approximated by FFT pulses.
 
@@ -92,11 +93,13 @@ A proposed workload is not a performance claim. Publish measured results, includ
 machine, browser, resolution, and which rendering path ran. WebGPU may provide a more
 ambitious path later; the visual direction should still work with a WebGL2 baseline.
 
-## Next design decisions
+## Implemented decisions
 
-1. Choose the tune and map its musical structure.
-2. Storyboard three strong transitions and the character's role in them.
-3. Prototype one synchronized passage using the shared classes.
-4. Measure that passage on the baseline machine before committing to the finale's density.
-
-These are follow-up design choices, not approval gates for the shared-code refactor.
+1. The 112 BPM, 48-bar original score has four voices and six named passages.
+2. Pip, the maintenance robot, pulls a pixel from the stage; architecture transforms
+   continuously into a swarm and a sun before returning to the opening stage.
+3. `TrackerTransport`, the score, character, world, swarm, and overlay are separate,
+   editable modules. Audio time is authoritative, with a silent-clock fallback.
+4. The credits report live p95 frame time and draw calls for the current browser,
+   resolution, rendering path, active instance count, and zero external assets. The
+   show reduces the 1,400-instance workload when its rolling p95 exceeds 20 ms.

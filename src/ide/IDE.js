@@ -129,6 +129,7 @@ const EXAMPLES = [
   { name: 'force-field-playground', entry: 'force-field-playground.js', description: 'Interactive physics demo where clicking places attractor and repulsor force fields that bend a streaming particle fountain' },
   { name: 'fractal-tree', entry: 'fractal-tree.js', description: 'Ground-level view under an ancient canopy: roots, fog, and a finished first frame instead of a 10-second grow.' },
   { name: 'hello-cube', entry: 'hello-cube.js', description: 'A glowing rotating cube — the canonical first Artlab example' },
+  { name: 'long-winter', entry: 'long-winter.js', description: 'A two-minute tracker-inspired performance: a tiny robot opens a frozen stage into an impossible procedural world' },
   { name: 'marble-run', entry: 'marble-run.js', description: 'Marble run contraption — balls roll down spiral ramps, bounce off platforms, and collect in a bowl at the bottom' },
   { name: 'mobius-strip', entry: 'mobius-strip.js', description: 'Parametric Möbius strip with flowing color bands and orbiting particles tracing the one-sided surface' },
   { name: 'motion-scale-lantern', entry: 'motion-scale-lantern.js', description: 'Webcam mapped onto hinged icosahedron scales that flare open with motion' },

@@ -68,6 +68,7 @@ const EXAMPLES = [
   'force-field-playground',
   'fractal-tree',
   'hello-cube',
+  'long-winter',
   'marble-run',
   'mobius-strip',
   'motion-scale-lantern',
