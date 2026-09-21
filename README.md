@@ -45,7 +45,7 @@ Recent gallery pieces:
 | Example | What it is |
 |---|---|
 | `signal-salvage` | **Signal Salvage** — a chaotic score attack with changing harmonic scenes, four collectible species, random anomalies, a camera-textured signal veil, and microphone-reactive effects |
-| `long-winter` | **Long Winter: Second Mix** — nine original songs move through fjord, cabin, pine, birch, snow, and aurora scenes before an Amiga-inspired color storm |
+| `long-winter` | **Long Winter: Northern Light** — sculpted Nordic fjords, reflected aurora, and ray-traced metallic sculptures in nine musical movements; native-resolution fullscreen rendering |
 | `typography-art` | **Monument** — the word LANGUAGE as walkable brutalist architecture under a raking dawn sun |
 | `color-fields` | **Chromatic Weather** — one pigment sheet that swells, dissolves into haze, and stirs under the pointer |
 | `orbital-dance` | **Luminous Choreography** — five occluding bodies, ribbon trails, and intersecting orbital planes |

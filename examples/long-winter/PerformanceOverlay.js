@@ -7,13 +7,13 @@ export class PerformanceOverlay {
     this.root = document.createElement('div')
     this.root.dataset.longWinter = ''
     this.root.innerHTML = `
-      <div class="lw-title"><small>ARTLAB PRESENTS · SECOND MIX</small><strong>LONG WINTER</strong><span>NINE SONGS FOR THE NORTHERN NIGHT</span></div>
-      <button class="lw-watch" type="button">WATCH V2</button>
+      <div class="lw-title"><small>A REALTIME NORTHERN ODYSSEY</small><strong>LONG WINTER</strong><span>N O R T H E R N &nbsp; L I G H T</span><p>Nine movements in snow, silver and light</p></div>
+      <button class="lw-watch" type="button">WATCH NORTHERN LIGHT</button>
       <div class="lw-hud"><span class="lw-act">ACT I / IX</span><span class="lw-part">BLUE HOUR</span><span class="lw-song">♫ BLÅ TIMMEN</span><span class="lw-time">00:00</span></div>
       <div class="lw-palette"></div>
       <div class="lw-tracker" hidden></div>
       <div class="lw-greetings"><span>${GREETINGS.repeat(2)}</span></div>
-      <nav><button class="lw-score" type="button">EXPLORE THE SCORE</button><a class="lw-source" target="_blank" rel="noreferrer">OPEN THIS ACT ↗</a></nav>
+      <nav><button class="lw-fullscreen" type="button">FULLSCREEN</button><button class="lw-score" type="button">SCORE</button><a class="lw-source" target="_blank" rel="noreferrer">SOURCE ↗</a></nav>
       <div class="lw-credits" hidden></div>`
     this.style()
     parent.appendChild(this.root)
@@ -37,19 +37,25 @@ export class PerformanceOverlay {
       this.root.classList.add('started')
     })
     this.root.querySelector('.lw-score').addEventListener('click', () => { this.tracker.hidden = !this.tracker.hidden })
+    this.root.querySelector('.lw-fullscreen').addEventListener('click', () => {
+      if (document.fullscreenElement) document.exitFullscreen?.().catch(() => {})
+      else if (parent.requestFullscreen) parent.requestFullscreen().catch(() => {})
+      else document.getElementById('btn-fullscreen')?.click()
+    })
   }
 
   style() {
     const style = document.createElement('style')
     style.textContent = `
       [data-long-winter]{position:absolute;inset:0;overflow:hidden;z-index:80;pointer-events:none;color:#d9f8ff;font:11px/1.5 monospace;letter-spacing:.16em;text-shadow:0 1px 8px #020817}
-      [data-long-winter] .lw-title{position:absolute;left:50%;top:38%;transform:translate(-50%,-50%);text-align:center;transition:opacity 1s;white-space:nowrap}
+      [data-long-winter] .lw-title{position:absolute;left:50%;top:39%;transform:translate(-50%,-50%);text-align:center;transition:opacity 1.5s;white-space:nowrap}
       [data-long-winter] .lw-title.playing{opacity:0}[data-long-winter] small,[data-long-winter] span{display:block;color:#70a9bd}
-      [data-long-winter] strong{display:block;font-size:clamp(27px,5vw,58px);letter-spacing:.34em;background:linear-gradient(90deg,#17e5d0,#8258ff,#ff3e9d,#ff9d32);-webkit-background-clip:text;color:transparent;margin:.2em 0}
+      [data-long-winter] strong{display:block;font:200 clamp(28px,5vw,74px)/1.4 system-ui,sans-serif;letter-spacing:.2em;color:#e2f0ee;margin:.15em 0;text-shadow:0 2px 40px #061528}
+      [data-long-winter] .lw-title small{font-size:9px;letter-spacing:.35em;color:#a3c5cb}[data-long-winter] .lw-title p{font:italic 15px Georgia,serif;color:#bbcecf;margin-top:22px;letter-spacing:.04em}
       [data-long-winter] button,[data-long-winter] a{pointer-events:auto;background:rgba(4,12,28,.88);border:1px solid #397b99;color:#caf6ff;padding:9px 15px;font:10px monospace;letter-spacing:.15em;text-decoration:none;cursor:pointer}
-      [data-long-winter] .lw-watch{position:absolute;left:50%;top:59%;transform:translateX(-50%);padding:13px 35px;border-color:#ff8c38;color:#ffd079;box-shadow:0 0 24px rgba(255,90,80,.22)}
+      [data-long-winter] .lw-watch{position:absolute;left:50%;top:63%;transform:translateX(-50%);padding:15px 28px;border-color:#7ba6ae;color:#deeeee;background:rgba(4,15,25,.65);backdrop-filter:blur(12px)}
       [data-long-winter] .lw-hud{position:absolute;left:18px;top:16px;border-left:2px solid #20e0d0;padding-left:10px}[data-long-winter] .lw-hud span{margin-bottom:2px}
-      [data-long-winter] .lw-act{color:#ff63ae}[data-long-winter] .lw-part{color:#e8faff;font-size:13px}[data-long-winter] .lw-song{color:#ffb04c}
+      [data-long-winter] .lw-act{color:#8fc4ce}[data-long-winter] .lw-part{color:#e8faff;font-size:13px}[data-long-winter] .lw-song{color:#c7b99b}
       [data-long-winter] .lw-palette{position:absolute;right:15px;top:17px;width:70px;height:5px;background:linear-gradient(90deg,#08e0e8 0 20%,#7146ed 20% 40%,#ed369b 40% 60%,#ff8d2c 60% 80%,#52ee89 80%)}
       [data-long-winter] nav{position:absolute;right:14px;bottom:31px;display:flex;gap:7px}
       [data-long-winter] .lw-tracker{position:absolute;right:14px;bottom:75px;width:268px;padding:13px;background:rgba(3,9,24,.92);white-space:pre;border-left:2px solid #ff3e9d}
@@ -86,7 +92,7 @@ export class PerformanceOverlay {
     const platform = navigator.userAgentData?.platform || navigator.platform || 'browser device'
     const browser = navigator.userAgent.match(/(Firefox|Chrome|Safari)\/[\d.]+/)?.[0] || 'browser'
     this.credits.hidden = false
-    this.credits.innerHTML = `<strong>FIRST LIGHT</strong><p>Nine original songs · nine acts<br>fjord · cabin · pines · birch · snow · aurora<br>copper bars · vector balls · checker floor · color storm</p><p>${metrics.instances.toLocaleString()} / 1,400 instances · 0 external assets<br>${metrics.drawCalls} draw calls · ${metrics.p50.toFixed(1)} ms p50 · ${metrics.p95.toFixed(1)} ms p95</p><p>${metrics.width}×${metrics.height} · ${metrics.path}<br>${platform} · ${browser} · measured live</p><p>${ACTS.length} ACTS · MADE WITH ARTLAB</p>`
+    this.credits.innerHTML = `<strong>FIRST LIGHT</strong><p>Nine songs for the northern night<br>Sculpted fjords · reflected aurora · silver light sculptures<br>For the artists who made the Amiga dream</p><p>${metrics.drawCalls} draw calls · ${metrics.p50.toFixed(1)} ms p50 · ${metrics.p95.toFixed(1)} ms p95</p><p>${metrics.width}×${metrics.height} · ${metrics.path}<br>${platform} · ${browser} · measured live</p><p>${ACTS.length} ACTS · MADE WITH ARTLAB</p>`
   }
 
   dispose() { this.root.remove() }

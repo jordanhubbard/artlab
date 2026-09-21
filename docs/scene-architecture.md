@@ -133,5 +133,7 @@ should have a clear resource boundary and hide repeated mechanics while exposing
 interesting parameters.
 
 The [Long Winter](demoscene-direction.md) production builds on this structure. Its
-local tracker transport, nine-song score, landscape, demo graphics, and performer are
-small composition modules rather than new shared APIs.
+local tracker transport, nine-song score, sculpted landscape, procedural atmosphere,
+and ray-marched sculptures are small composition modules rather than new shared APIs.
+`ShaderSurface` supplies drawing-buffer resolution to the ray marcher; `WinterWorld`
+owns mesh resources and explicitly releases the lake's reflection render target.

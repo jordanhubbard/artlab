@@ -50,7 +50,7 @@ const SONGS = {
     kick: [0, 4, 8, 11], snare: [4, 12], hats: [0, 2, 4, 6, 8, 10, 12, 14], chordRows: [0, 4, 8, 12], melodyRows: [0, 1, 2, 3, 4, 6, 8, 9, 10, 11, 12, 14],
   },
   'color-storm': {
-    title: 'WHITEOUT / COLOR STORM', voice: 'chip',
+    title: 'SILVER BLOOM', voice: 'chip',
     chords: [['C3', 'Eb3', 'G3'], ['Ab2', 'C3', 'Eb3'], ['F3', 'Ab3', 'C4'], ['G3', 'B3', 'D4']], bass: ['C2', 'Ab1', 'F2', 'G2'],
     melody: ['C6', 'G5', 'Eb6', 'G5', 'Ab5', 'Eb6', 'C6', 'Eb6', 'F6', 'C6', 'Ab5', 'C6', 'G6', 'D6', 'B5', 'D6'],
     kick: [0, 3, 6, 8, 11, 14], snare: [4, 12], hats: [0, 2, 4, 6, 8, 10, 12, 14], chordRows: [0, 4, 8, 12], melodyRows: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15],
@@ -71,8 +71,8 @@ export const ACTS = [
   { id: 'birch-run', name: 'V · BIRCH RUN', startBar: 24, endBar: 30, source: 'NordicLandscape.js', action: 'run' },
   { id: 'loose-pixel', name: 'VI · THE LOOSE PIXEL', startBar: 30, endBar: 36, source: 'WinterWorld.js', action: 'pull' },
   { id: 'copper-tunnel', name: 'VII · COPPER TUNNEL', startBar: 36, endBar: 42, source: 'DemoGraphics.js', action: 'dive' },
-  { id: 'color-storm', name: 'VIII · WHITEOUT / COLOR STORM', startBar: 42, endBar: 50, source: 'SwarmField.js', action: 'conduct' },
-  { id: 'first-light', name: 'IX · FIRST LIGHT', startBar: 50, endBar: 56, source: 'Character.js', action: 'bow' },
+  { id: 'color-storm', name: 'VIII · SILVER BLOOM', startBar: 42, endBar: 50, source: 'DemoGraphics.js', action: 'conduct' },
+  { id: 'first-light', name: 'IX · FIRST LIGHT', startBar: 50, endBar: 56, source: 'NordicLandscape.js', action: 'bow' },
 ].map(act => ({ ...act, song: SONGS[act.id] }))
 
 export const PARTS = ACTS

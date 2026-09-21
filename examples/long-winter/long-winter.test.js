@@ -79,22 +79,34 @@ describe('Long Winter score', () => {
   })
 })
 
-describe('Second Mix visual vocabulary', () => {
-  it('builds recognizable northern landscape landmarks with instanced forests', () => {
+describe('Northern Light rendering', () => {
+  it('builds nonplanar terrain with finite normals and releases the reflection target', () => {
     const landscape = new NordicLandscape()
     expect(landscape.cabin).toBeInstanceOf(Three.Group)
     expect(landscape.mountains).toHaveLength(3)
-    expect(landscape.aurora.children).toHaveLength(4)
+    const geometry = landscape.mountains[0].geometry
+    expect(new Set(Array.from(geometry.attributes.position.array).filter((_, i) => i % 3 === 1)).size).toBeGreaterThan(1000)
+    expect(Array.from(geometry.attributes.normal.array).every(Number.isFinite)).toBe(true)
     expect(landscape.trees.children.every(tree => tree.isInstancedMesh)).toBe(true)
-    expect(landscape.birches.isInstancedMesh).toBe(true)
+    const dispose = vi.spyOn(landscape.lake.getRenderTarget(), 'dispose')
+    landscape.dispose()
+    expect(dispose).toHaveBeenCalledOnce()
   })
 
-  it('builds Amiga-style copper bars, vector balls, and an instanced checker plane', () => {
+  it('traces at drawing-buffer resolution and restores the same scene when seeking', () => {
     const demo = new DemoGraphics()
-    expect(demo.bars.children).toHaveLength(18)
-    expect(demo.balls.children).toHaveLength(28)
-    expect(demo.checker.isInstancedMesh).toBe(true)
-    expect(demo.checker.count).toBe(210)
+    const activity = { bass: .2, melody: .4, drums: .6 }
+    const time = ACTS[7].startBar * 4 * 60 / 110
+    demo.update(1 / 60, musicalPosition(time), activity)
+    expect(demo.object.visible).toBe(true)
+    expect(demo.uniforms.uMode.value).toBe(2)
+    expect(demo.uniforms.uResolution.value.toArray()).toEqual([1280, 720])
+    demo.update(1 / 60, musicalPosition(0), activity)
+    expect(demo.object.visible).toBe(false)
+    demo.update(1 / 60, musicalPosition(time), activity)
+    expect(demo.uniforms.uTime.value).toBe(time)
+    expect(demo.uniforms.uEnergy.value.toArray()).toEqual([.2, .4, .6])
+    demo.dispose()
   })
 })
 
@@ -153,8 +165,8 @@ describe('Long Winter example', () => {
     example.setup(ctx)
     expect(ctx.setHelp).toHaveBeenCalled()
     expect(ctx.setBloom).toHaveBeenCalled()
-    expect(ctx.add.mock.calls.length).toBeGreaterThanOrEqual(4)
-    expect(document.querySelector('.lw-watch')?.textContent).toBe('WATCH V2')
+    expect(ctx.add.mock.calls.length).toBeGreaterThanOrEqual(3)
+    expect(document.querySelector('.lw-watch')?.textContent).toBe('WATCH NORTHERN LIGHT')
     expect(document.querySelector('.lw-score')).not.toBeNull()
     expect(document.querySelector('.lw-source')).not.toBeNull()
     expect(() => example.update(ctx, 1 / 60)).not.toThrow()

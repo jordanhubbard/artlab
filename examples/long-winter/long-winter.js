@@ -1,6 +1,5 @@
 import * as Three from 'three'
 import { Scene, defineScene } from '../../src/stdlib/scene.js'
-import { Character } from './Character.js'
 import { PerformanceOverlay } from './PerformanceOverlay.js'
 import { ACTS, BEATS_PER_BAR, SECONDS_PER_BEAT } from './score.js'
 import { TrackerTransport } from './TrackerTransport.js'
@@ -8,16 +7,18 @@ import { WinterWorld } from './WinterWorld.js'
 
 class LongWinter extends Scene {
   setup() {
-    this.ctx.setHelp('Watch V2 · Space: pause/resume · ←/→: previous/next act · Explore nine songs · Open this act')
-    this.ctx.setBloom(0.34)
-    this.camera([0, 0.3, 10], [0, -0.2, 0])
+    this.ctx.setHelp('Watch Northern Light · Fullscreen for native-resolution visuals · Space: pause/resume · ←/→: acts')
+    this.ctx.setBloom(0.22)
+    this.camera([0, 1, 15], [0, 3, -30])
+    this.scope.defer(() => this.ctx.camera.updateProjectionMatrix())
+    this.scope.set(this.ctx.camera, 'far', 400)
+    this.ctx.camera.updateProjectionMatrix()
     if (this.ctx.controls) this.scope.set(this.ctx.controls, 'enabled', false)
-    this.add(new Three.HemisphereLight(0x81b5d0, 0x040913, 0.82))
-    const lamp = new Three.PointLight(0xff9a38, 5.5, 18, 2)
-    lamp.position.set(-1.8, -0.9, 2)
-    this.add(lamp)
-    this.world = this.use(new WinterWorld())
-    this.character = this.use(new Character())
+    this.add(new Three.HemisphereLight(0x9cbde0, 0x0d1d30, 1.5))
+    this.moonlight = new Three.DirectionalLight(0xa9cfea, 2.3)
+    this.moonlight.position.set(-15, 25, -10)
+    this.add(this.moonlight)
+    this.world = this.use(new WinterWorld(this.ctx.renderer))
     this.transport = this.scope.own(new TrackerTransport())
     this.frames = []
     const parent = this.ctx.renderer.domElement.parentElement
@@ -42,49 +43,42 @@ class LongWinter extends Scene {
     this.transport.update(dt)
     const position = this.transport.position
     this.world.update(dt, position, this.transport.activity)
-    this.character.object.visible = ['blue-hour', 'hearth-song', 'birch-run', 'loose-pixel', 'first-light'].includes(position.act.id)
-    this.character.update(dt, position.seconds, position.act.action, position.absoluteBeat)
+    this.moonlight.color.set(position.act.id === 'first-light' ? 0xffc59a : 0xa9cfea)
     this.moveCamera(position)
-    this.frames.push(Math.min(100, dt * 1000))
+    this.frames.push(dt * 1000)
     if (this.frames.length > 240) this.frames.shift()
     const sorted = [...this.frames].sort((a, b) => a - b)
     const p50 = sorted[Math.floor(sorted.length * 0.5)] || 0
     const p95 = sorted[Math.floor(sorted.length * 0.95)] || 0
-    if (this.frames.length === 240) this.world.swarm.setDensity(p95 > 20 ? 0.65 : p95 < 17 ? 1 : this.world.swarm.visibleCount / this.world.swarm.count)
     const canvas = this.ctx.renderer.domElement
     this.overlay.update(position, this.transport.activity, {
       p50,
       p95,
       drawCalls: this.ctx.renderer.info?.render?.calls ?? 0,
-      instances: this.world.swarm.visibleCount,
       width: canvas.width,
       height: canvas.height,
-      path: this.ctx.renderer.isWebGPURenderer ? 'WebGPU' : 'WebGL2',
+      path: this.world.demo.object.visible ? 'WebGL2 · ray marching + reflection bounce' : 'WebGL2 · planar reflection + procedural sky',
     })
   }
 
   moveCamera(position) {
     const t = position.seconds
     const p = position.actProgress
-    if (position.act.id === 'blue-hour' || position.act.id === 'hearth-song' || position.act.id === 'first-light') {
-      this.ctx.camera.position.set(Math.sin(t * 0.12) * 1.1, 0.15, 10)
-      this.ctx.camera.lookAt(0, -0.4, -3)
+    if (position.act.id === 'blue-hour' || position.act.id === 'first-light') {
+      this.ctx.camera.position.set(Math.sin(t * .08) * 3, 1 + p * 1.5, 15 - p * 4)
+      this.ctx.camera.lookAt(0, 4, -35)
+    } else if (position.act.id === 'hearth-song') {
+      this.ctx.camera.position.set(-3 - p * 4, .4 + Math.sin(p * Math.PI), 4 - p * 3)
+      this.ctx.camera.lookAt(-7, -.1, -15)
     } else if (position.act.id === 'fjord-mirror') {
-      this.ctx.camera.position.set(-7 + p * 14, 0.8 + Math.sin(t * 0.2), 9)
-      this.ctx.camera.lookAt(0, -0.8, -7)
+      this.ctx.camera.position.set(-5 + p * 10, -1.7 + Math.sin(p * Math.PI) * .5, 10 - p * 7)
+      this.ctx.camera.lookAt(0, 3, -40)
     } else if (position.act.id === 'aurora-code') {
-      this.ctx.camera.position.set(Math.sin(t * 0.1) * 2, 1.4, 9)
-      this.ctx.camera.lookAt(0, 1.2, -8)
+      this.ctx.camera.position.set(Math.sin(t * .1) * 3, 2 + p * 3, 8)
+      this.ctx.camera.lookAt(0, 12, -38)
     } else if (position.act.id === 'birch-run') {
-      this.ctx.camera.position.set(Math.sin(t * 0.6) * 1.4, 0.25, 7.5)
-      this.ctx.camera.lookAt(0, -0.4, -4)
-    } else if (position.act.id === 'loose-pixel') {
-      this.ctx.camera.position.set(0, 0.1, 10 - p * 8.5)
-      this.ctx.camera.lookAt(0, 0, -5)
-    } else {
-      const radius = position.act.id === 'color-storm' ? 7 : 8.5
-      this.ctx.camera.position.set(Math.sin(t * 0.18) * radius, 1.2 + Math.sin(t * 0.13) * 2, -7 + Math.cos(t * 0.18) * radius)
-      this.ctx.camera.lookAt(0, 0, -7)
+      this.ctx.camera.position.set(Math.sin(p * Math.PI * 2) * 1.2, -.2 + Math.sin(t * .5) * .15, 9 - p * 22)
+      this.ctx.camera.lookAt(0, 1.3, -32)
     }
   }
 }

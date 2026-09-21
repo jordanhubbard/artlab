@@ -1,7 +1,40 @@
 # Long Winter — production direction
 
-Status: implemented as `long-winter`, now in its Second Mix. Nine original synthesized
-tracker songs score nine acts, so the production has no external music or asset license.
+Status: implemented as `long-winter`, now in its **Northern Light** edition (example
+version 3.0.0). Nine original synthesized tracker songs score nine acts; all imagery
+is generated in the browser.
+
+## Northern Light — current production
+
+The Amiga influence is artistic ambition, musical structure, reflective sculptures,
+and flowing color, rather than low resolution or intentionally primitive geometry.
+The block robot, flat mountain cutouts, checkerboard props, and particle sun have
+been replaced in the running performance.
+
+- Blue Hour establishes three sculpted, snow-covered mountain ranges, detailed
+  instanced spruce trees, a red timber cabin, a star field, and an icy fjord.
+- Fire in the Snow moves toward the cabin; Fjord Mirror glides near the ice.
+  A planar reflection pass actually renders the scenery and aurora, with subtle
+  surface distortion, frost veins, and angle-dependent reflectivity.
+- Aurora Code looks up into five folded, filamented curtains animated on the GPU.
+  Birch Run flies between bark-patterned trunks and branches.
+- The Loose Pixel becomes an interwoven metallic knot. Copper Tunnel flies through
+  reflective hexagonal frames and continuous helical ribs. Silver Bloom opens a
+  twelve-petal iridescent sculpture. All three use signed-distance ray marching,
+  computed surface normals, ambient occlusion, soft shadows, and one secondary
+  reflection bounce into geometry and a procedural lighting environment.
+- First Light returns to the fjord under a warm dawn, then shows measured credits.
+
+Rendering uses the actual drawing-buffer resolution (the host caps device pixel
+ratio at 2). There is no intentionally low-resolution intermediate image for the
+ray marcher. The reflection texture is 1024×1024. Fullscreen exposes the available
+display area. This is real-time hybrid rasterization and sphere tracing, not a
+progressive path tracer; higher resolutions require more GPU work.
+
+The original narrative and earlier production directions below are retained as
+design history; they do not describe the current renderer.
+
+## Original direction / Second Mix history
 
 The flagship is a roughly two-minute performance with a strong melody,
 deliberate musical changes, a mischievous character, and a technical climax. One Start
