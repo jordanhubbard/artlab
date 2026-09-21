@@ -1,16 +1,7 @@
 import * as ToneModule from 'tone'
 import { BPM, DURATION, musicalPosition, stepAt } from './score.js'
 
-const ROOTS = ['A2', 'F2', 'C3', 'G2']
-const CHORDS = [
-  ['A3', 'C4', 'E4'],
-  ['F3', 'A3', 'C4'],
-  ['C4', 'E4', 'G4'],
-  ['G3', 'B3', 'D4'],
-]
-const NOTES = ['A4', 'B4', 'C5', 'D5', 'E5', 'F5', 'G5', 'A5', 'B5', 'C6', 'D6', 'E6', 'F6', 'G6', 'A6', 'B6']
-
-/** A small original tracker-style score whose audible clock drives the show. */
+/** Nine original tracker songs sharing one audio-clock transport. */
 export class TrackerTransport {
   constructor({ Tone = ToneModule, now = () => performance.now() / 1000 } = {}) {
     this.Tone = Tone
@@ -43,29 +34,24 @@ export class TrackerTransport {
   buildGraph() {
     if (this.nodes.length) return
     const Tone = this.Tone
-    const limiter = this.keep(new Tone.Limiter(-2)).toDestination()
-    const reverb = this.keep(new Tone.Reverb({ decay: 3.6, wet: 0.32 })).connect(limiter)
-    const master = this.keep(new Tone.Volume(-9)).connect(reverb)
-    this.melody = this.keep(new Tone.Synth({
-      oscillator: { type: 'square' },
-      envelope: { attack: 0.005, decay: 0.08, sustain: 0.18, release: 0.12 },
-    })).connect(master)
+    const limiter = this.keep(new Tone.Limiter(-3)).toDestination()
+    const reverb = this.keep(new Tone.Reverb({ decay: 4.2, wet: 0.28 })).connect(limiter)
+    const master = this.keep(new Tone.Volume(-11)).connect(reverb)
+    this.leads = {
+      chip: this.keep(new Tone.Synth({ oscillator: { type: 'square' }, envelope: { attack: 0.003, decay: 0.06, sustain: 0.12, release: 0.09 } })).connect(master),
+      pluck: this.keep(new Tone.Synth({ oscillator: { type: 'triangle8' }, envelope: { attack: 0.008, decay: 0.18, sustain: 0.08, release: 0.3 } })).connect(master),
+      bell: this.keep(new Tone.FMSynth({ harmonicity: 3, modulationIndex: 5, envelope: { attack: 0.01, decay: 0.5, sustain: 0.02, release: 1.1 } })).connect(master),
+    }
     this.chords = this.keep(new Tone.PolySynth(Tone.Synth, {
-      oscillator: { type: 'triangle' },
-      envelope: { attack: 0.08, decay: 0.35, sustain: 0.28, release: 0.8 },
+      oscillator: { type: 'triangle' }, envelope: { attack: 0.12, decay: 0.4, sustain: 0.22, release: 0.9 },
     })).connect(master)
     this.bass = this.keep(new Tone.MonoSynth({
-      oscillator: { type: 'sawtooth' },
-      filter: { type: 'lowpass', rolloff: -24, Q: 2 },
-      envelope: { attack: 0.01, decay: 0.18, sustain: 0.25, release: 0.18 },
-      filterEnvelope: { attack: 0.01, decay: 0.12, sustain: 0.1, baseFrequency: 80, octaves: 2.5 },
+      oscillator: { type: 'sawtooth' }, filter: { type: 'lowpass', rolloff: -24, Q: 2 },
+      envelope: { attack: 0.01, decay: 0.16, sustain: 0.24, release: 0.16 },
+      filterEnvelope: { attack: 0.01, decay: 0.1, sustain: 0.08, baseFrequency: 70, octaves: 2.6 },
     })).connect(master)
     this.kick = this.keep(new Tone.MembraneSynth({ pitchDecay: 0.04, octaves: 5 })).connect(master)
-    this.noise = this.keep(new Tone.NoiseSynth({
-      noise: { type: 'white' },
-      envelope: { attack: 0.001, decay: 0.055, sustain: 0 },
-      volume: -17,
-    })).connect(master)
+    this.noise = this.keep(new Tone.NoiseSynth({ noise: { type: 'white' }, envelope: { attack: 0.001, decay: 0.05, sustain: 0 }, volume: -19 })).connect(master)
     this.repeatId = Tone.Transport.scheduleRepeat(time => this.playStep(time), '16n')
   }
 
@@ -74,28 +60,28 @@ export class TrackerTransport {
     const step = stepAt(position)
     if (step.step === this.lastStep) return
     this.lastStep = step.step
-    const energy = position.partIndex >= 4 ? 1 : position.partIndex >= 2 ? 0.75 : 0.5
-    if (step.snare && position.partIndex >= 2) {
-      this.noise.triggerAttackRelease('16n', time, 0.45)
+    const energy = 0.48 + position.actIndex * 0.055
+    if (step.snare) {
+      this.noise.triggerAttackRelease('16n', time, 0.42)
       this.activity.drums = 1
-    } else if (step.hat && position.partIndex > 0) {
-      this.noise.triggerAttackRelease('32n', time, 0.18 + energy * 0.25)
-      this.activity.drums = 1
+    } else if (step.hat) {
+      this.noise.triggerAttackRelease('32n', time, 0.16 + energy * 0.18)
+      this.activity.drums = 0.72
     }
     if (step.kick) {
-      this.kick.triggerAttackRelease('A1', '8n', time, 0.65 + energy * 0.2)
+      this.kick.triggerAttackRelease('A1', '8n', time, 0.55 + energy * 0.18)
       this.activity.drums = 1
     }
-    if (step.bass && position.partIndex >= 1) {
-      this.bass.triggerAttackRelease(ROOTS[step.chord], '8n', time, 0.72)
+    if (step.bass) {
+      this.bass.triggerAttackRelease(step.bassNote, '8n', time, 0.62)
       this.activity.bass = 1
     }
     if (step.chordHit) {
-      this.chords.triggerAttackRelease(CHORDS[step.chord], '2n', time, 0.42)
+      this.chords.triggerAttackRelease(step.chord, position.act.id === 'fjord-mirror' ? '1m' : '2n', time, 0.36)
       this.activity.chord = 1
     }
-    if (step.step % 2 === 0 && position.partIndex !== 1) {
-      this.melody.triggerAttackRelease(NOTES[step.melody], '16n', time, 0.32 + energy * 0.18)
+    if (step.melody) {
+      this.leads[position.act.song.voice].triggerAttackRelease(step.melodyNote, position.act.id === 'blue-hour' ? '8n' : '16n', time, 0.38)
       this.activity.melody = 1
     }
   }

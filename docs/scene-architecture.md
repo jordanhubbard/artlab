@@ -132,5 +132,6 @@ inheritance beyond Scene or a specific buffer primitive. A useful shared abstrac
 should have a clear resource boundary and hide repeated mechanics while exposing the
 interesting parameters.
 
-The demoscene proposal in [Long Winter](demoscene-direction.md) builds on this structure.
-Its tracker transport and score timeline are design work, not implemented APIs.
+The [Long Winter](demoscene-direction.md) production builds on this structure. Its
+local tracker transport, nine-song score, landscape, demo graphics, and performer are
+small composition modules rather than new shared APIs.

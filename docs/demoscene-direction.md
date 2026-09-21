@@ -1,7 +1,7 @@
 # Long Winter — production direction
 
-Status: implemented as the `long-winter` example. It uses an original synthesized
-tracker-style score, so the production has no external music or asset license.
+Status: implemented as `long-winter`, now in its Second Mix. Nine original synthesized
+tracker songs score nine acts, so the production has no external music or asset license.
 
 The flagship is a roughly two-minute performance with a strong melody,
 deliberate musical changes, a mischievous character, and a technical climax. One Start
@@ -10,14 +10,17 @@ permissions. The code view should reveal an equally deliberate composition under
 
 ## The performance
 
-| Passage | Visual idea | Musical relationship | Engineering demonstration |
+| Act | Visual idea | Musical identity | Engineering demonstration |
 |---|---|---|---|
-| Invitation | A tiny stage, color bands, a character, greetings | Establish the tune and its four instrumental voices | Compact assets and a comprehensible initial scene |
-| First break | The character tears open the backdrop; camera dives inside | A transition on a specific pattern and row | A small stage reveals a much larger procedural world |
-| Expansion | Architecture folds into swarms and fluid-looking forms | Bass phrases shape geometry; percussion triggers accents | Instanced geometry, reusable buffers, shader work |
-| Personal reveal | Optional camera image becomes a moving sculpture | Melody and character gesture address the viewer | Live media becomes part of the world; a procedural fallback preserves the show |
-| Climax | Several visual systems combine with a coherent silhouette | Layers accumulate through a planned musical build | Measured workload at a defined frame-time budget |
-| Return | The original character and stage reappear, followed by credits | Resolve the opening phrase | Show actual object counts, frame timings, asset size, and source links |
+| Blue Hour | Moonlit fjord, red cabin, pines, snowfall, and Pip | Sparse D-minor bell song | Establish a recognizable northern place and restrained palette |
+| Fire in the Snow | Cabin windows and lamp warm against blue snow | G-major folk-pluck song | Reuse the landscape with a new focal color and character gesture |
+| Fjord Mirror | Camera crosses dark water beneath mountain layers | Slow E-minor reflection song | Absolute-time camera passage and reflective material |
+| Aurora Code | Cyan, green, and violet curtains move above the tree line | F-sharp minor chip arpeggio | Animated ribbon buffers and audio-colored particle motion |
+| Birch Run | White trunks stream past the robot | Fast A-minor pluck song | Instanced forest and stronger character animation |
+| Loose Pixel | Pip tears open a compact raster stage | Chromatic break song | A small scene opens into a larger procedural world |
+| Copper Tunnel | Raster bars, checker floor, vector balls, and rings | E-major chip song | Direct homage to Amiga-era palette and geometry techniques |
+| Whiteout / Color Storm | Cyan, violet, magenta, and amber forms retain dark silhouettes | C-minor climax song | Adaptive instancing without sacrificing contrast |
+| First Light | Fjord, cabin, and character return under a coral dawn | D-major resolving song | Live measured credits and visual reprise |
 
 The exact scenes should follow the chosen tune. Long Winter uses an original score
 written directly as patterns and synthesized in the browser.
@@ -95,9 +98,10 @@ ambitious path later; the visual direction should still work with a WebGL2 basel
 
 ## Implemented decisions
 
-1. The 112 BPM, 48-bar original score has four voices and six named passages.
-2. Pip, the maintenance robot, pulls a pixel from the stage; architecture transforms
-   continuously into a swarm and a sun before returning to the opening stage.
+1. The 110 BPM, 56-bar score contains nine separate songs with different keys,
+   progressions, melodies, bass lines, drum grids, and lead timbres.
+2. Pip crosses a moonlit fjord landscape before pulling a pixel from the stage;
+   copper bars, vector balls, checker planes, and saturated swarms follow.
 3. `TrackerTransport`, the score, character, world, swarm, and overlay are separate,
    editable modules. Audio time is authoritative, with a silent-clock fallback.
 4. The credits report live p95 frame time and draw calls for the current browser,

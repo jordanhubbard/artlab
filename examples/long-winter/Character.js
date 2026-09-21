@@ -17,14 +17,21 @@ export class Character {
     this.lamp.position.set(0.82, 0.38, 0.18)
     this.arm = new Three.Mesh(new Three.BoxGeometry(0.18, 0.9, 0.18), dark)
     this.arm.position.set(0.65, 0.1, 0)
-    this.object.add(this.body, this.head, this.eye, this.lamp, this.arm)
+    this.leftLeg = new Three.Mesh(new Three.BoxGeometry(0.2, 0.68, 0.24), dark)
+    this.rightLeg = this.leftLeg.clone()
+    this.leftLeg.position.set(-0.3, -0.85, 0)
+    this.rightLeg.position.set(0.3, -0.85, 0)
+    this.object.add(this.body, this.head, this.eye, this.lamp, this.arm, this.leftLeg, this.rightLeg)
     this.object.position.set(-2.6, -1.65, 0.4)
   }
 
   update(_dt, elapsed, action = 'tend', beat = 0) {
     this.object.position.y = -1.65 + Math.sin(elapsed * 3) * 0.035
     this.head.rotation.z = Math.sin(elapsed * 1.4) * 0.04
-    this.arm.rotation.z = action === 'pull' ? -1.2 : action === 'conduct' ? Math.sin(beat * Math.PI) * 0.9 : -0.2
+    this.arm.rotation.z = action === 'pull' ? -1.2 : action === 'conduct' || action === 'wave' ? Math.sin(beat * Math.PI) * 0.9 : -0.2
+    const stride = action === 'run' ? Math.sin(beat * Math.PI * 2) * 0.7 : 0
+    this.leftLeg.rotation.x = stride
+    this.rightLeg.rotation.x = -stride
     this.object.rotation.z = action === 'bow' ? -0.18 - Math.sin(Math.min(1, beat / 4) * Math.PI) * 0.24 : 0
     const pulse = 1 + Math.max(0, Math.sin(beat * Math.PI * 2)) * 0.16
     this.lamp.scale.setScalar(pulse)

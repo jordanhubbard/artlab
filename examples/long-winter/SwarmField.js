@@ -1,17 +1,22 @@
 import * as Three from 'three'
 import { InstanceField } from '../../src/stdlib/scene/InstanceField.js'
 
-const BLUE = new Three.Color(0x426d91)
-const WHITE = new Three.Color(0xeaf3f5)
-const AMBER = new Three.Color(0xffad32)
+const PALETTES = {
+  'aurora-code': [0x20efb1, 0x3f82ff, 0xc14eff],
+  'loose-pixel': [0xff9c32, 0xff416d, 0x623cff],
+  'copper-tunnel': [0x00dcff, 0xff8b29, 0xe537a2],
+  'color-storm': [0x00dfff, 0x783cff, 0xff2f9b],
+}
 
-/** One fixed instance buffer that transforms from architecture to swarm to lamp. */
+/** One fixed buffer transforming through four recognizably different demo effects. */
 export class SwarmField extends InstanceField {
   constructor(count = 1400) {
-    super(count, new Three.TetrahedronGeometry(0.085, 0), new Three.MeshBasicMaterial({ vertexColors: true }))
+    super(count, new Three.TetrahedronGeometry(0.075, 0), new Three.MeshBasicMaterial({ vertexColors: true }))
     this.seed = Array.from({ length: count }, (_, i) => hash(i + 1))
     this.position = new Three.Vector3()
     this.swatch = new Three.Color()
+    this.first = new Three.Color()
+    this.second = new Three.Color()
     this.object.visible = false
     this.visibleCount = count
   }
@@ -22,41 +27,45 @@ export class SwarmField extends InstanceField {
   }
 
   updateScore(position, activity) {
-    const mode = position.part.id
-    this.object.visible = mode !== 'invitation' && mode !== 'return'
-    if (!this.object.visible) return
+    const mode = position.act.id
+    const palette = PALETTES[mode]
+    this.object.visible = Boolean(palette)
+    if (!palette) return
     const t = position.seconds
-    const morph = ease(position.partProgress)
+    const morph = ease(position.actProgress)
     for (let i = 0; i < this.visibleCount; i++) {
       const seed = this.seed[i]
-      const angle = seed * Math.PI * 2 + t * (0.08 + (i % 9) * 0.002)
-      const column = i % 28
-      const tier = Math.floor(i / 28) % 20
-      const tunnel = {
-        x: (column - 13.5) * 0.55,
-        y: (tier - 9.5) * 0.42,
-        z: -3 - Math.floor(i / 560) * 8 - Math.sin(column * 1.7) * 1.5,
-      }
-      const radius = mode === 'climax' ? 3.4 + 2 * Math.sin(i * 0.17 + t) : 2.2 + seed * 5.5
-      const swarm = {
-        x: Math.cos(angle * 3) * radius,
-        y: Math.sin(angle * 2 + seed * 8) * (1.2 + seed * 3.6),
-        z: -7 + Math.sin(angle) * radius,
-      }
-      let target = swarm
-      if (mode === 'break') target = tunnel
-      if (mode === 'expansion') target = mixPoint(tunnel, swarm, morph)
-      if (mode === 'reveal') {
-        const sphere = spherePoint(i, this.count, 3.2 + Math.sin(t * 2) * 0.15)
-        target = mixPoint(swarm, sphere, morph)
-      }
+      const target = pointFor(mode, i, seed, t, morph, this.count)
       this.position.set(target.x, target.y, target.z)
-      const flash = Math.max(activity.melody, activity.drums * 0.7)
-      this.swatch.copy(BLUE).lerp(WHITE, seed * 0.6).lerp(AMBER, flash * (0.25 + seed * 0.55))
-      this.set(i, this.position, 0.6 + seed * 1.5 + flash * 0.65, this.swatch)
+      const flash = Math.max(activity.melody, activity.drums * 0.65)
+      this.first.set(palette[i % palette.length])
+      this.second.set(palette[(i + 1) % palette.length])
+      this.swatch.copy(this.first).lerp(this.second, seed).offsetHSL((t * 0.025 + seed * 0.08) % 1, 0, flash * 0.08)
+      this.set(i, this.position, 0.58 + seed * 1.4 + flash * 0.42, this.swatch)
     }
     this.commit()
   }
+}
+
+function pointFor(mode, i, seed, t, morph, count) {
+  const angle = seed * Math.PI * 2 + t * (0.12 + (i % 7) * 0.003)
+  if (mode === 'aurora-code') {
+    return { x: (seed - 0.5) * 18, y: Math.sin(seed * 36 + t * 1.3) * 1.7 + (i % 5) * 0.18, z: -7 + Math.sin(seed * 18) * 2 }
+  }
+  if (mode === 'loose-pixel') {
+    const column = i % 32
+    const tier = Math.floor(i / 32) % 22
+    return { x: (column - 15.5) * 0.5 * (1 + morph), y: (tier - 10.5) * 0.36, z: -3 - Math.floor(i / 704) * 8 - Math.sin(column * 1.4 + t) }
+  }
+  if (mode === 'copper-tunnel') {
+    const ring = i % 36
+    const depth = Math.floor(i / 36)
+    const radius = 2.2 + Math.sin(depth * 0.4 + t) * 0.45
+    return { x: Math.cos(ring / 36 * Math.PI * 2) * radius, y: Math.sin(ring / 36 * Math.PI * 2) * radius, z: 2 - (depth * 0.55 + t * 5) % 22 }
+  }
+  const sphere = spherePoint(i, count, 3.1 + Math.sin(t * 1.6 + seed * 8) * 1.3)
+  const helix = { x: Math.cos(angle * 4) * (2 + seed * 5), y: (seed - 0.5) * 8, z: -7 + Math.sin(angle * 4) * (2 + seed * 5) }
+  return mixPoint(sphere, helix, 0.35 + Math.sin(t * 0.45) * 0.3)
 }
 
 function hash(value) {

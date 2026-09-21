@@ -6,7 +6,9 @@ vi.mock('tone', () => ({
   Transport: { clear: vi.fn(), stop: vi.fn() },
 }))
 
-import { DURATION, PARTS, musicalPosition } from './score.js'
+import { ACTS, DURATION, musicalPosition, stepAt } from './score.js'
+import { DemoGraphics } from './DemoGraphics.js'
+import { NordicLandscape } from './NordicLandscape.js'
 import { TrackerTransport } from './TrackerTransport.js'
 
 function mockCtx() {
@@ -41,6 +43,7 @@ function fakeTone() {
     Reverb: vi.fn(function Reverb() { return node() }),
     Volume: vi.fn(function Volume() { return node() }),
     Synth: vi.fn(function Synth() { return synth() }),
+    FMSynth: vi.fn(function FMSynth() { return synth() }),
     PolySynth: vi.fn(function PolySynth() { return synth() }),
     MonoSynth: vi.fn(function MonoSynth() { return synth() }),
     MembraneSynth: vi.fn(function MembraneSynth() { return synth() }),
@@ -49,12 +52,13 @@ function fakeTone() {
 }
 
 describe('Long Winter score', () => {
-  it('covers a roughly two-minute performance with six contiguous passages', () => {
+  it('covers a roughly two-minute performance with nine contiguous acts and songs', () => {
     expect(DURATION).toBeGreaterThan(100)
     expect(DURATION).toBeLessThan(125)
-    expect(PARTS).toHaveLength(6)
-    expect(PARTS[0].startBar).toBe(0)
-    for (let i = 1; i < PARTS.length; i++) expect(PARTS[i].startBar).toBe(PARTS[i - 1].endBar)
+    expect(ACTS).toHaveLength(9)
+    expect(ACTS[0].startBar).toBe(0)
+    expect(new Set(ACTS.map(act => act.song.title)).size).toBe(9)
+    for (let i = 1; i < ACTS.length; i++) expect(ACTS[i].startBar).toBe(ACTS[i - 1].endBar)
   })
 
   it('maps absolute song time to deterministic pattern, row, and part positions', () => {
@@ -62,9 +66,35 @@ describe('Long Winter score', () => {
     const middle = musicalPosition(DURATION / 2)
     const ending = musicalPosition(DURATION)
     expect(opening).toMatchObject({ pattern: 0, row: 0, partIndex: 0 })
-    expect(middle.part.id).toBe('reveal')
-    expect(ending.part.id).toBe('return')
+    expect(middle.act.id).toBe('birch-run')
+    expect(ending.act.id).toBe('first-light')
     expect(ending.seconds).toBe(DURATION)
+  })
+
+  it('gives neighboring acts different melodic and rhythmic tracker rows', () => {
+    const first = stepAt(musicalPosition(0))
+    const second = stepAt(musicalPosition(ACTS[1].startBar * 4 * 60 / 110))
+    expect(first.melodyNote).not.toBe(second.melodyNote)
+    expect(ACTS[0].song.kick).not.toEqual(ACTS[1].song.kick)
+  })
+})
+
+describe('Second Mix visual vocabulary', () => {
+  it('builds recognizable northern landscape landmarks with instanced forests', () => {
+    const landscape = new NordicLandscape()
+    expect(landscape.cabin).toBeInstanceOf(Three.Group)
+    expect(landscape.mountains).toHaveLength(3)
+    expect(landscape.aurora.children).toHaveLength(4)
+    expect(landscape.trees.children.every(tree => tree.isInstancedMesh)).toBe(true)
+    expect(landscape.birches.isInstancedMesh).toBe(true)
+  })
+
+  it('builds Amiga-style copper bars, vector balls, and an instanced checker plane', () => {
+    const demo = new DemoGraphics()
+    expect(demo.bars.children).toHaveLength(18)
+    expect(demo.balls.children).toHaveLength(28)
+    expect(demo.checker.isInstancedMesh).toBe(true)
+    expect(demo.checker.count).toBe(210)
   })
 })
 
@@ -74,7 +104,7 @@ describe('TrackerTransport', () => {
     const transport = new TrackerTransport({ Tone, now: () => 10 })
     await transport.start()
     expect(transport.status).toBe('playing')
-    expect(Tone.Transport.bpm.value).toBe(112)
+    expect(Tone.Transport.bpm.value).toBe(110)
     Tone.Transport.seconds = 12.5
     expect(transport.position.seconds).toBe(12.5)
     transport.togglePause()
@@ -100,7 +130,7 @@ describe('TrackerTransport', () => {
     const Tone = fakeTone()
     const transport = new TrackerTransport({ Tone })
     await transport.start()
-    Tone.Transport.seconds = 65 * 60 / 112
+    Tone.Transport.seconds = 73 * 60 / 110
     transport.playStep(1)
     expect(transport.noise.triggerAttackRelease).toHaveBeenCalledTimes(1)
     transport.dispose()
@@ -124,7 +154,7 @@ describe('Long Winter example', () => {
     expect(ctx.setHelp).toHaveBeenCalled()
     expect(ctx.setBloom).toHaveBeenCalled()
     expect(ctx.add.mock.calls.length).toBeGreaterThanOrEqual(4)
-    expect(document.querySelector('.lw-watch')?.textContent).toBe('WATCH')
+    expect(document.querySelector('.lw-watch')?.textContent).toBe('WATCH V2')
     expect(document.querySelector('.lw-score')).not.toBeNull()
     expect(document.querySelector('.lw-source')).not.toBeNull()
     expect(() => example.update(ctx, 1 / 60)).not.toThrow()
