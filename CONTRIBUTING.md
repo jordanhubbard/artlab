@@ -105,12 +105,12 @@ Both `StandaloneRunner` and `PreviewPane` inject the same context shape:
 
 | Field | Type | Description |
 |---|---|---|
-| `THREE` | namespace | The full `three` module — use for constants, constructors, etc. |
+| `Three` | namespace | The full `three` module — use for constants, constructors, etc. |
 | `scene` | `THREE.Scene` | The live scene; prefer `ctx.add()` over `scene.add()` directly |
 | `camera` | `THREE.PerspectiveCamera` | Set position/rotation in setup |
 | `renderer` | `THREE.WebGLRenderer` | Direct renderer access for advanced config |
 | `controls` | `OrbitControls` | Orbit controls — configure target, distances, etc. |
-| `labelRenderer` | `CSS2DRenderer` | CSS2D label overlay (StandaloneRunner only) |
+| `labelRenderer` | `CSS2DRenderer` | CSS2D label overlay (both hosts) |
 | `add(obj)` | function | Add an object to the scene; returns the object |
 | `remove(obj)` | function | Remove an object from the scene |
 | `setBloom(strength)` | function | Set bloom post-processing strength (0–3, 0 disables) |
@@ -120,6 +120,38 @@ Both `StandaloneRunner` and `PreviewPane` inject the same context shape:
 Both runtime contexts expose the stdlib helpers as top-level fields
 (`sphere`, `box`, `mesh`, `ambient`, `point`, `lerp`, `smoothstep`, `vec3`,
 `color`, etc.) through the shared `SceneContext` class.
+
+### Checked sketches and shared helpers
+
+`artlab create my-sketch` scaffolds a native `main.js` sketch with the shared
+context, per-context state, and scoped input cleanup.
+
+Use `// @ts-check` and annotate ctx with the generic contract for new advanced
+sketches. `npm run typecheck` is required before submitting changes.
+
+```js
+// @ts-check
+/** @typedef {{ speed: number }} State */
+/** @param {import('../../src/runtime/contracts').SketchContext<State>} ctx */
+export function setup(ctx) {
+  ctx.setHelp('Describe the scene and its controls')
+  ctx.state = { speed: 1 }
+  ctx.scope.listen(ctx.renderer.domElement, 'pointerdown', () => {})
+}
+```
+
+The contract import above is a type-only JSDoc reference; runtime/IDE imports
+remain off-limits in example code. Reuse `src/stdlib/sketch.js` for staging,
+instancing, shader panels, canvas input, labelled controls, fixed steps, seeded
+randomness, and spatial bins. Prefer composition over a sketch inheritance tree.
+`Sketch<State>` also describes the module lifecycle for typed host code.
+
+Register scene roots with `ctx.add()`. The host disposes their nested GPU
+resources on unload. Use `ctx.scope.defer(cleanup)` for other activity and
+`ctx.scope.own(resource)` for disposable non-scene resources. Do not separately
+own scene geometries/materials in the scope. `ctx.remove()` transfers disposal
+responsibility to the caller. Follow the refreshed examples for teardown.
+See [the complete curation and architecture review](docs/demo-refresh.md).
 
 ### Interaction hints — `setHelp(text)`
 
@@ -349,7 +381,7 @@ Before opening a pull request, verify each item:
 
 - [ ] Example has a valid `artlab.json` with all required fields
 - [ ] Test file exists at `examples/<name>/<name>.test.js` and passes (`npm test`)
-- [ ] Example is registered in the `EXAMPLES` array in `src/ide/IDE.js`
+- [ ] Example is registered in the `EXAMPLES` array in `src/examples/catalog.js`
 - [ ] No direct `src/` imports beyond stdlib and physics (paths `../../src/stdlib/` and `../../src/physics/` are allowed; runtime or IDE internals are off-limits)
 - [ ] All assets are loaded with the `new URL('./assets/...', import.meta.url).href` pattern
 - [ ] `teardown` removes any event listeners, DOM overlays, and media streams opened during `setup` (run the example, switch to another, and confirm no leftover buttons or indicators)

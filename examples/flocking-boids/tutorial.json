@@ -1,0 +1,28 @@
+{
+  "title": "Murmuration — accelerated neighborhood simulation",
+  "pages": [
+    {
+      "id": "lesson-0",
+      "title": "Reynolds rules",
+      "body": "900 birds combine short-range separation, velocity alignment, and cohesion toward nearby neighbors. Tune Cohesion to compare loose and tightly coupled motion. A soft restoring force keeps the flock turning, and the camera follows its centroid while preserving the orbit offset."
+    },
+    {
+      "id": "lesson-1",
+      "title": "Spatial bins",
+      "body": "SpatialHash rebuilds bins once per simulation tick. A query visits only bins overlapping the neighborhood; an exact squared-distance test then rejects false candidates. This reduces candidate comparisons in dispersed flocks, but dense flocks can still approach quadratic work.",
+      "parent": "lesson-0"
+    },
+    {
+      "id": "lesson-2",
+      "title": "Simultaneous updates",
+      "body": "Every next velocity is computed from the old state before any position is committed. fixedStep() runs at 30 Hz independently of the display refresh rate. Deterministic random initialization supports reproducible comparisons.",
+      "parent": "lesson-0"
+    },
+    {
+      "id": "lesson-3",
+      "title": "Instanced wings",
+      "body": "Each bird has two copies of a triangular wing, animated by quaternion orientation and flap phase. All 1,800 wings render through one InstancedMesh. Positive scales and rotations mirror the wing pose without unsupported negative instance scales.",
+      "parent": "lesson-0"
+    }
+  ]
+}

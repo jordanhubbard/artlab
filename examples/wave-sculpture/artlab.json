@@ -2,5 +2,11 @@
   "name": "wave-sculpture",
   "version": "1.0.0",
   "entry": "wave-sculpture.js",
-  "description": "A 15x15 grid of spheres animated into a flowing wave landscape with deep blue to cyan coloring."
+  "description": "Tidal Loom \u2014 4,096 instanced brass fins with wave normals and pointer-driven ripples",
+  "tags": [
+    "instancing",
+    "waves",
+    "normals",
+    "interactive"
+  ]
 }

@@ -11,7 +11,7 @@ import { OutputPass }     from 'three/addons/postprocessing/OutputPass.js'
  * Full-featured runtime for running an Artlab package standalone (outside the IDE).
  *
  * Provides the same setup(ctx)/update(ctx,dt)/teardown(ctx) contract as PreviewPane
- * but adds bloom post-processing, CSS2D label renderer, and setBloom() in the ctx.
+ * using the same shared context factory, bloom, and CSS2D labels.
  *
  * Usage:
  *   const runner = new StandaloneRunner(canvas)
@@ -65,7 +65,8 @@ export class StandaloneRunner {
     this._mod   = null
     this._ctx   = null
 
-    window.addEventListener('resize', () => this._onResize())
+    this._resizeHandler = () => this._onResize()
+    window.addEventListener('resize', this._resizeHandler)
   }
 
   // ── Public API ───────────────────────────────────────────────────────────────
@@ -75,15 +76,21 @@ export class StandaloneRunner {
    * @param {{ setup?: Function, update?: Function, teardown?: Function }} mod
    */
   async run(mod) {
-    cancelAnimationFrame(this._animationId)
-    if (this._mod) await this._mod.teardown?.(this._ctx)
-    await this._ctx?.dispose()
+    const token = this._runToken = (this._runToken ?? 0) + 1
+    await this._stopModule()
+    if (token !== this._runToken) return
     this._mod = mod
     this._ctx = this._makeCtx()
+    const context = this._ctx
 
     if (typeof mod.setup === 'function') {
-      await mod.setup(this._ctx)
+      try { await mod.setup(context) } catch (error) {
+        if (this._ctx === context) await this.stop()
+        throw error
+      }
     }
+
+    if (this._ctx !== context) return
 
     // Hide standard loading overlay if present
     const loading = document.getElementById('loading')
@@ -97,35 +104,61 @@ export class StandaloneRunner {
 
   _makeCtx() {
     return new SceneContext({
-      scene: this._scene, camera: this._camera, renderer: this._renderer,
-      controls: this._controls, labelRenderer: this._labelRenderer,
+      scene: this._scene,
+      camera: this._camera,
+      renderer: this._renderer,
+      controls: this._controls,
+      labelRenderer: this._labelRenderer,
       setBloom: (strength = 0) => { this._bloomPass.strength = Math.max(0, strength) },
-      /**
-       * setHelp(text) — display a one-line interaction hint. In the standalone
-       * runtime this renders as a small overlay at the top of the canvas; the
-       * IDE overrides this to render it in the preview toolbar.
-       */
-      setHelp(text) {
+      setHelp: text => {
         let el = document.getElementById('artlab-help')
         if (!el) {
           el = document.createElement('div')
           el.id = 'artlab-help'
-          el.style.cssText = [
-            'position:fixed', 'top:10px', 'left:50%',
-            'transform:translateX(-50%)', 'z-index:100',
-            'padding:4px 14px', 'pointer-events:none',
-            'background:rgba(0,0,0,0.6)', 'color:#70c8ff',
-            'font-family:monospace', 'font-size:12px',
-            'border-radius:3px', 'letter-spacing:0.04em',
-          ].join(';')
+          el.style.cssText = 'position:fixed;top:10px;left:10px;z-index:100;color:#aaddff;background:#080d18cc;padding:8px;font:12px monospace;pointer-events:none'
           document.body.appendChild(el)
         }
-        const t = text == null ? '' : String(text)
-        el.textContent = t
-        el.style.display = t ? 'block' : 'none'
+        el.textContent = text == null ? '' : String(text)
       },
-
     })
+  }
+
+  stop() {
+    this._runToken = (this._runToken ?? 0) + 1
+    return this._stopModule()
+  }
+
+  _stopModule() {
+    cancelAnimationFrame(this._animationId)
+    if (!this._ctx) return this._stopping ?? Promise.resolve()
+    const context = this._ctx, mod = this._mod
+    this._ctx = null
+    this._mod = null
+    this._clock.stop()
+    this._stopping = (async () => {
+      try { await mod?.teardown?.(context) } finally {
+        this._scene.background = null
+        this._scene.fog = null
+        this._bloomPass.strength = 0
+        this._controls.enabled = true
+        this._controls.target.set(0, 0, 0)
+        this._camera.position.set(0, 2, 6)
+        this._controls.update()
+        document.getElementById('artlab-help')?.remove()
+        await context.dispose()
+      }
+    })()
+    return this._stopping
+  }
+
+  async dispose() {
+    try { await this.stop() } finally {
+      window.removeEventListener('resize', this._resizeHandler)
+      this._controls.dispose()
+      this._composer.dispose()
+      this._renderer.dispose()
+      this._labelRenderer.domElement.remove()
+    }
   }
 
   // ── Internal ─────────────────────────────────────────────────────────────────

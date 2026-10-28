@@ -14,6 +14,7 @@
  * "permission denied" error overlay is expected and acceptable.
  */
 import { test, expect } from '@playwright/test'
+import { EXAMPLES } from '../src/examples/catalog.js'
 import { loadExample, hasPreviewError, canvasHasWebGL } from './helpers.js'
 
 // Examples that require live camera or microphone — they will always get a
@@ -48,65 +49,9 @@ const SLOW_EXAMPLES = new Set([
   'signal-salvage',
 ])
 
-const EXAMPLES = [
-  'audio-pulse',
-  'audio-terrain',
-  'aurora',
-  'bell-orrery',
-  'camera-journey',
-  'canvas-2d',
-  'chroma-mirror',
-  'clock-3d',
-  'clock-kinetic',
-  'cloth-sim',
-  'color-fields',
-  'data-sculpture',
-  'domino-chain',
-  'flocking-boids',
-  'flow-field',
-  'fluid-2d',
-  'force-field-playground',
-  'fractal-tree',
-  'hello-cube',
-  'long-winter',
-  'marble-run',
-  'mobius-strip',
-  'motion-scale-lantern',
-  'music-synth',
-  'music-visualizer',
-  'n-body-gravity',
-  'neon-city',
-  'orbital-dance',
-  'particle-storm',
-  'penrose-tiles',
-  'physics-particles',
-  'pixel-sort',
-  'printable-bracket',
-  'reaction-diffusion',
-  'recursive-spirals',
-  'shader-gallery',
-  'shader-playground',
-  'signal-salvage',
-  'solar-system',
-  'strange-attractor',
-  'synth-keyboard',
-  'terrain-flyover',
-  'tide-eroded-vessel',
-  'tutorial-01-geometry',
-  'tutorial-02-lights',
-  'tutorial-03-animation',
-  'tutorial-04-color',
-  'tutorial-05-interaction',
-  'typography-art',
-  'ui-showcase',
-  'video-broadcast',
-  'video-fx',
-  'video-kaleidoscope',
-  'voronoi-shatter',
-  'wave-sculpture',
-]
 
-for (const name of EXAMPLES) {
+
+for (const { name } of EXAMPLES) {
   const isMedia = MEDIA_EXAMPLES.has(name)
   const isSlow  = SLOW_EXAMPLES.has(name)
   const waitMs  = isSlow ? 6000 : 4000

@@ -25,7 +25,7 @@ const CTX_METHODS = new Set([
 ])
 
 const CTX_PROPS = new Set([
-  'Three', 'scene', 'camera', 'renderer', 'controls', 'labelRenderer', 'elapsed',
+  'scope', 'state', 'Three', 'scene', 'camera', 'renderer', 'controls', 'labelRenderer', 'elapsed',
 ])
 
 // ── Three.js public API ────────────────────────────────────────────────────────

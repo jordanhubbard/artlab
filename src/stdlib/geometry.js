@@ -66,6 +66,15 @@ const _SIDE = { front: Three.FrontSide, back: Three.BackSide, double: Three.Doub
  *
  * Texture properties accept a URL string or a Three.Texture instance.
  */
+/**
+ * @typedef {Omit<Three.MeshStandardMaterialParameters, 'side'|'map'|'emissiveMap'|'alphaMap'|'normalMap'|'roughnessMap'|'metalnessMap'> & {
+ * side?: Three.Side|'front'|'back'|'double',
+ * map?: Three.Texture|string, emissiveMap?: Three.Texture|string,
+ * alphaMap?: Three.Texture|string, normalMap?: Three.Texture|string,
+ * roughnessMap?: Three.Texture|string, metalnessMap?: Three.Texture|string
+ * }} MeshOptions
+ */
+/** @param {Three.BufferGeometry} geometry @param {MeshOptions} [options] */
 export function mesh(geometry, options = {}) {
   const {
     color = 0xffffff, roughness = 0.7, metalness = 0.0, wireframe = false,

@@ -1,138 +1,106 @@
-// flocking-boids — 80 cone boids with classic Reynolds separation/alignment/cohesion.
+// @ts-check
+// Murmuration — simultaneous Reynolds steering, spatial bins, instanced wings.
 import * as Three from 'three'
+import { stage, instances, seededRandom, fixedStep, SpatialHash, controlPanel, skyDome } from '../../src/stdlib/sketch.js'
 
-const N       = 80
-const BOUNDS  = 15
-const SEP_R   = 1.2
-const ALI_R   = 3.0
-const COH_R   = 3.5
-const MAX_SPD = 7.0
-const MIN_SPD = 2.0
-const SEP_W   = 1.8
-const ALI_W   = 1.0
-const COH_W   = 0.7
+const COUNT = 900
+const RADIUS = 3.2
+/** @typedef {{ position: Three.Vector3, velocity: Three.Vector3, next: Three.Vector3, phase: number }} Bird */
+/** @typedef {{ birds: Bird[], wings: Three.InstancedMesh, tick: (dt: number) => void, time: number, cohesion: number }} State */
 
-function wrapScalar(v, lo, hi) {
-  const range = hi - lo
-  if (v > hi) return v - range
-  if (v < lo) return v + range
-  return v
-}
-
-function speedColor(speed) {
-  // blue (slow) → red (fast)
-  const t = Math.min(1, Math.max(0, (speed - MIN_SPD) / (MAX_SPD - MIN_SPD)))
-  const r = Math.floor(t * 255)
-  const b = Math.floor((1 - t) * 220)
-  return (r << 16) | (b & 0xff)
-}
-
+/** @param {import('../../src/runtime/contracts').SketchContext<State>} ctx */
 export function setup(ctx) {
-  ctx.camera.position.set(0, 10, 30)
-  ctx.camera.lookAt(0, 0, 0)
-  ctx.setBloom(0.5)
-
-  const ambient = new Three.AmbientLight(0x223355, 1.5)
-  ctx.add(ambient)
-  const dir = new Three.DirectionalLight(0xffffff, 1.2)
-  dir.position.set(10, 20, 15)
-  ctx.add(dir)
-
-  // Cone pointing +Z (forward direction after rotateX)
-  const coneGeo = new Three.ConeGeometry(0.18, 0.55, 8)
-  coneGeo.rotateX(Math.PI / 2)
-
-  ctx._boids = []
-  ctx._boidLights = [ambient, dir]
-
-  for (let i = 0; i < N; i++) {
-    const mat = new Three.MeshStandardMaterial({
-      color: speedColor(MIN_SPD + (MAX_SPD - MIN_SPD) * 0.3),
-      roughness: 0.5,
-      metalness: 0.3,
-    })
-    const cone = new Three.Mesh(coneGeo, mat)
-
-    // Scatter initial positions
-    cone.position.set(
-      (Math.random() * 2 - 1) * BOUNDS * 0.7,
-      (Math.random() * 2 - 1) * BOUNDS * 0.5,
-      (Math.random() * 2 - 1) * BOUNDS * 0.7,
-    )
-
-    const speed = MIN_SPD + Math.random() * (MAX_SPD - MIN_SPD) * 0.4
-    const phi   = Math.random() * Math.PI * 2
-    const theta = (Math.random() - 0.5) * 0.4
-    cone.userData.vel = new Three.Vector3(
-      Math.cos(phi) * Math.cos(theta) * speed,
-      Math.sin(theta) * speed,
-      Math.sin(phi) * Math.cos(theta) * speed,
-    )
-
-    ctx.add(cone)
-    ctx._boids.push(cone)
-  }
-}
-
-const _steer = new Three.Vector3()
-const _sep   = new Three.Vector3()
-const _ali   = new Three.Vector3()
-const _coh   = new Three.Vector3()
-const _diff  = new Three.Vector3()
-const _fwd   = new Three.Vector3(0, 0, 1)
-
-export function update(ctx, dt) {
-  const dt_ = Math.min(dt, 0.05)
-
-  for (let i = 0; i < ctx._boids.length; i++) {
-    const boid = ctx._boids[i]
-    const pos  = boid.position
-    const vel  = boid.userData.vel
-
-    _sep.set(0, 0, 0)
-    _ali.set(0, 0, 0)
-    _coh.set(0, 0, 0)
-    let sepN = 0, aliN = 0, cohN = 0
-
-    for (let j = 0; j < ctx._boids.length; j++) {
-      if (i === j) continue
-      const other = ctx._boids[j]
-      const d = pos.distanceTo(other.position)
-
-      if (d < SEP_R && d > 1e-4) {
-        _diff.subVectors(pos, other.position).divideScalar(d * d)
-        _sep.add(_diff)
-        sepN++
+  ctx.setHelp('Murmuration · 900 birds / 1,800 instanced wings · tune cohesion · drag to orbit')
+  stage(ctx, [23, 12, 30], 0.25)
+  skyDome(ctx)
+  ctx.scene.fog = new Three.FogExp2(0x050914, 0.018)
+  // A folded triangular wing, rather than a cone representing an entire bird.
+  const geometry = new Three.BufferGeometry()
+  geometry.setAttribute('position', new Three.Float32BufferAttribute([0, 0, 0.24, 0.75, 0.03, -0.12, 0, 0, -0.28], 3))
+  geometry.computeVertexNormals()
+  const wings = instances(ctx, geometry, new Three.MeshStandardMaterial({ color: 0xffffff,
+    metalness: 0.45, roughness: 0.45, side: Three.DoubleSide }), COUNT * 2)
+  const random = seededRandom(1807)
+  const birds = Array.from({ length: COUNT }, () => ({
+    position: new Three.Vector3((random() - 0.5) * 26, (random() - 0.5) * 9, (random() - 0.5) * 18),
+    velocity: new Three.Vector3(2 + random() * 2, (random() - 0.5), (random() - 0.5) * 2),
+    next: new Three.Vector3(), phase: random() * Math.PI * 2,
+  }))
+  /** @type {SpatialHash<Bird>} */
+  const grid = new SpatialHash(RADIUS)
+  const separation = new Three.Vector3(), alignment = new Three.Vector3(), center = new Three.Vector3()
+  const delta = new Three.Vector3(), acceleration = new Three.Vector3()
+  const s = ctx.state = { birds, wings, time: 0, cohesion: 0.65, tick: /** @param {number} _dt */ (_dt) => {} }
+  s.tick = fixedStep(dt => {
+    s.time += dt
+    grid.rebuild(birds)
+    // Read only the old state, then commit all velocities together (order independent).
+    for (const bird of birds) {
+      separation.set(0, 0, 0); alignment.set(0, 0, 0); center.set(0, 0, 0)
+      let neighbors = 0
+      grid.query(bird.position, RADIUS, other => {
+        if (bird === other) return
+        delta.subVectors(bird.position, other.position)
+        const d2 = delta.lengthSq()
+        if (d2 > RADIUS * RADIUS || d2 < 1e-8) return
+        if (d2 < 1.4) separation.addScaledVector(delta, 1 / d2)
+        alignment.add(other.velocity); center.add(other.position); neighbors++
+      })
+      acceleration.copy(separation).multiplyScalar(2.2)
+      if (neighbors) {
+        alignment.divideScalar(neighbors).sub(bird.velocity)
+        center.divideScalar(neighbors).sub(bird.position)
+        acceleration.addScaledVector(alignment, 0.85).addScaledVector(center, s.cohesion)
       }
-      if (d < ALI_R) { _ali.add(other.userData.vel); aliN++ }
-      if (d < COH_R) { _coh.add(other.position);     cohN++ }
+      // Soft ellipsoidal containment turns the flock, avoiding teleporting seams.
+      acceleration.x -= bird.position.x * 0.025
+      acceleration.y -= bird.position.y * 0.15
+      acceleration.z -= bird.position.z * 0.035
+      acceleration.z += Math.sin(s.time * 0.22) * 0.25
+      bird.next.copy(bird.velocity).addScaledVector(acceleration, dt).clampLength(2.5, 6)
     }
-
-    _steer.set(0, 0, 0)
-    if (sepN > 0) _steer.addScaledVector(_sep.divideScalar(sepN), SEP_W)
-    if (aliN > 0) _steer.add(_ali.divideScalar(aliN).sub(vel).multiplyScalar(ALI_W))
-    if (cohN > 0) _steer.add(_coh.divideScalar(cohN).sub(pos).multiplyScalar(COH_W))
-
-    vel.addScaledVector(_steer, dt_)
-
-    const spd = vel.length()
-    if (spd > MAX_SPD) vel.multiplyScalar(MAX_SPD / spd)
-    else if (spd < MIN_SPD && spd > 1e-4) vel.multiplyScalar(MIN_SPD / spd)
-
-    pos.addScaledVector(vel, dt_)
-    pos.x = wrapScalar(pos.x, -BOUNDS, BOUNDS)
-    pos.y = wrapScalar(pos.y, -BOUNDS * 0.6, BOUNDS * 0.6)
-    pos.z = wrapScalar(pos.z, -BOUNDS, BOUNDS)
-
-    // Orient toward velocity
-    const s = vel.length()
-    if (s > 1e-3) boid.quaternion.setFromUnitVectors(_fwd, vel.clone().normalize())
-
-    boid.material.color.setHex(speedColor(s))
+    for (const bird of birds) {
+      bird.velocity.copy(bird.next)
+      bird.position.addScaledVector(bird.velocity, dt)
+    }
+  }, 30)
+  const tint = new Three.Color()
+  for (let i = 0; i < COUNT; i++) {
+    tint.setHSL(0.075 + random() * 0.07, 0.45, 0.5 + random() * 0.3)
+    wings.setColorAt(i * 2, tint); wings.setColorAt(i * 2 + 1, tint)
   }
+  controlPanel(ctx, 'MURMURATION / REYNOLDS RULES', {
+    Cohesion: { min: 0, max: 2, step: 0.05, value: s.cohesion, change: value => { s.cohesion = value } },
+  })
+  update(ctx, 0)
 }
 
-export function teardown(ctx) {
-  for (const boid of ctx._boids) ctx.remove(boid)
-  for (const l of ctx._boidLights) ctx.remove(l)
+const centroid = new Three.Vector3()
+const dummy = new Three.Object3D(), forward = new Three.Vector3(0, 0, 1), direction = new Three.Vector3()
+const orientation = new Three.Quaternion(), flap = new Three.Quaternion(), axis = new Three.Vector3(0, 0, 1)
+/** @param {import('../../src/runtime/contracts').SketchContext<State>} ctx @param {number} dt */
+export function update(ctx, dt) {
+  const s = ctx.state
+  s.tick(dt)
+  for (let i = 0; i < s.birds.length; i++) {
+    const bird = s.birds[i]
+    orientation.setFromUnitVectors(forward, direction.copy(bird.velocity).normalize())
+    for (let wing = 0; wing < 2; wing++) {
+      const side = wing === 0 ? 1 : -1
+      flap.setFromAxisAngle(axis, (wing === 0 ? 0 : Math.PI) + side * (0.25 + Math.sin(s.time * 9 + bird.phase) * 0.6))
+      dummy.position.copy(bird.position)
+      dummy.quaternion.copy(orientation).multiply(flap)
+      dummy.scale.setScalar(1)
+      dummy.updateMatrix()
+      s.wings.setMatrixAt(i * 2 + wing, dummy.matrix)
+    }
+  }
+  s.wings.instanceMatrix.needsUpdate = true
+  centroid.set(0, 0, 0)
+  for (const bird of s.birds) centroid.add(bird.position)
+  centroid.divideScalar(s.birds.length).sub(ctx.controls.target).multiplyScalar(1 - Math.exp(-Math.min(dt, 0.1) * 2))
+  ctx.camera.position.add(centroid)
+  ctx.controls.target.add(centroid)
 }
+/** @param {import('../../src/runtime/contracts').SketchContext<State>} ctx */
+export function teardown(ctx) { return ctx.scope.dispose() }

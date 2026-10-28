@@ -1,0 +1,28 @@
+{
+  "title": "Volume Observatory — emission and absorption",
+  "pages": [
+    {
+      "id": "lesson-0",
+      "title": "See inside the field",
+      "body": "The object is a continuous scalar field of a shell and helical filaments, not a polygon mesh. Change Slice X to expose its interior, Density to change absorption, and View to rotate the virtual ray camera."
+    },
+    {
+      "id": "lesson-1",
+      "title": "Integrate through depth",
+      "body": "Intersect the ray with a bounding box, split the interval into 96 midpoint samples, evaluate density at each point, and accumulate emitted color with remaining transmittance. Early exit stops work once the ray is almost opaque. This differs from finding a first surface using SDF sphere tracing.",
+      "parent": "lesson-0"
+    },
+    {
+      "id": "lesson-2",
+      "title": "Step-size correction",
+      "body": "The per-step alpha is 1 − exp(−density × distance). Multiplying remaining transmittance across adjacent segments preserves the absorption law when segment size changes. A fixed finite sample count still introduces integration error in thin features.",
+      "parent": "lesson-0"
+    },
+    {
+      "id": "lesson-3",
+      "title": "Transfer function",
+      "body": "Local scalar density blends blue and amber emission. Slice X rejects samples on one side of a plane before accumulation. These controls connect the mathematical field to the rendered appearance; the model does not reconstruct measured tomography data.",
+      "parent": "lesson-0"
+    }
+  ]
+}

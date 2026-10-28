@@ -1,0 +1,22 @@
+{
+  "title": "Chronometer — two representations of time",
+  "pages": [
+    {
+      "id": "lesson-0",
+      "title": "One clock lesson",
+      "body": "Style 0 shows pivoted analog hands; Style 1 shows three rotating rings. Both are derived from the same real-time hour, minute, and second values. The former Clock Kinetic entry now points here."
+    },
+    {
+      "id": "lesson-1",
+      "title": "Nested time fractions",
+      "body": "Milliseconds contribute to seconds, seconds to minutes, and minutes to hours. Clockwise rotation is negative about Z. Compare 03:30 with 03:00: the hour hand must move halfway between its markers.",
+      "parent": "lesson-0"
+    },
+    {
+      "id": "lesson-2",
+      "title": "Hierarchy",
+      "body": "Hands pivot through parent groups while their cylinder geometry is offset from the origin. Kinetic rings rotate the marker frame itself. Switching visibility compares these transform hierarchies without replacing the scene.",
+      "parent": "lesson-0"
+    }
+  ]
+}

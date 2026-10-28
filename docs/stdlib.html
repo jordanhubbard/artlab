@@ -177,6 +177,7 @@
     <li><a href="#video">stdlib/video</a></li>
     <li><a href="#physics">stdlib/physics/particles</a></li>
     <li><a href="#ui">stdlib/ui</a></li>
+    <li><a href="#sketch">Shared sketch helpers</a></li>
   </ul>
 </aside>
 
@@ -565,6 +566,27 @@
     <p>Floating tooltip div. Position it manually with <code>show(text, x, y)</code> (screen coordinates).</p>
   </section>
 
+<section id="sketch">
+  <h2>Shared sketch helpers</h2>
+  <p>Import from <code>../../src/stdlib/sketch.js</code>. Both IDE and standalone
+  hosts provide the same context. New advanced sketches can use checked JSDoc
+  with <code>SketchContext&lt;State&gt;</code> from the runtime contracts.</p>
+  <table><thead><tr><th>Helper</th><th>Purpose</th></tr></thead><tbody>
+    <tr><td><code>stage(ctx, eye, bloom)</code> / <code>skyDome(ctx)</code></td><td>Camera target, background, key/rim lighting.</td></tr>
+    <tr><td><code>instances(ctx, geometry, material, count)</code></td><td>Dynamic InstancedMesh registered with the host.</td></tr>
+    <tr><td><code>shaderPanel(ctx, fragment, uniforms, width, height)</code></td><td>Plane with a UV shader scaffold.</td></tr>
+    <tr><td><code>pointer(ctx, handler, type)</code></td><td>Canvas-local normalized coordinates; listener removed on unload.</td></tr>
+    <tr><td><code>controlPanel(ctx, title, sliders)</code></td><td>Labelled sliders with value displays and scoped cleanup.</td></tr>
+    <tr><td><code>seededRandom(seed)</code></td><td>Local deterministic random stream.</td></tr>
+    <tr><td><code>fixedStep(step, hz, maxSteps)</code></td><td>Display-rate-independent simulation with bounded catch-up.</td></tr>
+    <tr><td><code>SpatialHash(cellSize)</code></td><td>Rebuild and query spatial neighborhood bins.</td></tr>
+  </tbody></table>
+  <p><code>ctx.scope.listen(target, type, handler)</code> owns listeners.
+  <code>ctx.scope.defer(cleanup)</code> registers other cleanup;
+  <code>ctx.scope.own(resource)</code> owns disposable non-scene resources.
+  The host disposes registered scene roots recursively. Explicitly removing a
+  root with <code>ctx.remove()</code> transfers disposal responsibility to the caller.</p>
+</section>
 </main>
 </div>
 

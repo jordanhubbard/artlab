@@ -40,7 +40,24 @@ Amiga-inspired production direction.
 
 About 50 reference packages live in `examples/`. Open them in the [live IDE](https://jordanhubbard.github.io/artlab/), or pick one from the local sidebar / **Examples** toolbar.
 
-Recent gallery pieces:
+The [gallery audit and architecture notes](docs/demo-refresh.md) explain the
+teaching niche of every lesson, consolidation decisions, and remaining migration work.
+
+New and refreshed gallery pieces:
+
+| Example | What it teaches |
+|---|---|
+| `interference-atlas` | Coherent wave superposition, phase cancellation, and tunable nodal lines |
+| `volume-observatory` | Sliceable scalar volumes with GPU emission/absorption integration |
+| `wave-sculpture` | **Tidal Loom** — 4,096 instanced fins, wave slopes, and pointer ripples |
+| `flocking-boids` | **Murmuration** — 900 birds with spatial neighbor queries and instanced wings |
+| `physics-particles` | **Ember Engine** — 2,400 pooled embers; compare fountain and vortex forces |
+| `clock-3d` | **Chronometer** — analog and kinetic representations in one lesson |
+
+`clock-kinetic` and `particle-storm` are compatibility links to the consolidated
+clock and particle lessons.
+
+Other gallery pieces:
 
 | Example | What it is |
 |---|---|
@@ -62,12 +79,12 @@ Full catalog:
 | Tutorials | `tutorial-01-geometry` → `tutorial-05-interaction` |
 | Primitives & fractals | `hello-cube`, `mobius-strip`, `penrose-tiles`, `fractal-tree`, `recursive-spirals` |
 | Lighting & color | `aurora`, `color-fields`, `neon-city`, `shader-gallery`, `shader-playground` |
-| Procedural & generative | `terrain-flyover`, `wave-sculpture`, `flow-field`, `reaction-diffusion`, `fluid-2d`, `strange-attractor`, `canvas-2d` |
+| Procedural & generative | `terrain-flyover`, `wave-sculpture`, `flow-field`, `reaction-diffusion`, `fluid-2d`, `strange-attractor`, `canvas-2d`, `interference-atlas`, `volume-observatory` |
 | Physics | `domino-chain`, `marble-run`, `n-body-gravity`, `physics-particles`, `force-field-playground`, `flocking-boids`, `cloth-sim`, `voronoi-shatter` |
 | Audio | `audio-pulse`, `audio-terrain`, `music-synth`, `music-visualizer`, `synth-keyboard`, `bell-orrery` |
 | Video | `chroma-mirror`, `video-fx`, `video-kaleidoscope`, `video-broadcast`, `motion-scale-lantern` |
-| Data & UI | `data-sculpture`, `ui-showcase`, `typography-art`, `clock-3d`, `clock-kinetic` |
-| Camera & motion | `camera-journey`, `orbital-dance`, `solar-system`, `particle-storm`, `pixel-sort`, `long-winter` |
+| Data & UI | `data-sculpture`, `ui-showcase`, `typography-art`, `clock-3d` |
+| Camera & motion | `camera-journey`, `orbital-dance`, `solar-system`, `pixel-sort`, `long-winter` |
 | Games & multimodal | `signal-salvage` — keyboard flight through camera-textured worlds with microphone-reactive effects, evolving music, typed collectibles, and random hazards |
 | 3D printing & CSG | `printable-bracket`, `tide-eroded-vessel` — parametric solids with `manifold-3d`, export STL / OBJ |
 
@@ -81,6 +98,7 @@ Every example receives `ctx` in `setup`, `update`, and `teardown`:
 | `scene`, `camera`, `renderer`, `controls` | Three.js objects, pre-wired |
 | `labelRenderer` | CSS2DRenderer for 3D-tracked DOM labels |
 | `add(obj)` / `remove(obj)` | add / remove scene objects (auto-cleaned between runs) |
+| `scope` | scoped listeners and non-scene resources, using the shared ResourceScope |
 | `elapsed` | seconds since setup (updated each frame) |
 | `setBloom(strength)` | bloom post-processing strength; 0 disables, 0.3–2.0 typical |
 | `setHelp(text)` | one-line interaction hint shown above the preview pane |
@@ -145,6 +163,7 @@ bin/          `artlab` CLI (create / serve / build / pack packages)
 ```bash
 npm run build          # build to dist/
 npm run preview        # serve the production build locally
+npm run typecheck      # strict context contracts and opted-in sketch checks
 npm test               # run vitest once
 npm run test:watch     # watch mode
 npm run test:e2e       # Playwright end-to-end (builds first)

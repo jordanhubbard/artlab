@@ -220,7 +220,7 @@ function cmdCreate(name) {
     name:        kebab,
     version:     '0.1.0',
     description: '',
-    entry:       'main.art',
+    entry:       'main.js',
     author:      '',
     license:     'MIT',
     artlab:      '>=0.1.0',
@@ -234,13 +234,33 @@ function cmdCreate(name) {
   )
 
   fs.writeFileSync(
-    path.join(dir, 'main.art'),
-    `// ${kebab} — Artlab package entry point\n\nfn setup(ctx) {\n  // your code here\n}\n`,
+    path.join(dir, 'main.js'),
+    `// ${kebab} — uses the shared IDE and standalone context.
+
+export function setup(ctx) {
+  ctx.setHelp('Click the canvas to change color · drag to orbit')
+  ctx.camera.position.set(0, 2, 6)
+  ctx.add(ctx.ambient(0xffffff, 2))
+  const shape = ctx.add(ctx.mesh(ctx.torus(), { color: 0x55bbff, roughness: 0.35 }))
+  ctx.state = { shape }
+  ctx.scope.listen(ctx.renderer.domElement, 'pointerdown', () => {
+    shape.material.color.offsetHSL(0.1, 0, 0)
+  })
+}
+
+export function update(ctx, dt) {
+  ctx.state.shape.rotation.y += dt * 0.5
+}
+
+export function teardown(ctx) {
+  return ctx.scope.dispose()
+}
+`,
   )
 
   console.log(`Created package scaffold at: ${dir}`)
   console.log('  artlab.json')
-  console.log('  main.art')
+  console.log('  main.js')
   console.log('  assets/')
 }
 

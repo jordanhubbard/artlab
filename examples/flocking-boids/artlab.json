@@ -2,7 +2,12 @@
   "name": "flocking-boids",
   "version": "1.0.0",
   "entry": "flocking-boids.js",
-  "description": "80 cone boids exhibiting emergent flocking via separation, alignment, and cohesion rules",
+  "description": "Murmuration \u2014 900 birds with spatially indexed Reynolds steering and 1,800 instanced wings",
   "category": "simulation",
-  "tags": ["boids", "flocking", "emergent", "ai"]
+  "tags": [
+    "boids",
+    "spatial-hash",
+    "instancing",
+    "fixed-step"
+  ]
 }

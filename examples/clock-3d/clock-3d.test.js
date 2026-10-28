@@ -1,65 +1,23 @@
 // @vitest-environment jsdom
-import { describe, it, expect, vi } from 'vitest'
+import { test, expect, vi, afterEach } from 'vitest'
+import { makeContext } from '../../tests/context.js'
 import { setup, update, teardown } from './clock-3d.js'
+afterEach(() => { vi.useRealTimers(); document.body.replaceChildren() })
 
-vi.mock('three', async () => await vi.importActual('three'))
-
-function makeCtx(overrides = {}) {
-  return {
-    camera: { position: { set: vi.fn() }, lookAt: vi.fn() },
-    controls: { target: { set: vi.fn() } },
-    add: vi.fn(),
-    remove: vi.fn(),
-    elapsed: 0,
-    ...overrides,
-  }
-}
-
-describe('clock-3d', () => {
-  it('setup runs without throwing', async () => {
-    const ctx = makeCtx()
-    await setup(ctx)
-    expect(ctx.add).toHaveBeenCalled()
-  })
-
-  it('setup adds exactly three top-level objects (group + 2 lights)', async () => {
-    const ctx = makeCtx()
-    await setup(ctx)
-    // ambientLight, keyLight, clockGroup
-    expect(ctx.add).toHaveBeenCalledTimes(3)
-  })
-
-  it('update runs on fresh frame without throwing', async () => {
-    const ctx = makeCtx()
-    await setup(ctx)
-    expect(() => update(ctx, 0.016)).not.toThrow()
-  })
-
-  it('update runs across several frames without throwing', async () => {
-    const ctx = makeCtx()
-    await setup(ctx)
-    for (let i = 0; i < 10; i++) {
-      ctx.elapsed = i * 0.016
-      expect(() => update(ctx, 0.016)).not.toThrow()
-    }
-  })
-
-  it('teardown removes all added objects', async () => {
-    const ctx = makeCtx()
-    await setup(ctx)
-    teardown(ctx)
-    expect(ctx.remove).toHaveBeenCalledTimes(3)
-  })
-
-  it('teardown can be called after update', async () => {
-    const ctx = makeCtx()
-    await setup(ctx)
-    update(ctx, 0.016)
-    expect(() => teardown(ctx)).not.toThrow()
-  })
-
-  it('works without controls (controls is undefined)', () => {
-    const ctx = makeCtx({ controls: undefined })
-    expect(() => setup(ctx)).not.toThrow()
-  })
+test('analog and kinetic representations agree on time and switch without a reload', () => {
+  vi.useFakeTimers()
+  vi.setSystemTime(new Date(2026, 9, 28, 3, 30, 0, 0))
+  const ctx = makeContext()
+  setup(ctx); update(ctx, 0)
+  const clock = ctx.scene.children.find(o => o.isGroup)
+  const [analog, kinetic] = clock.children
+  expect(kinetic.children[0].rotation.z).toBeCloseTo(-3.5 / 12 * Math.PI * 2)
+  expect(kinetic.children[1].rotation.z).toBeCloseTo(-Math.PI)
+  expect(analog.visible).toBe(true)
+  const style = document.querySelector('input')
+  style.value = '1'; style.dispatchEvent(new Event('input'))
+  expect(analog.visible).toBe(false)
+  expect(kinetic.visible).toBe(true)
+  teardown(ctx); ctx.dispose()
+  expect(ctx.scene.children).toHaveLength(0)
 })

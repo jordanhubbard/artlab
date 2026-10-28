@@ -8,18 +8,24 @@ const VERTEX = `
   }
 `
 
-/** A fullscreen shader with automatic time and drawing-buffer resolution uniforms. */
+/** UV shader surface with time/resolution uniforms; fullscreen by default. */
 export class ShaderSurface {
-  constructor(renderer, fragmentShader, uniforms = {}) {
+  /** @param {Pick<Three.WebGLRenderer, 'domElement'>} renderer
+   * @param {string} fragmentShader @param {Record<string, Three.IUniform>} [uniforms]
+   * @param {{ width?: number, height?: number, fullscreen?: boolean }} [options]
+   */
+  constructor(renderer, fragmentShader, uniforms = {}, { width = 2, height = 2, fullscreen = true } = {}) {
     this.renderer = renderer
     this.uniforms = {
       uTime: { value: 0 },
       uResolution: { value: new Three.Vector2() },
       ...uniforms,
     }
-    this.object = new Three.Mesh(new Three.PlaneGeometry(2, 2), new Three.ShaderMaterial({
-      vertexShader: VERTEX, fragmentShader, uniforms: this.uniforms,
-      depthTest: false, depthWrite: false,
+    this.object = new Three.Mesh(new Three.PlaneGeometry(width, height), new Three.ShaderMaterial({
+      vertexShader: fullscreen ? VERTEX : 'varying vec2 vUv; void main(){vUv=uv;gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.0);}',
+      fragmentShader, uniforms: this.uniforms,
+      side: Three.DoubleSide,
+      depthTest: !fullscreen, depthWrite: !fullscreen,
     }))
     this.object.frustumCulled = false
     this.update(0, 0)

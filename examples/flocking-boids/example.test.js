@@ -1,73 +1,21 @@
 // @vitest-environment jsdom
-import { describe, it, expect, vi, beforeEach } from 'vitest'
-import * as Three from 'three'
+import { test, expect, afterEach } from 'vitest'
+import { makeContext } from '../../tests/context.js'
+import { setup, update, teardown } from './flocking-boids.js'
+afterEach(() => document.body.replaceChildren())
 
-vi.mock('three', async () => await vi.importActual('three'))
-
-function makeMockCtx(overrides = {}) {
-  const scene = { add: vi.fn(), remove: vi.fn(), children: [] }
-  const camera = {
-    position: new Three.Vector3(0, 0, 50),
-    lookAt: vi.fn(), aspect: 1, fov: 60,
-    updateProjectionMatrix: vi.fn(),
+test('fixed simulation ticks give the same flock at different display rates', () => {
+  const a = makeContext(), b = makeContext()
+  setup(a); setup(b)
+  for (let i = 0; i < 60; i++) update(a, 1 / 60)
+  for (let i = 0; i < 30; i++) update(b, 1 / 30)
+  expect(a.state.birds.map(p => p.position.toArray())).toEqual(b.state.birds.map(p => p.position.toArray()))
+  for (const bird of a.state.birds) {
+    expect(bird.velocity.length()).toBeGreaterThanOrEqual(2.5 - 1e-8)
+    expect(bird.velocity.length()).toBeLessThanOrEqual(6 + 1e-8)
+    expect(bird.position.toArray().every(Number.isFinite)).toBe(true)
   }
-  return {
-    Three, scene, camera,
-    renderer: { domElement: document.createElement('canvas'), shadowMap: { enabled: false }, setSize: vi.fn() },
-    controls: { update: vi.fn(), target: new Three.Vector3(), enabled: true },
-    add: vi.fn(obj => { scene.children.push(obj); return obj }),
-    remove: vi.fn(),
-    setBloom: vi.fn(),
-    setHelp:  vi.fn(),
-    elapsed: 0,
-    ...overrides,
-  }
-}
-
-describe('flocking-boids', () => {
-  let ctx, setup, update, teardown
-
-  beforeEach(async () => {
-    vi.clearAllMocks()
-    ctx = makeMockCtx()
-    ;({ setup, update, teardown } = await import('./flocking-boids.js'))
-  })
-
-  it('setup() completes without throwing', () => {
-    expect(() => setup(ctx)).not.toThrow()
-    expect(ctx.add).toHaveBeenCalled()
-  })
-
-  it('setup() creates 80 boids with velocity vectors', () => {
-    setup(ctx)
-    expect(Array.isArray(ctx._boids)).toBe(true)
-    expect(ctx._boids.length).toBe(80)
-    for (const boid of ctx._boids) {
-      expect(boid.userData.vel).toBeInstanceOf(Three.Vector3)
-    }
-  })
-
-  it('update() runs 3 frames without throwing', () => {
-    setup(ctx)
-    const frames = [0, 0.016, 0.032]
-    for (const elapsed of frames) {
-      ctx.elapsed = elapsed
-      expect(() => update(ctx, 0.016)).not.toThrow()
-    }
-  })
-
-  it('boid positions change after update frames', () => {
-    setup(ctx)
-    const before = ctx._boids[0].position.clone()
-    ctx.elapsed = 0
-    update(ctx, 0.1)
-    // Boid should have moved
-    expect(ctx._boids[0].position.distanceTo(before)).toBeGreaterThan(0)
-  })
-
-  it('teardown() removes all boids', () => {
-    setup(ctx)
-    teardown(ctx)
-    expect(ctx.remove).toHaveBeenCalled()
-  })
+  expect(a.state.wings.count).toBe(1800)
+  teardown(a); a.dispose(); teardown(b); b.dispose()
+  expect(document.querySelector('section')).toBeNull()
 })

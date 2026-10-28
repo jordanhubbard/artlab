@@ -1,0 +1,27 @@
+{
+  "compilerOptions": {
+    "allowJs": true,
+    "checkJs": false,
+    "strict": true,
+    "noEmit": true,
+    "target": "ES2022",
+    "module": "ESNext",
+    "moduleResolution": "Bundler",
+    "lib": [
+      "ES2022",
+      "DOM"
+    ],
+    "skipLibCheck": true
+  },
+  "include": [
+    "src/runtime/contracts.d.ts",
+    "src/stdlib/sketch.js",
+    "examples/**/*.js",
+    "tests/contracts.ts",
+    "src/runtime/SceneContext.js",
+    "examples/**/*.ts"
+  ],
+  "exclude": [
+    "**/*.test.js"
+  ]
+}

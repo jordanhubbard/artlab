@@ -1,5 +1,6 @@
 // clock-3d.js — Elegant 3D analog clock showing real time
 import * as THREE from 'three'
+import { controlPanel } from '../../src/stdlib/sketch.js'
 import { sphere, cylinder, torus, mesh } from '../../src/stdlib/geometry.js'
 
 const R    = 3.0   // clock face radius
@@ -8,6 +9,7 @@ const TUBE = 0.14  // bezel tube radius
 let clockGroup
 let hourHandGroup, minuteHandGroup, secondHandGroup
 let ambientLight, keyLight
+let analog, kinetic, rings
 
 // Creates a hand group pivoted at the clock centre (y=0).
 // Body extends toward +y (tip); tail extends toward -y (counterweight).
@@ -28,7 +30,8 @@ function makeHand(length, tailLen, radius, color, roughness, metalness, z) {
 }
 
 export function setup(ctx) {
-  ctx.camera.position.set(0, 0, 10)
+  ctx.setHelp('Chronometer · compare pivoted hands and rotating marker rings · Style: 0 analog / 1 kinetic')
+  ctx.camera.position.set(0, 0, 12)
   ctx.camera.lookAt(0, 0, 0)
   if (ctx.controls) ctx.controls.target.set(0, 0, 0)
 
@@ -40,9 +43,13 @@ export function setup(ctx) {
   ctx.add(keyLight)
 
   clockGroup = new THREE.Group()
+  analog = new THREE.Group()
+  kinetic = new THREE.Group()
+  clockGroup.add(analog, kinetic)
+  kinetic.visible = false
 
   // Bezel — high-metalness torus ring
-  clockGroup.add(mesh(torus(R, TUBE, 16, 96), {
+  analog.add(mesh(torus(R, TUBE, 16, 96), {
     color: 0xc0c0cc,
     roughness: 0.08,
     metalness: 0.92,
@@ -55,7 +62,7 @@ export function setup(ctx) {
     metalness: 0.1,
   })
   faceMesh.position.z = -0.01
-  clockGroup.add(faceMesh)
+  analog.add(faceMesh)
 
   // Hour markers — gold spheres, clockwise from 12 o'clock
   for (let i = 0; i < 12; i++) {
@@ -65,7 +72,7 @@ export function setup(ctx) {
     const size  = i === 0 ? 0.13 : 0.09  // 12 o'clock marker is slightly larger
     const m = mesh(sphere(size, 16), { color: 0xffd700, roughness: 0.15, metalness: 0.95 })
     m.position.set(Math.cos(angle) * mr, Math.sin(angle) * mr, 0.06)
-    clockGroup.add(m)
+    analog.add(m)
   }
 
   // Minute tick marks — thin radial cylinders, skipping the 12 hour positions
@@ -82,7 +89,7 @@ export function setup(ctx) {
     t.position.set(Math.cos(angle) * midR, Math.sin(angle) * midR, 0.03)
     // Rotate so the cylinder points radially outward in the face plane
     t.rotation.z = angle - Math.PI / 2
-    clockGroup.add(t)
+    analog.add(t)
   }
 
   // Clock hands — pivot at y=0 (clock centre), tip toward +y
@@ -90,15 +97,41 @@ export function setup(ctx) {
   minuteHandGroup = makeHand(2.2,  0.5,  0.052, 0xd0d0e0, 0.25, 0.75, 0.10)
   secondHandGroup = makeHand(2.55, 0.55, 0.020, 0xff2020, 0.45, 0.2,  0.12)
 
-  clockGroup.add(hourHandGroup)
-  clockGroup.add(minuteHandGroup)
-  clockGroup.add(secondHandGroup)
+  analog.add(hourHandGroup)
+  analog.add(minuteHandGroup)
+  analog.add(secondHandGroup)
 
   // Gold centre cap covers the hand pivots
   const cap = mesh(sphere(0.11, 16), { color: 0xffd700, roughness: 0.15, metalness: 0.95 })
   cap.position.z = 0.15
-  clockGroup.add(cap)
+  analog.add(cap)
 
+  // Both presentations share the same real-time angles and lights.
+  const geometry = new THREE.BoxGeometry(0.07, 0.22, 0.06)
+  const material = new THREE.MeshStandardMaterial({ color: 0x428fae, emissive: 0x12394a })
+  rings = [12, 60, 60].map((count, ringIndex) => {
+    const ring = new THREE.Group()
+    const radius = 1.5 + ringIndex * 0.9
+    for (let i = 0; i < count; i++) {
+      const marker = new THREE.Mesh(geometry, material)
+      const angle = i / count * Math.PI * 2
+      marker.position.set(Math.sin(angle) * radius, Math.cos(angle) * radius, ringIndex * 0.15)
+      marker.rotation.z = -angle
+      ring.add(marker)
+    }
+    const hand = mesh(cylinder(0.035, 0.035, radius, 12), { color: 0xffd18b, emissive: 0x7a4010 })
+    hand.position.y = radius / 2
+    ring.add(hand)
+    kinetic.add(ring)
+    return ring
+  })
+  controlPanel(ctx, 'CHRONOMETER / TWO REPRESENTATIONS', {
+    Style: { min: 0, max: 1, step: 1, value: 0, change: value => {
+      analog.visible = !value
+      kinetic.visible = !!value
+      ctx.setBloom(value ? 0.6 : 0)
+    } },
+  })
   ctx.add(clockGroup)
 }
 
@@ -117,10 +150,11 @@ export function update(ctx, dt) {
   secondHandGroup.rotation.z = -(smoothS / 60) * Math.PI * 2
   minuteHandGroup.rotation.z = -(smoothM / 60) * Math.PI * 2
   hourHandGroup.rotation.z   = -(smoothH / 12) * Math.PI * 2
+  rings[0].rotation.z = hourHandGroup.rotation.z
+  rings[1].rotation.z = minuteHandGroup.rotation.z
+  rings[2].rotation.z = secondHandGroup.rotation.z
 }
 
 export function teardown(ctx) {
-  ctx.remove(clockGroup)
-  ctx.remove(ambientLight)
-  ctx.remove(keyLight)
+  return ctx.scope.dispose()
 }

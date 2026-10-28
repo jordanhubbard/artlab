@@ -213,6 +213,9 @@ export class PreviewPane {
 
     this._ctx?.dispose().catch(error => console.error('[PreviewPane] cleanup:', error))
 
+    this._scene.background = null
+    this._scene.fog = null
+
     // Reset bloom to off between examples
     this._bloomPass.strength = 0
 

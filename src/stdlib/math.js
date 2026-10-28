@@ -11,18 +11,22 @@ export const DEG_TO_RAD = Math.PI / 180
 export const RAD_TO_DEG = 180 / Math.PI
 
 /** Convert radians to degrees. */
+/** @param {number} r */
 export function deg(r) { return r * RAD_TO_DEG }
 /** Convert degrees to radians. */
+/** @param {number} d */
 export function rad(d) { return d * DEG_TO_RAD }
 
 // --- Core math helpers ------------------------------------------------------
 
 /** Clamp v to [min, max]. */
+/** @param {number} v @param {number} min @param {number} max */
 export function clamp(v, min, max) {
   return v < min ? min : v > max ? max : v
 }
 
 /** Linear interpolation from a to b by t. */
+/** @param {number} a @param {number} b @param {number} t */
 export function lerp(a, b, t) {
   return a + (b - a) * t
 }
@@ -31,11 +35,13 @@ export function lerp(a, b, t) {
  * Re-map v from [inMin, inMax] to [outMin, outMax].
  * Does not clamp the output.
  */
+/** @param {number} v @param {number} inMin @param {number} inMax @param {number} outMin @param {number} outMax */
 export function map(v, inMin, inMax, outMin, outMax) {
   return outMin + (outMax - outMin) * ((v - inMin) / (inMax - inMin))
 }
 
 /** GLSL-style smoothstep. */
+/** @param {number} edge0 @param {number} edge1 @param {number} x */
 export function smoothstep(edge0, edge1, x) {
   const t = clamp((x - edge0) / (edge1 - edge0), 0, 1)
   return t * t * (3 - 2 * t)
@@ -44,21 +50,25 @@ export function smoothstep(edge0, edge1, x) {
 // --- Easing functions (t ∈ [0,1] → [0,1]) -----------------------------------
 
 /** Quadratic ease-in. */
+/** @param {number} t */
 export function easeIn(t) {
   return t * t
 }
 
 /** Quadratic ease-out. */
+/** @param {number} t */
 export function easeOut(t) {
   return t * (2 - t)
 }
 
 /** Quadratic ease-in-out. */
+/** @param {number} t */
 export function easeInOut(t) {
   return t < 0.5 ? 2 * t * t : -1 + (4 - 2 * t) * t
 }
 
 /** Elastic ease-out (one overshoot). */
+/** @param {number} t */
 export function elasticOut(t) {
   if (t === 0 || t === 1) return t
   const p = 0.3
@@ -66,6 +76,7 @@ export function elasticOut(t) {
 }
 
 /** Bounce ease-out. */
+/** @param {number} t */
 export function bounceOut(t) {
   if (t < 1 / 2.75) {
     return 7.5625 * t * t
@@ -116,6 +127,7 @@ function _grad3(hash, x, y, z) {
 }
 
 /** Classic Perlin-style noise for 2D input. Returns [-1, 1]. */
+/** @param {number} x @param {number} y */
 export function noise2(x, y) {
   const X = Math.floor(x) & 255
   const Y = Math.floor(y) & 255
@@ -137,6 +149,7 @@ export function noise2(x, y) {
 }
 
 /** Classic Perlin-style noise for 3D input. Returns [-1, 1]. */
+/** @param {number} x @param {number} y @param {number} z */
 export function noise3(x, y, z) {
   const X = Math.floor(x) & 255
   const Y = Math.floor(y) & 255

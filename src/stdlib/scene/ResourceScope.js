@@ -7,12 +7,14 @@ export class ResourceScope {
     this._released = new WeakSet()
   }
 
+  /** @param {() => unknown} cleanup */
   defer(cleanup) {
     if (this.disposed) return cleanup()
     this._cleanup.push(cleanup)
     return cleanup
   }
 
+  /** @template {import('three').Object3D | { dispose(): unknown }} T @param {T} resource @returns {T} */
   own(resource) {
     if (resource && !this._owned.has(resource)) {
       this._owned.add(resource)
@@ -28,6 +30,7 @@ export class ResourceScope {
     return object
   }
 
+  /** @param {EventTarget} target @param {string} type @param {EventListener} handler @param {AddEventListenerOptions|boolean} [options] */
   listen(target, type, handler, options) {
     target.addEventListener(type, handler, options)
     this.defer(() => target.removeEventListener(type, handler, options))
@@ -76,8 +79,9 @@ export class ResourceScope {
     }
   }
 
+  /** @returns {Promise<void>} */
   dispose() {
-    if (this.disposed) return this._completion
+    if (this.disposed) return this._completion ?? Promise.resolve()
     this.disposed = true
     const pending = []
     const errors = []

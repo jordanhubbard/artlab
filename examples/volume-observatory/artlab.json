@@ -1,0 +1,12 @@
+{
+  "name": "volume-observatory",
+  "version": "1.0.0",
+  "entry": "volume-observatory.js",
+  "description": "Volume Observatory \u2014 emission-absorption integration through a sliceable procedural scalar field",
+  "tags": [
+    "volume",
+    "ray-integration",
+    "absorption",
+    "shader"
+  ]
+}

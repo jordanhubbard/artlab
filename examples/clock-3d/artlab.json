@@ -2,5 +2,10 @@
   "name": "clock-3d",
   "version": "1.0.0",
   "entry": "clock-3d.js",
-  "description": "Elegant 3D analog clock with metallic bezel, gold hour markers, and smooth real-time hands"
+  "description": "Chronometer \u2014 one real-time clock with analog hands and kinetic ring representations",
+  "tags": [
+    "time",
+    "hierarchy",
+    "transforms"
+  ]
 }

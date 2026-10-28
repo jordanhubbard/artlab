@@ -16,7 +16,8 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "build:artlab": "BASE_URL=/artlab/ vite build",
-    "test:e2e": "npm run build:artlab && playwright test"
+    "test:e2e": "npm run build:artlab && playwright test",
+    "typecheck": "tsc --noEmit"
   },
   "dependencies": {
     "@dimforge/rapier3d-compat": "^0.19.3",
@@ -37,6 +38,8 @@
     "jsdom": "^29.0.2",
     "rollup": "^4.63.3",
     "vite": "^8.0.16",
-    "vitest": "^4.1.9"
+    "vitest": "^4.1.9",
+    "@types/three": "0.170.0",
+    "pngjs": "7.0.0"
   }
 }

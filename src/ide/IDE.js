@@ -58,6 +58,14 @@ interface ArtlabContext {
   renderer: import('three').WebGLRenderer;
   /** Seconds elapsed since setup() was called */
   elapsed: number;
+  setBloom(strength: number): void;
+  setHelp(text: string): void;
+  scope: {
+    defer(cleanup: () => unknown): unknown;
+    own<T extends { dispose(): unknown }>(resource: T): T;
+    listen(target: EventTarget, type: string, handler: EventListener): void;
+    dispose(): Promise<void>;
+  };
   /** OrbitControls instance — configure target, minDistance, enabled, etc. */
   controls: { target: import('three').Vector3; enabled: boolean; minDistance: number; maxDistance: number; [key: string]: any };
   /** Load a texture by package-relative path; resolves from assets or HTTP */
@@ -109,63 +117,7 @@ declare const ctx: ArtlabContext;
 
 // ── Built-in examples ──────────────────────────────────────────────────────────
 
-const EXAMPLES = [
-  { name: 'audio-pulse', entry: 'audio-pulse.js', description: 'A microphone-reactive sphere and satellite ring — the basic audio example' },
-  { name: 'audio-terrain', entry: 'audio-terrain.js', description: 'Microphone-driven terrain that deforms by audio band, with height-mapped vertex colors and reactive sparkle particles' },
-  { name: 'aurora', entry: 'aurora.js', description: 'A dome of stars beneath undulating aurora curtains of green, teal, and violet light.' },
-  { name: 'bell-orrery', entry: 'bell-orrery.js', description: 'Five spatialized singing-bowl rings orbit a dark obelisk in a polyrhythmic orrery' },
-  { name: 'camera-journey', entry: 'camera-journey.js', description: 'Cinematic spline camera tour through a neon pillar field' },
-  { name: 'canvas-2d', entry: 'canvas-2d.js', description: 'Canvas 2D generative art rendered as a live 3D texture' },
-  { name: 'chroma-mirror', entry: 'chroma-mirror.js', description: 'Live webcam with chroma key compositing onto a rotating scene of glowing 3D shapes' },
-  { name: 'clock-3d', entry: 'clock-3d.js', description: 'Elegant 3D analog clock with metallic bezel, gold hour markers, and smooth real-time hands' },
-  { name: 'clock-kinetic', entry: 'clock-kinetic.js', description: 'A kinetic wall clock with cylinder hands encoding real time against a ring of glowing box hour markers' },
-  { name: 'cloth-sim', entry: 'cloth-sim.js', description: 'Verlet cloth simulation — a hanging fabric that responds to wind and mouse interaction' },
-  { name: 'color-fields', entry: 'color-fields.js', description: 'A single pigment sheet that swells, dissolves into haze, and stirs under the pointer.' },
-  { name: 'data-sculpture', entry: 'data-sculpture.js', description: 'Interactive 3D bar chart sculpture of monthly city temperatures with animated pulse and hover tooltips' },
-  { name: 'domino-chain', entry: 'domino-chain.js', description: '20 dominoes in a curved path toppled by a click, simulated with Physics.js integration and AABB collision' },
-  { name: 'flocking-boids', entry: 'flocking-boids.js', description: '80 cone boids exhibiting emergent flocking via separation, alignment, and cohesion rules' },
-  { name: 'flow-field', entry: 'flow-field.js', description: 'Perlin noise flow field with thousands of transparent particles tracing curl paths using additive blending' },
-  { name: 'fluid-2d', entry: 'fluid-2d.js', description: 'Navier-Stokes fluid simulation on a 2D grid rendered as a heatmap DataTexture with mouse-driven velocity injection' },
-  { name: 'force-field-playground', entry: 'force-field-playground.js', description: 'Interactive physics demo where clicking places attractor and repulsor force fields that bend a streaming particle fountain' },
-  { name: 'fractal-tree', entry: 'fractal-tree.js', description: 'Ground-level view under an ancient canopy: roots, fog, and a finished first frame instead of a 10-second grow.' },
-  { name: 'hello-cube', entry: 'hello-cube.js', description: 'A glowing rotating cube — the canonical first Artlab example' },
-  { name: 'long-winter', entry: 'long-winter.js', description: 'Northern Light: sculpted fjords, reflected aurora, and ray-traced silver sculptures in nine musical movements' },
-  { name: 'marble-run', entry: 'marble-run.js', description: 'Marble run contraption — balls roll down spiral ramps, bounce off platforms, and collect in a bowl at the bottom' },
-  { name: 'mobius-strip', entry: 'mobius-strip.js', description: 'Parametric Möbius strip with flowing color bands and orbiting particles tracing the one-sided surface' },
-  { name: 'motion-scale-lantern', entry: 'motion-scale-lantern.js', description: 'Webcam mapped onto hinged icosahedron scales that flare open with motion' },
-  { name: 'music-synth', entry: 'music-synth.js', description: 'Generative music synthesis — scales, chords, sequencer, reverb, and 3D reactive visuals' },
-  { name: 'music-visualizer', entry: 'music-visualizer.js', description: 'Beat-detected waveform rings pulsing with bass, mid, and treble FFT bands in 3D' },
-  { name: 'n-body-gravity', entry: 'n-body-gravity.js', description: 'Gravitational N-body simulation with trail lines, body merging, and click-to-spawn interaction' },
-  { name: 'neon-city', entry: 'neon-city.js', description: 'Synthwave cyberpunk cityscape with procedural buildings, reflective ground, and bloom' },
-  { name: 'orbital-dance', entry: 'orbital-dance.js', description: 'Five occluding bodies with ribbon trails and intersecting orbital planes around a burning star.' },
-  { name: 'particle-storm', entry: 'particle-storm.js', description: '500 glowing embers spiral outward from the origin, resetting on escape — a storm of living fire.' },
-  { name: 'penrose-tiles', entry: 'penrose-tiles.js', description: 'Animated Penrose P3 tiling — aperiodic rhombus tiles with growing subdivision and rainbow fills' },
-  { name: 'physics-particles', entry: 'physics-particles.js', description: 'Interactive particle fountain — physics/particles stdlib demo' },
-  { name: 'pixel-sort', entry: 'pixel-sort.js', description: 'A dusk landscape whose memory fails in drifting pixel-sorted bands while the sun, reflection, and treeline stay intact.' },
-  { name: 'printable-bracket', entry: 'printable-bracket.js', description: 'Parametric L-bracket built with manifold-3d CSG, exportable as STL/OBJ for 3D printing (units: mm)' },
-  { name: 'reaction-diffusion', entry: 'reaction-diffusion.js', description: 'Gray-Scott reaction-diffusion simulation evolving coral and maze patterns on a rotating sphere' },
-  { name: 'recursive-spirals', entry: 'recursive-spirals.js', description: 'Nested spirals of spirals — each arm of a golden spiral spawns smaller spirals at its tips, creating a fractal spiral galaxy' },
-  { name: 'shader-gallery', entry: 'shader-gallery.js', description: 'A virtual art gallery with five live shader paintings — pixelate, color waves, glitch, julia fractal, and animated noise' },
-  { name: 'shader-playground', entry: 'shader-playground.js', description: 'A ShaderMaterial raymarching signed-distance functions — sphere, torus, and plane with smooth union and animated deformation' },
-  { name: 'signal-salvage', entry: 'signal-salvage.js', description: 'Chaotic organic-cosmos game with changing harmonic scenes, typed collectibles, random anomalies, camera-textured worlds, and microphone-reactive effects' },
-  { name: 'solar-system', entry: 'solar-system.js', description: 'Audio-reactive 3D solar system — the Artlab reference demo' },
-  { name: 'strange-attractor', entry: 'strange-attractor.js', description: 'Lorenz butterfly attractor animated in real-time with velocity-colored trail and glowing sphere follower' },
-  { name: 'synth-keyboard', entry: 'synth-keyboard.js', description: 'On-screen piano keys that spawn colored particle fountains per note with reverb trails in 3D' },
-  { name: 'terrain-flyover', entry: 'terrain-flyover.js', description: 'Procedural terrain with layered noise, altitude-based vertex colors, and a spline camera flyover' },
-  { name: 'tide-eroded-vessel', entry: 'tide-eroded-vessel.js', description: 'Generative printable vase grown by CSG erosion, barnacle crust, and tide-pool windows' },
-  { name: 'tutorial-01-geometry', entry: 'tutorial-01-geometry.js', description: 'Tutorial 01 — Geometry primitives and materials in action' },
-  { name: 'tutorial-02-lights', entry: 'tutorial-02-lights.js', description: 'Tutorial 02 — Five lighting modes demonstrated live' },
-  { name: 'tutorial-03-animation', entry: 'tutorial-03-animation.js', description: 'Tutorial 03 — Time-based animation patterns: sine, linear, easing' },
-  { name: 'tutorial-04-color', entry: 'tutorial-04-color.js', description: 'Tutorial 04 — Color spaces, emissive, and PBR material parameters' },
-  { name: 'tutorial-05-interaction', entry: 'tutorial-05-interaction.js', description: 'Tutorial 05 — Mouse interaction, raycasting, and keyboard events' },
-  { name: 'typography-art', entry: 'typography-art.js', description: 'The word LANGUAGE built as walkable brutalist architecture under a raking dawn sun.' },
-  { name: 'ui-showcase', entry: 'ui-showcase.js', description: 'HUD panels, 3D labels, progress bars, and tooltips — ui stdlib demo' },
-  { name: 'video-broadcast', entry: 'video-broadcast.js', description: 'Live webcam with broadcast-quality overlay — animated lower-third, live badge, scrolling ticker' },
-  { name: 'video-fx', entry: 'video-fx.js', description: 'Live webcam feed with real-time shader effects — pixelate, glitch, chroma key, and canvas recording' },
-  { name: 'video-kaleidoscope', entry: 'video-kaleidoscope.js', description: 'Real-time kaleidoscope GLSL shader on live webcam — press K to change symmetry, R to rotate' },
-  { name: 'voronoi-shatter', entry: 'voronoi-shatter.js', description: 'Click to drop seed points that shatter a plane into Voronoi cells tumbling apart with physics' },
-  { name: 'wave-sculpture', entry: 'wave-sculpture.js', description: 'A 15x15 grid of spheres animated into a flowing wave landscape with deep blue to cyan coloring.' },
-]
+import { EXAMPLES, EXAMPLE_ALIASES } from '../examples/catalog.js'
 
 // ── Constants ─────────────────────────────────────────────────────────────────
 
@@ -355,7 +307,7 @@ export class IDE {
     const _loadFromHash = () => {
       const name = location.hash.slice(1)
       if (!name) return false
-      const ex = EXAMPLES.find(e => e.name === name)
+      const ex = EXAMPLES.find(e => e.name === (EXAMPLE_ALIASES[name] ?? name))
       if (ex) {
         if (!this._restoreProject(ex.name)) this._loadExample(ex)
         return true
@@ -1881,6 +1833,7 @@ class TutorialMgr {
 
   async tryLoad(ex) {
     this._ex = ex
+    if (!ex.tutorial) { this.close(); return }
     this._data = null
     this._pageIdx = 0
     this._clearHighlight()

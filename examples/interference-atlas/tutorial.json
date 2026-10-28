@@ -1,0 +1,22 @@
+{
+  "title": "Interference Atlas — coherent superposition",
+  "pages": [
+    {
+      "id": "lesson-0",
+      "title": "Amplitude is not intensity",
+      "body": "Two coherent sources contribute complex phasors. Add their real and imaginary components, then compute squared magnitude. Adding intensities instead would lose the destructive interference visible as dark nodal curves."
+    },
+    {
+      "id": "lesson-1",
+      "title": "An experiment",
+      "body": "Set Phase near 3.14. Points equidistant from both sources become dark; at Phase 0 they interfere constructively. Change Wavelength and Separation to move the nodal curves. The amber dots mark the sources.",
+      "parent": "lesson-0"
+    },
+    {
+      "id": "lesson-2",
+      "title": "GPU implementation and limits",
+      "body": "shaderPanel() supplies plane geometry and UV coordinates. The fragment shader evaluates the field per pixel, and sliders modify uniforms. Equal source amplitudes and a flat propagation domain make this a readable mathematical model rather than a full optics solver.",
+      "parent": "lesson-0"
+    }
+  ]
+}

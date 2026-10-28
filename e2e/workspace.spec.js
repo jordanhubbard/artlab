@@ -4,13 +4,13 @@ import { readFile } from 'node:fs/promises'
 
 test('edit an example and its shared class, run, export, and reopen the same composition', async ({ page }) => {
   test.setTimeout(60_000)
-  await page.goto('./#particle-storm')
+  await page.goto('./#physics-particles')
   const state = () => page.evaluate(() => {
     const ide = window.__artlabIDE
     const mesh = ide?.preview?._ctx?._added.find(object => object.isInstancedMesh)
     return { count: mesh?.count, color: mesh?.material.color.getHex(), error: ide?._errors }
   })
-  await expect.poll(async () => (await state()).count).toBe(500)
+  await expect.poll(async () => (await state()).count).toBe(2400)
   await expect(page.locator('#btn-run')).toBeEnabled()
 
   await page.locator('#environment-source summary').click()
@@ -24,7 +24,7 @@ test('edit an example and its shared class, run, export, and reopen the same com
       'this.object.frustumCulled = false\n    this.object.material.color.set(0x00ff00)',
     ))
     ide.openFile(ide.manifest.entry)
-    ide.editor.setValue(ide.editor.getValue().replace('count: 500', 'count: 72'))
+    ide.editor.setValue(ide.editor.getValue().replace('const COUNT = 2400', 'const COUNT = 72'))
   })
   await page.locator('#btn-run').click()
   await expect.poll(async () => (await state()).count).toBe(72)
@@ -37,7 +37,7 @@ test('edit an example and its shared class, run, export, and reopen the same com
   const bytes = await readFile(await download.path())
   const zip = await JSZip.loadAsync(bytes)
   expect(await zip.file('src/stdlib/scene/InstanceField.js').async('string')).toContain('color.set(0x00ff00)')
-  expect(await zip.file('examples/particle-storm/particle-storm.js').async('string')).toContain('count: 72')
+  expect(await zip.file('examples/physics-particles/physics-particles.js').async('string')).toContain('const COUNT = 72')
   await page.evaluate(() => { location.hash = '#hello-cube' })
   await page.setInputFiles('#file-input', { name: 'edited.zip', mimeType: 'application/zip', buffer: bytes })
   await expect.poll(async () => (await state()).count).toBe(72)
@@ -76,14 +76,14 @@ test('runs an imported TypeScript entry and helper, and reports a broken helper'
 
 test('a helper edit survives reloading a bookmarked example', async ({ page }) => {
   test.setTimeout(60_000)
-  await page.goto('./#particle-storm')
-  await expect.poll(() => page.evaluate(() => window.__artlabIDE?.preview?._ctx?._added[0]?.count)).toBe(500)
+  await page.goto('./#physics-particles')
+  await expect.poll(() => page.evaluate(() => window.__artlabIDE?.preview?._ctx?._added.find(o => o.isInstancedMesh)?.count)).toBe(2400)
   await page.evaluate(async () => {
     const ide = window.__artlabIDE
-    await ide.openSource('examples/particle-storm/EmberField.js')
-    ide.editor.setValue(ide.editor.getValue().replace('0.06, 4, 4', '0.12, 4, 4'))
+    await ide.openSource('src/stdlib/scene/InstanceField.js')
+    ide.editor.setValue(ide.editor.getValue().replace('this.object.frustumCulled = false', 'this.object.frustumCulled = false\n    this.object.material.color.set(0x00ff00)'))
     await ide.compile()
   })
   await page.reload()
-  await expect.poll(() => page.evaluate(() => window.__artlabIDE?.preview?._ctx?._added[0]?.geometry?.parameters?.radius)).toBe(0.12)
+  await expect.poll(() => page.evaluate(() => window.__artlabIDE?.preview?._ctx?._added.find(o => o.isInstancedMesh)?.material.color.getHex())).toBe(0x00ff00)
 })

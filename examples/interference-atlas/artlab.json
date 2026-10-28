@@ -1,0 +1,12 @@
+{
+  "name": "interference-atlas",
+  "version": "1.0.0",
+  "entry": "interference-atlas.js",
+  "description": "Interference Atlas \u2014 coherent wave superposition, phase cancellation, and tunable nodal lines",
+  "tags": [
+    "optics",
+    "phasors",
+    "interference",
+    "shader"
+  ]
+}

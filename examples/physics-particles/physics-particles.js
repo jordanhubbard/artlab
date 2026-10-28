@@ -1,137 +1,84 @@
-// Physics Particles — fountain of particles that arc under real physics. Click to move it.
-
+// @ts-check
+// Ember Engine — the former fountain and particle-storm lessons in one pool.
 import * as Three from 'three'
-import { body, integrate, gravityForce, dragForce } from '../../src/physics/Physics.js'
+import { body, integrate, gravityForce, dragForce, vortexField } from '../../src/physics/Physics.js'
+import { stage, instances, seededRandom, fixedStep, controlPanel, pointer } from '../../src/stdlib/sketch.js'
 
-const GROUND_Y   = -3
-const PARTICLE_N = 300
-const EMIT_RATE  = 80    // particles per second
-const LIFETIME   = 3     // seconds
-const UP_SPEED   = 12
-const SPREAD     = 0.4   // cone half-angle (rad)
-const GRAVITY    = 4     // artistic scale, m/s²
-const DRAG_K     = 0.08
+const COUNT = 2400
+/** @typedef {ReturnType<typeof body> & { age: number, life: number }} Particle */
+/** @typedef {{ particles: Particle[], mesh: Three.InstancedMesh, tick: (dt: number) => void, mode: number, origin: Three.Vector3 }} State */
 
-function spawnParticle(p, origin) {
-  const theta = Math.random() * SPREAD
-  const phi   = Math.random() * Math.PI * 2
-  const sinT  = Math.sin(theta)
-  p.velocity.set(
-    Math.cos(phi) * sinT * UP_SPEED,
-    Math.cos(theta)      * UP_SPEED,
-    Math.sin(phi) * sinT * UP_SPEED,
-  )
-  p.position.copy(origin)
-  p._age   = 0
-  p._alive = true
-}
-
+/** @param {import('../../src/runtime/contracts').SketchContext<State>} ctx */
 export function setup(ctx) {
-  ctx.setHelp('Click to burst particles toward that point')
-  ctx.camera.position.set(0, 4, 18)
-  ctx.camera.lookAt(0, 2, 0)
-  ctx.setBloom(1.2)
-
-  ctx.add(new Three.AmbientLight(0x334466, 1.2))
-  const key = new Three.PointLight(0x88ccff, 40, 40, 2)
-  key.position.set(0, 8, 6)
-  ctx.add(key)
-  ctx._key = key
-
-  const groundGeo = new Three.PlaneGeometry(40, 40)
-  const groundMat = new Three.MeshStandardMaterial({ color: 0x0a0a14, roughness: 1 })
-  ctx._ground = new Three.Mesh(groundGeo, groundMat)
-  ctx._ground.rotation.x = -Math.PI / 2
-  ctx._ground.position.y = GROUND_Y
-  ctx.add(ctx._ground)
-
-  ctx._origin    = new Three.Vector3(0, GROUND_Y, 0)
-  ctx._emitAcc   = 0
-
-  ctx._particles = Array.from({ length: PARTICLE_N }, () => {
-    const p = body({ mass: 1 })
-    p._alive = false
-    p._age   = 0
-    return p
+  ctx.setHelp('Ember Engine · fountain / vortex storm · click to move source · drag to orbit')
+  stage(ctx, [14, 10, 20], 0.7)
+  const mesh = instances(ctx, new Three.BoxGeometry(0.045, 0.16, 0.045),
+    new Three.MeshBasicMaterial({ color: 0xffffff }), COUNT)
+  const random = seededRandom(1984)
+  const origin = new Three.Vector3(0, -3, 0)
+  const axis = new Three.Vector3(0, 1, 0)
+  /** @type {Particle[]} */
+  const particles = Array.from({ length: COUNT }, () => ({ ...body(), age: 0, life: 1 }))
+  /** @param {Particle} particle */
+  function spawn(particle) {
+    particle.position.copy(origin)
+    const angle = random() * Math.PI * 2
+    const spread = s.mode ? 2.8 : 0.9
+    particle.velocity.set(Math.cos(angle) * spread * random(), 5 + random() * 6, Math.sin(angle) * spread * random())
+    particle.age = 0
+    particle.life = 1.5 + random() * 3
+  }
+  const s = ctx.state = { particles, mesh, origin, mode: 0, tick: /** @param {number} _dt */ (_dt) => {} }
+  const gravity = gravityForce(1, 4)
+  s.tick = fixedStep(dt => {
+    for (const particle of particles) {
+      particle.age += dt
+      if (particle.age > particle.life || particle.position.y < -3.1) spawn(particle)
+      particle.force.copy(gravity).add(dragForce(particle.velocity, 0.12))
+      if (s.mode) particle.force.add(vortexField(origin, axis, particle.position, 12))
+      integrate(particle, dt)
+    }
   })
-
-  ctx._instanced = new Three.InstancedMesh(
-    new Three.SphereGeometry(0.12, 6, 4),
-    new Three.MeshStandardMaterial({
-      color: 0x66aaff, emissive: new Three.Color(0x224488),
-      roughness: 0.6, metalness: 0.2,
-    }),
-    PARTICLE_N
-  )
-  ctx.add(ctx._instanced)
-  ctx._instanced.frustumCulled = false
-  ctx._dummy = new Three.Object3D()
-
-  const raycaster   = new Three.Raycaster()
-  const mouse       = new Three.Vector2()
-  const groundPlane = new Three.Plane(new Three.Vector3(0, 1, 0), -GROUND_Y)
-
-  ctx._onClick = (e) => {
-    const rect = ctx.renderer.domElement.getBoundingClientRect()
-    mouse.x =  ((e.clientX - rect.left) / rect.width)  * 2 - 1
-    mouse.y = -((e.clientY - rect.top)  / rect.height) * 2 + 1
-    raycaster.setFromCamera(mouse, ctx.camera)
-    const hit = new Three.Vector3()
-    if (raycaster.ray.intersectPlane(groundPlane, hit)) {
-      ctx._origin.set(hit.x, GROUND_Y, hit.z)
+  // Pre-roll gives a complete composition on the first rendered frame.
+  for (const particle of particles) { spawn(particle); particle.age = random() * particle.life }
+  for (let i = 0; i < 120; i++) s.tick(1 / 60)
+  const ground = ctx.add(new Three.Mesh(new Three.CylinderGeometry(7, 7.4, 0.4, 96),
+    new Three.MeshStandardMaterial({ color: 0x121b28, metalness: 0.5, roughness: 0.35 })))
+  ground.position.y = -3.4
+  const ring = ctx.add(new Three.Mesh(new Three.TorusGeometry(2, 0.025, 8, 100),
+    new Three.MeshBasicMaterial({ color: 0xffaa44 })))
+  ring.rotation.x = Math.PI / 2; ring.position.y = -3.1
+  const ray = new Three.Raycaster(), hit = new Three.Vector3()
+  const plane = new Three.Plane(axis, 3)
+  pointer(ctx, p => {
+    ray.setFromCamera(p, ctx.camera)
+    if (ray.ray.intersectPlane(plane, hit)) {
+      origin.set(Three.MathUtils.clamp(hit.x, -5, 5), -3, Three.MathUtils.clamp(hit.z, -5, 5))
+      ring.position.set(origin.x, -3.1, origin.z)
     }
-  }
-  window.addEventListener('click', ctx._onClick)
+  })
+  controlPanel(ctx, 'EMBER ENGINE / FORCE INTEGRATION', {
+    'Storm mode': { min: 0, max: 1, step: 1, value: 0, change: value => { s.mode = value } },
+  })
+  update(ctx, 0)
 }
-
+const dummy = new Three.Object3D(), tint = new Three.Color()
+/** @param {import('../../src/runtime/contracts').SketchContext<State>} ctx @param {number} dt */
 export function update(ctx, dt) {
-  ctx._emitAcc += EMIT_RATE * dt
-  let toEmit = Math.floor(ctx._emitAcc)
-  ctx._emitAcc -= toEmit
-
-  const grav = gravityForce(1, GRAVITY)
-
-  for (let i = 0; i < PARTICLE_N; i++) {
-    const p = ctx._particles[i]
-
-    if (!p._alive) {
-      if (toEmit > 0) { spawnParticle(p, ctx._origin); toEmit-- }
-      else {
-        ctx._dummy.scale.setScalar(0)
-        ctx._dummy.position.set(0, -1000, 0)
-        ctx._dummy.updateMatrix()
-        ctx._instanced.setMatrixAt(i, ctx._dummy.matrix)
-        continue
-      }
-    }
-
-    p._age += dt
-    p.force.copy(grav).add(dragForce(p.velocity, DRAG_K))
-    integrate(p, dt)
-
-    if (p.position.y < GROUND_Y || p._age > LIFETIME) {
-      p._alive = false
-      ctx._dummy.scale.setScalar(0)
-      ctx._dummy.position.set(0, -1000, 0)
-    } else {
-      const fade = 1 - p._age / LIFETIME
-      ctx._dummy.scale.setScalar(0.4 + fade * 0.6)
-      ctx._dummy.position.copy(p.position)
-    }
-    ctx._dummy.updateMatrix()
-    ctx._instanced.setMatrixAt(i, ctx._dummy.matrix)
+  const s = ctx.state
+  s.tick(dt)
+  for (let i = 0; i < COUNT; i++) {
+    const particle = s.particles[i]
+    const fade = 1 - particle.age / particle.life
+    dummy.position.copy(particle.position)
+    dummy.scale.setScalar(0.4 + fade)
+    dummy.updateMatrix()
+    s.mesh.setMatrixAt(i, dummy.matrix)
+    tint.setHSL(0.015 + fade * 0.12, 0.9, 0.16 + fade * 0.55)
+    s.mesh.setColorAt(i, tint)
   }
-
-  ctx._instanced.instanceMatrix.needsUpdate = true
+  s.mesh.instanceMatrix.needsUpdate = true
+  if (s.mesh.instanceColor) s.mesh.instanceColor.needsUpdate = true
 }
-
-export function teardown(ctx) {
-  window.removeEventListener('click', ctx._onClick)
-  ctx._ground.geometry.dispose()
-  ctx._ground.material.dispose()
-  ctx.remove(ctx._ground)
-  ctx._instanced.geometry.dispose()
-  ctx._instanced.material.dispose()
-  ctx.remove(ctx._instanced)
-  if (ctx._key) ctx.remove(ctx._key)
-}
+/** @param {import('../../src/runtime/contracts').SketchContext<State>} ctx */
+export function teardown(ctx) { return ctx.scope.dispose() }
