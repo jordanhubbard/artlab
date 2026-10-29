@@ -1,6 +1,6 @@
 {
   "name": "color-fields",
   "version": "1.0.0",
-  "entry": "color-fields.js",
+  "entry": "color-fields.ts",
   "description": "A single pigment sheet that swells, dissolves into haze, and stirs under the pointer."
 }

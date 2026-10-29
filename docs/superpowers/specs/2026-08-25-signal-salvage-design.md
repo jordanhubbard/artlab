@@ -61,13 +61,13 @@ Permission failures are non-fatal:
 
 ## Architecture
 
-`game.js` is a deterministic model for game state, waves, scoring, spawning,
+`game.ts` is a deterministic model for game state, waves, scoring, spawning,
 the chaos director, typed entities, movement, sphere collisions, and pulse
-behavior. `media-input.js` normalizes camera motion and microphone energy.
-`soundtrack.js` owns all Tone.js nodes, bar-aligned harmonic scenes, and
-musical events. `scene.js` owns Three.js resources, the signal veil, sensor
+behavior. `media-input.ts` normalizes camera motion and microphone energy.
+`soundtrack.ts` owns all Tone.js nodes, bar-aligned harmonic scenes, and
+musical events. `scene.ts` owns Three.js resources, the signal veil, sensor
 effects, and pooled entities.
-`signal-salvage.js` coordinates those modules through Artlab's
+`signal-salvage.ts` coordinates those modules through Artlab's
 `setup`/`update`/`teardown` lifecycle.
 
 Each frame converts keyboard and sensor data into one normalized input,

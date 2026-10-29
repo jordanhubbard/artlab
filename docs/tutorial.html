@@ -188,7 +188,7 @@
     </div>
     <p>
       An Artlab package is a directory containing an <code>artlab.json</code> manifest and at least
-      one <code>.js</code> entry file. The simplest way to get started is to open the IDE and create
+      one <code>.ts</code> entry file. The simplest way to get started is to open the IDE and create
       a new package from the file tree.
     </p>
 
@@ -204,11 +204,11 @@ cd artlab &amp;&amp; npm install &amp;&amp; npm run dev
     <pre><code>{
   <span class="str">"name"</span>:        <span class="str">"my-scene"</span>,
   <span class="str">"version"</span>:     <span class="str">"1.0.0"</span>,
-  <span class="str">"entry"</span>:       <span class="str">"my-scene.js"</span>,
+  <span class="str">"entry"</span>:       <span class="str">"my-scene.ts"</span>,
   <span class="str">"description"</span>: <span class="str">"A simple rotating cube"</span>
 }</code></pre>
 
-    <div class="label">my-scene.js</div>
+    <div class="label">my-scene.ts</div>
     <pre><code><span class="kw">export function</span> <span class="fn">setup</span>(ctx) {}
 <span class="kw">export function</span> <span class="fn">update</span>(ctx, dt) {}</code></pre>
 
@@ -227,7 +227,7 @@ cd artlab &amp;&amp; npm install &amp;&amp; npm run dev
       to add objects and track them for teardown.
     </p>
 
-    <div class="label">my-scene.js</div>
+    <div class="label">my-scene.ts</div>
     <pre><code><span class="kw">let</span> cube
 
 <span class="kw">export function</span> <span class="fn">setup</span>(ctx) {
@@ -266,9 +266,9 @@ cd artlab &amp;&amp; npm install &amp;&amp; npm run dev
       directly. Both work identically.
     </p>
 
-    <div class="label">my-scene.js (updated)</div>
-    <pre><code><span class="kw">import</span> { sphere, mesh } <span class="kw">from</span> <span class="str">'../../src/stdlib/geometry.js'</span>
-<span class="kw">import</span> { directional, ambient } <span class="kw">from</span> <span class="str">'../../src/stdlib/lights.js'</span>
+    <div class="label">my-scene.ts (updated)</div>
+    <pre><code><span class="kw">import</span> { sphere, mesh } <span class="kw">from</span> <span class="str">'../../src/stdlib/geometry.ts'</span>
+<span class="kw">import</span> { directional, ambient } <span class="kw">from</span> <span class="str">'../../src/stdlib/lights.ts'</span>
 
 <span class="kw">let</span> ball
 
@@ -308,10 +308,10 @@ cd artlab &amp;&amp; npm install &amp;&amp; npm run dev
       from a user-gesture handler (click, keydown).
     </div>
 
-    <div class="label">my-scene.js (updated)</div>
-    <pre><code><span class="kw">import</span> { sphere, mesh } <span class="kw">from</span> <span class="str">'../../src/stdlib/geometry.js'</span>
-<span class="kw">import</span> { directional, ambient } <span class="kw">from</span> <span class="str">'../../src/stdlib/lights.js'</span>
-<span class="kw">import</span> * <span class="kw">as</span> audio <span class="kw">from</span> <span class="str">'../../src/stdlib/audio.js'</span>
+    <div class="label">my-scene.ts (updated)</div>
+    <pre><code><span class="kw">import</span> { sphere, mesh } <span class="kw">from</span> <span class="str">'../../src/stdlib/geometry.ts'</span>
+<span class="kw">import</span> { directional, ambient } <span class="kw">from</span> <span class="str">'../../src/stdlib/lights.ts'</span>
+<span class="kw">import</span> * <span class="kw">as</span> audio <span class="kw">from</span> <span class="str">'../../src/stdlib/audio.ts'</span>
 
 <span class="kw">let</span> ball
 

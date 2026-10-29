@@ -1,7 +1,7 @@
 {
   "name": "wave-sculpture",
   "version": "1.0.0",
-  "entry": "wave-sculpture.js",
+  "entry": "wave-sculpture.ts",
   "description": "Tidal Loom \u2014 4,096 instanced brass fins with wave normals and pointer-driven ripples",
   "tags": [
     "instancing",

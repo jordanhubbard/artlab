@@ -1,6 +1,6 @@
 {
   "name": "tutorial-02-lights",
   "version": "1.0.0",
-  "entry": "tutorial-02-lights.js",
+  "entry": "tutorial-02-lights.ts",
   "description": "Tutorial 02 — Five lighting modes demonstrated live"
 }

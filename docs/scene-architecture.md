@@ -32,8 +32,8 @@ part of the editable source catalog.
 ## The composition contract
 
 ```js
-import { Scene, defineScene } from '../../src/stdlib/scene.js'
-import { EmberField } from './EmberField.js'
+import { Scene, defineScene } from '../../src/stdlib/scene.ts'
+import { EmberField } from './EmberField.ts'
 
 class ParticleStorm extends Scene {
   setup() {
@@ -77,7 +77,7 @@ functions; classes represent objects with state, ownership, or a lifetime.
 | `SceneContext` | The common `ctx` API and fallback object cleanup | PreviewPane and StandaloneRunner |
 
 Import the public scene barrel or a specific class file. Every implementation is under
-`src/stdlib/scene/`; microphone analysis is in `src/stdlib/media.js`.
+`src/stdlib/scene/`; microphone analysis is in `src/stdlib/media.ts`.
 
 ## Ownership rules
 

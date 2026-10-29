@@ -1,6 +1,6 @@
 {
   "name": "long-winter",
   "version": "3.0.0",
-  "entry": "long-winter.js",
+  "entry": "long-winter.ts",
   "description": "Long Winter: Northern Light — sculpted Nordic fjords, reflected aurora and ray-traced metallic sculptures in nine musical movements"
 }

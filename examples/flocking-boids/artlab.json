@@ -1,7 +1,7 @@
 {
   "name": "flocking-boids",
   "version": "1.0.0",
-  "entry": "flocking-boids.js",
+  "entry": "flocking-boids.ts",
   "description": "Murmuration \u2014 900 birds with spatially indexed Reynolds steering and 1,800 instanced wings",
   "category": "simulation",
   "tags": [

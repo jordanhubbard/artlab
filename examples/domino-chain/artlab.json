@@ -1,7 +1,7 @@
 {
   "name": "domino-chain",
   "version": "1.0.0",
-  "entry": "domino-chain.js",
+  "entry": "domino-chain.ts",
   "description": "20 dominoes in a curved path toppled by a click, simulated with Physics.js integration and AABB collision",
   "category": "physics",
   "tags": ["physics", "dominoes", "collision", "interaction"]

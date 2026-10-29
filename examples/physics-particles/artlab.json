@@ -1,7 +1,7 @@
 {
   "name": "physics-particles",
   "version": "1.0.0",
-  "entry": "physics-particles.js",
+  "entry": "physics-particles.ts",
   "description": "Ember Engine \u2014 2,400 pooled embers comparing gravity, drag, and vortex forces",
   "tags": [
     "physics",

@@ -1,6 +1,6 @@
 {
   "name": "solar-system",
   "version": "1.0.0",
-  "entry": "solar-system.js",
+  "entry": "solar-system.ts",
   "description": "Audio-reactive 3D solar system with a Sun-to-Pluto gravity-assist camera fly-by"
 }

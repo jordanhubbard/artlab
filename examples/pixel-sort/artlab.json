@@ -1,7 +1,7 @@
 {
   "name": "pixel-sort",
   "version": "1.0.0",
-  "entry": "pixel-sort.js",
+  "entry": "pixel-sort.ts",
   "description": "A dusk landscape whose memory fails in drifting pixel-sorted bands while the sun, reflection, and treeline stay intact.",
   "category": "interactive",
   "tags": ["glitch", "pixel-sort", "generative", "shader", "datamosh"]

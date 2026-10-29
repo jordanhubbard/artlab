@@ -1,7 +1,7 @@
 {
   "name": "fractal-tree",
   "version": "1.0.0",
-  "entry": "fractal-tree.js",
+  "entry": "fractal-tree.ts",
   "description": "Ground-level view under an ancient canopy: roots, fog, and a finished first frame instead of a 10-second grow.",
   "category": "generative",
   "tags": ["fractal", "l-system", "tree", "procedural", "animation"]

@@ -1,6 +1,6 @@
 {
   "name": "tutorial-01-geometry",
   "version": "1.0.0",
-  "entry": "tutorial-01-geometry.js",
+  "entry": "tutorial-01-geometry.ts",
   "description": "Tutorial 01 — Geometry primitives and materials in action"
 }

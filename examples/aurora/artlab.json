@@ -1,6 +1,6 @@
 {
   "name": "aurora",
   "version": "1.0.0",
-  "entry": "aurora.js",
+  "entry": "aurora.ts",
   "description": "A dome of stars beneath undulating aurora curtains of green, teal, and violet light."
 }

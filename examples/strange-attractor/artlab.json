@@ -1,7 +1,7 @@
 {
   "name": "strange-attractor",
   "version": "1.0.0",
-  "entry": "strange-attractor.js",
+  "entry": "strange-attractor.ts",
   "description": "Lorenz butterfly attractor animated in real-time with velocity-colored trail and glowing sphere follower",
   "category": "math",
   "tags": ["attractor", "chaos", "lorenz", "line"]

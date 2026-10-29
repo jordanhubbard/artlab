@@ -1,7 +1,7 @@
 {
   "name": "particle-storm",
   "version": "1.0.0",
-  "entry": "particle-storm.js",
+  "entry": "particle-storm.ts",
   "description": "Compatibility entry \u2014 consolidated into physics-particles",
   "redirect": "physics-particles"
 }

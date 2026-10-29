@@ -1,6 +1,6 @@
 {
   "name": "typography-art",
   "version": "1.0.0",
-  "entry": "typography-art.js",
+  "entry": "typography-art.ts",
   "description": "The word LANGUAGE built as walkable brutalist architecture under a raking dawn sun."
 }

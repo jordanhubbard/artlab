@@ -1,6 +1,6 @@
 {
   "name": "canvas-2d",
   "version": "1.0.0",
-  "entry": "canvas-2d.js",
+  "entry": "canvas-2d.ts",
   "description": "Canvas 2D generative art rendered as a live 3D texture"
 }

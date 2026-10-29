@@ -45,12 +45,12 @@ The existing `Scene` / `defineScene` hierarchy owns independently reusable
 components through `ResourceScope`. This refresh builds on that hierarchy:
 `instances()` uses `InstanceField`, and `shaderPanel()` uses `ShaderSurface`'s
 new projected-plane option. It does not introduce a second scene or ownership
-system. The existing source browser, editable JS/TS module graph, export/reopen
+system. The existing source browser, editable TypeScript module graph, export/reopen
 workflow, and Long Winter production are preserved.
 
 `Sketch<State>` / `SketchContext<State>` add checked module and state contracts
-for low-level sketches. The refreshed numerical/GPU sketches use strict checked
-JSDoc and inferred Three.js types while remaining native browser modules. The
+for low-level sketches. The refreshed numerical/GPU sketches use TypeScript and
+inferred Three.js types while remaining native browser modules. The
 IDE also continues to compile authored TypeScript modules through its existing
 ModuleCompiler. TypeScript remains a runtime dependency for that compiler.
 
@@ -62,7 +62,7 @@ and protection against superseded setup. Its replacement path awaits async
 teardown and scope completion. Preview retains the upstream compiler and
 serialized teardown, and resets background/fog on scene transitions.
 
-Reusable functions live in `src/stdlib/sketch.js`:
+Reusable functions live in `src/stdlib/sketch.ts`:
 
 | Helper | Responsibility |
 |---|---|
@@ -83,7 +83,7 @@ the caller: explicitly removed resources must be disposed by their owner.
 Do not share resources across independently owned sketches. Teardown releases
 non-scene activity through the scope; the host disposes registered scene roots.
 
-The CLI now scaffolds a native `main.js` lifecycle module using the shared
+The CLI now scaffolds a native `main.ts` lifecycle module using the shared
 context and scoped input, replacing its obsolete `.art` syntax scaffold.
 
 The gallery and its browser smoke suite now consume the same catalog. A new
@@ -118,18 +118,18 @@ throughput claim is inferred from these tests.
 
 ## Follow-up migration context
 
-The framework implementation remains mostly JavaScript, alongside the existing
-JS/TS authoring compiler. Some legacy demos still use
+The framework, IDE, CLI, examples, and tests are now TypeScript. Some legacy
+demos still use
 module globals, bespoke UI, hand-written teardown, and variable-step updates.
 They now receive the shared context, but have not all been rewritten to use its
 scope and helpers. Migrate them when their feature changes, with real input and
 unload coverage, rather than claiming that a type declaration makes them safe.
 
 Monaco still suppresses semantic diagnostics, and ModuleCompiler transpiles
-TypeScript rather than constructing a fully typechecked program. The strict CI
-gate covers opted-in source modules; it does not make in-browser authoring a
-semantic type-checking environment. An opt-in editor diagnostics service using
-the shared contracts is a separate migration step.
+TypeScript rather than constructing a fully typechecked browser program. The
+strict CI gate covers the public authoring contracts and the production build
+transpiles every repository module. An editor diagnostics service using the
+shared contracts remains a separate improvement.
 
 The renderer directory's `IRenderer`/WebGPU/WebGL backend hierarchy is bypassed
 by the active preview and standalone hosts, which construct Three.WebGLRenderer

@@ -1,6 +1,6 @@
 {
   "name": "hello-cube",
   "version": "1.0.0",
-  "entry": "hello-cube.js",
+  "entry": "hello-cube.ts",
   "description": "A glowing rotating cube — the canonical first Artlab example"
 }

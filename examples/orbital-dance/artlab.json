@@ -1,6 +1,6 @@
 {
   "name": "orbital-dance",
   "version": "1.0.0",
-  "entry": "orbital-dance.js",
+  "entry": "orbital-dance.ts",
   "description": "Five occluding bodies with ribbon trails and intersecting orbital planes around a burning star."
 }

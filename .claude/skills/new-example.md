@@ -99,7 +99,7 @@ Create `examples/<name>/example.test.js`:
 
 ```js
 import { describe, it, expect, vi } from 'vitest'
-import { setup, update, teardown } from './<name>.js'
+import { setup, update, teardown } from './<name>.ts'
 
 // Build only the THREE stubs your example actually calls.
 // Extend mockTHREE as needed — do not stub the entire library.

@@ -13,7 +13,7 @@ writing or reviewing examples and framework code.
 a click handler, never from `setup()` directly. Chrome suspends any AudioContext
 created without a preceding user gesture, producing silence with no error.
 
-Pattern (from `music-synth.js` and `music-visualizer.js`):
+Pattern (from `music-synth.ts` and `music-visualizer.ts`):
 
 ```js
 export function setup(ctx) {
@@ -39,7 +39,7 @@ export function teardown(ctx) {
 
 ### 2. Connect the terminal audio effect to the destination
 
-`reverb()` and `delay()` in `src/stdlib/audio.js` return unwired Tone.js nodes.
+`reverb()` and `delay()` in `src/stdlib/audio.ts` return unwired Tone.js nodes.
 Calling `.connect(_rev)` routes audio *into* the reverb, but the reverb itself
 has no downstream connection until you add:
 
@@ -68,12 +68,12 @@ export function setup(ctx) {
 
 ---
 
-## Production build (vite.config.js)
+## Production build (vite.config.ts)
 
 ### 4. Checklist for every new bare-specifier import in an example
 
 When an example uses `import X from 'pkg'` or `import { Y } from 'three/addons/...'`,
-three things must be present in `vite.config.js` or the example fails silently
+three things must be present in `vite.config.ts` or the example fails silently
 in production (GitHub Pages) with a blank canvas and no visible error:
 
 | Step | Where | What |

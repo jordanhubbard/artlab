@@ -1,7 +1,7 @@
 {
   "name": "clock-3d",
   "version": "1.0.0",
-  "entry": "clock-3d.js",
+  "entry": "clock-3d.ts",
   "description": "Chronometer \u2014 one real-time clock with analog hands and kinetic ring representations",
   "tags": [
     "time",

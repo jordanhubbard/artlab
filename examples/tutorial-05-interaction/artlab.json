@@ -1,6 +1,6 @@
 {
   "name": "tutorial-05-interaction",
   "version": "1.0.0",
-  "entry": "tutorial-05-interaction.js",
+  "entry": "tutorial-05-interaction.ts",
   "description": "Tutorial 05 — Mouse interaction, raycasting, and keyboard events"
 }

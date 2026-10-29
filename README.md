@@ -1,6 +1,6 @@
 # Artlab
 
-A browser-based creative-coding IDE for building interactive 3D scenes, generative visuals, audio-reactive art, and 3D-printable geometry in JavaScript or TypeScript.
+A browser-based TypeScript creative-coding IDE for building interactive 3D scenes, generative visuals, audio-reactive art, and 3D-printable geometry.
 
 **Live app:** [https://jordanhubbard.github.io/artlab/](https://jordanhubbard.github.io/artlab/)
 
@@ -17,7 +17,7 @@ Open http://localhost:5173, or use the [published GitHub Pages build](https://jo
 
 ## What it is
 
-Artlab is an in-browser IDE backed by a Three.js / WebGL runtime. You write a small JavaScript or TypeScript module that exports `setup`, `update`, and `teardown`; the runtime calls them and injects a `ctx` object with the scene, camera, renderer, OrbitControls, and a stdlib of helpers for geometry, lights, math, physics, audio, video, and UI.
+Artlab is an in-browser IDE backed by a Three.js / WebGL runtime. You write a small TypeScript module that exports `setup`, `update`, and `teardown`; the runtime calls it with a typed `ctx` object containing the scene, camera, renderer, OrbitControls, and the Artlab stdlib.
 
 The editor (Monaco) lives on the left, a live preview on the right. Re-run with Ctrl+Enter. Packages are directories with an `artlab.json` manifest; they can be opened from disk, edited, and exported as `.zip`.
 
@@ -169,7 +169,7 @@ npm run test:watch     # watch mode
 npm run test:e2e       # Playwright end-to-end (builds first)
 ```
 
-Every example has a `<name>.test.js` that exercises `setup`/`update`/`teardown` against a lightweight mock ctx. Stdlib modules have unit tests under `src/stdlib/__tests__/`.
+Every example has a `<name>.test.ts` that exercises `setup`/`update`/`teardown` against a lightweight mock ctx. Stdlib modules have unit tests under `src/stdlib/__tests__/`.
 
 ## Contributing
 
@@ -191,7 +191,7 @@ Sir Reginald von Fluffington III, who regularly made pictures by arranging himse
 
 Sir Reginald reassessed the scope.
 
-Artlab became a browser-based workshop with Monaco on one side and a Three.js scene on the other. A small JavaScript module supplied `setup`, `update`, and `teardown`. The runtime supplied `ctx`: scene, camera, renderer, controls, and the means to turn an idea into something visible without first building a different application to hold it.
+Artlab became a browser-based workshop with Monaco on one side and a Three.js scene on the other. A small TypeScript module supplies `setup`, `update`, and `teardown`. The runtime supplies `ctx`: scene, camera, renderer, controls, and the means to turn an idea into something visible without first building a different application to hold it.
 
 The examples were to synthesize their materials. Geometry, textures, movement, and sound would emerge procedurally. A tree could grow from rules. Pigment could move like weather. A word could become architecture. Sir Reginald examined this last development with concern; words already occupied too much of the room.
 

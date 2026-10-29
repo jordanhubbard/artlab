@@ -1,6 +1,6 @@
 {
   "name": "signal-salvage",
   "version": "1.0.0",
-  "entry": "signal-salvage.js",
+  "entry": "signal-salvage.ts",
   "description": "Signal Salvage — a chaotic organic-cosmos game with changing harmonic scenes, four collectible species, random anomalies, camera-textured worlds, and microphone-reactive effects"
 }

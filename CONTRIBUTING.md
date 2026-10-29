@@ -34,13 +34,13 @@ bin/            artlab CLI entry point
 
 | Path | Purpose |
 |---|---|
-| `src/ide/PreviewPane.js` | Sandboxed live preview inside the IDE (constructs the `ctx` object used by every example) |
-| `src/runtime/StandaloneRunner.js` | Full-screen runtime for exported / standalone packages |
-| `src/stdlib/geometry.js` | Geometry factories and `mesh()` helper |
-| `src/stdlib/lights.js` | Light factories |
-| `src/stdlib/math.js` | `lerp`, `clamp`, `map`, `smoothstep`, `rad`, `deg`, Perlin `noise2` / `noise3` |
-| `src/stdlib/audio.js` | Mic input, FFT bands, Tone.js synth helpers |
-| `src/stdlib/video.js` | Webcam, screen capture, video textures, shader effects |
+| `src/ide/PreviewPane.ts` | Sandboxed live preview inside the IDE (constructs the `ctx` object used by every example) |
+| `src/runtime/StandaloneRunner.ts` | Full-screen runtime for exported / standalone packages |
+| `src/stdlib/geometry.ts` | Geometry factories and `mesh()` helper |
+| `src/stdlib/lights.ts` | Light factories |
+| `src/stdlib/math.ts` | `lerp`, `clamp`, `map`, `smoothstep`, `rad`, `deg`, Perlin `noise2` / `noise3` |
+| `src/stdlib/audio.ts` | Mic input, FFT bands, Tone.js synth helpers |
+| `src/stdlib/video.ts` | Webcam, screen capture, video textures, shader effects |
 
 ---
 
@@ -54,8 +54,8 @@ self-contained directory under `examples/`.
 ```
 examples/my-example/
   artlab.json        Manifest (required)
-  my-example.js      Entry module (required)
-  my-example.test.js Vitest test (required; named to match the entry)
+  my-example.ts      Entry module (required)
+  my-example.test.ts Vitest test (required; named to match the entry)
   assets/            Textures, audio, data files (optional)
   tutorial.json      Optional guided code-tour consumed by the IDE tutorial pane
 ```
@@ -66,7 +66,7 @@ examples/my-example/
 {
   "name": "my-example",
   "version": "1.0.0",
-  "entry": "my-example.js",
+  "entry": "my-example.ts",
   "description": "One sentence, present tense, no period",
   "category": "geometry",
   "tags": ["lights", "animation"],
@@ -123,7 +123,7 @@ Both runtime contexts expose the stdlib helpers as top-level fields
 
 ### Checked sketches and shared helpers
 
-`artlab create my-sketch` scaffolds a native `main.js` sketch with the shared
+`artlab create my-sketch` scaffolds a native `main.ts` sketch with the shared
 context, per-context state, and scoped input cleanup.
 
 Use `// @ts-check` and annotate ctx with the generic contract for new advanced
@@ -141,7 +141,7 @@ export function setup(ctx) {
 ```
 
 The contract import above is a type-only JSDoc reference; runtime/IDE imports
-remain off-limits in example code. Reuse `src/stdlib/sketch.js` for staging,
+remain off-limits in example code. Reuse `src/stdlib/sketch.ts` for staging,
 instancing, shader panels, canvas input, labelled controls, fixed steps, seeded
 randomness, and spatial bins. Prefer composition over a sketch inheritance tree.
 `Sketch<State>` also describes the module lifecycle for typed host code.
@@ -177,10 +177,10 @@ to the package directory only.
 ```js
 // Correct — import from three or from a relative stdlib path
 import * as THREE from 'three'
-import { sphere, mesh } from '../../src/stdlib/geometry.js'
+import { sphere, mesh } from '../../src/stdlib/geometry.ts'
 
 // Wrong — never reach into src/ for non-stdlib modules
-import { StandaloneRunner } from '../../src/runtime/StandaloneRunner.js'
+import { StandaloneRunner } from '../../src/runtime/StandaloneRunner.ts'
 ```
 
 The stdlib path `../../src/stdlib/...` is the current convention until a
@@ -247,7 +247,7 @@ browsing, JS/TS module execution, and the classes extracted from existing exampl
 
 ### File location
 
-`src/stdlib/<module>.js`
+`src/stdlib/<module>.ts`
 
 ### Style rules
 
@@ -292,13 +292,13 @@ npm run test:watch  # watch mode
 
 ### Example tests
 
-Every example needs a test at `examples/<name>/<name>.test.js` (filename
+Every example needs a test at `examples/<name>/<name>.test.ts` (filename
 matches the entry module). Use a minimal mock ctx so tests run without a DOM
 or WebGL context:
 
 ```js
 import { describe, it, expect, vi } from 'vitest'
-import { setup, update, teardown } from './my-example.js'
+import { setup, update, teardown } from './my-example.ts'
 
 const mockTHREE = {
   Color: class { constructor(v) { this.v = v } },
@@ -345,7 +345,7 @@ describe('my-example', () => {
 
 ### Stdlib tests
 
-`src/stdlib/__tests__/<module>.test.js`
+`src/stdlib/__tests__/<module>.test.ts`
 
 Stdlib functions are pure utilities and do not need a mock ctx. Import and
 exercise them directly.
@@ -365,7 +365,7 @@ landing a change, work is not complete until `git push` succeeds.
 
 ## Code style
 
-- ES modules throughout. JavaScript and TypeScript are supported in the source workspace; avoid JSX.
+- TypeScript ES modules throughout; avoid JSX. Imported legacy packages may still contain JavaScript, but repository-owned code and new scaffolds use `.ts`.
 - Inline comments only when the **why** is non-obvious. Do not comment what the
   code already says.
 - No docstrings beyond the one-line JSDoc on exported functions.
@@ -380,8 +380,8 @@ landing a change, work is not complete until `git push` succeeds.
 Before opening a pull request, verify each item:
 
 - [ ] Example has a valid `artlab.json` with all required fields
-- [ ] Test file exists at `examples/<name>/<name>.test.js` and passes (`npm test`)
-- [ ] Example is registered in the `EXAMPLES` array in `src/examples/catalog.js`
+- [ ] Test file exists at `examples/<name>/<name>.test.ts` and passes (`npm test`)
+- [ ] Example is registered in the `EXAMPLES` array in `src/examples/catalog.ts`
 - [ ] No direct `src/` imports beyond stdlib and physics (paths `../../src/stdlib/` and `../../src/physics/` are allowed; runtime or IDE internals are off-limits)
 - [ ] All assets are loaded with the `new URL('./assets/...', import.meta.url).href` pattern
 - [ ] `teardown` removes any event listeners, DOM overlays, and media streams opened during `setup` (run the example, switch to another, and confirm no leftover buttons or indicators)

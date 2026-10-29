@@ -1,7 +1,7 @@
 {
   "name": "clock-kinetic",
   "version": "1.0.0",
-  "entry": "clock-kinetic.js",
+  "entry": "clock-kinetic.ts",
   "description": "Compatibility entry \u2014 consolidated into clock-3d",
   "category": "animation",
   "tags": [

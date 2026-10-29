@@ -1,6 +1,6 @@
 {
   "name": "camera-journey",
   "version": "1.0.0",
-  "entry": "camera-journey.js",
+  "entry": "camera-journey.ts",
   "description": "Cinematic spline camera tour through a neon pillar field"
 }

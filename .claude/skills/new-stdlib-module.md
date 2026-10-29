@@ -62,7 +62,7 @@ Create `src/stdlib/__tests__/<module>.test.js`:
 
 ```js
 import { describe, it, expect } from 'vitest'
-import { doSomething, doSomethingElse } from '../<module>.js'
+import { doSomething, doSomethingElse } from '../<module>.ts'
 
 describe('<module>', () => {
   describe('doSomething', () => {

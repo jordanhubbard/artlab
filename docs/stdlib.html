@@ -188,7 +188,7 @@
   <!-- ═══════════════════════════════════════════════════════ stdlib/math -->
   <section id="math">
     <h2>stdlib/math</h2>
-    <div class="module-import"><code>import { lerp, clamp, ... } from '../../src/stdlib/math.js'</code></div>
+    <div class="module-import"><code>import { lerp, clamp, ... } from '../../src/stdlib/math.ts'</code></div>
 
     <h3>Constants</h3>
     <table>
@@ -246,7 +246,7 @@
   <!-- ═══════════════════════════════════════════════════ stdlib/geometry -->
   <section id="geometry">
     <h2>stdlib/geometry</h2>
-    <div class="module-import"><code>import { sphere, box, mesh, ... } from '../../src/stdlib/geometry.js'</code></div>
+    <div class="module-import"><code>import { sphere, box, mesh, ... } from '../../src/stdlib/geometry.ts'</code></div>
 
     <h3>Geometry factories</h3>
     <p>Each factory returns a <code>THREE.BufferGeometry</code> ready to pass to <code>mesh()</code>.</p>
@@ -314,7 +314,7 @@
     <h3><span class="fn">add</span>(scene, geometry, options) <span class="ret">→ THREE.Mesh</span></h3>
     <p>Create a mesh and immediately add it to the scene. Same options as <code>mesh()</code>.</p>
 
-    <pre><code><span class="kw">import</span> { sphere, mesh, add } <span class="kw">from</span> <span class="str">'../../src/stdlib/geometry.js'</span>
+    <pre><code><span class="kw">import</span> { sphere, mesh, add } <span class="kw">from</span> <span class="str">'../../src/stdlib/geometry.ts'</span>
 
 <span class="kw">export function</span> <span class="fn">setup</span>(ctx) {
   <span class="kw">const</span> earth = ctx.add(mesh(sphere(<span class="num">1</span>, <span class="num">64</span>), { color: <span class="num">0x2266cc</span> }))
@@ -324,7 +324,7 @@
   <!-- ══════════════════════════════════════════════════════ stdlib/lights -->
   <section id="lights">
     <h2>stdlib/lights</h2>
-    <div class="module-import"><code>import { ambient, point, directional, ... } from '../../src/stdlib/lights.js'</code></div>
+    <div class="module-import"><code>import { ambient, point, directional, ... } from '../../src/stdlib/lights.ts'</code></div>
     <p>All factory functions return the corresponding <code>THREE.Light</code> object. Add it to the scene with <code>ctx.add()</code>.</p>
 
     <table>
@@ -361,7 +361,7 @@
     <h3><span class="fn">addLight</span>(scene, light, position) <span class="ret">→ THREE.Light</span></h3>
     <p>Add a light to the scene and optionally set its position in one call.</p>
 
-    <pre><code><span class="kw">import</span> { directional, ambient } <span class="kw">from</span> <span class="str">'../../src/stdlib/lights.js'</span>
+    <pre><code><span class="kw">import</span> { directional, ambient } <span class="kw">from</span> <span class="str">'../../src/stdlib/lights.ts'</span>
 
 <span class="kw">export function</span> <span class="fn">setup</span>(ctx) {
   <span class="kw">const</span> sun = ctx.add(directional(<span class="num">0xffffff</span>, <span class="num">2</span>))
@@ -373,7 +373,7 @@
   <!-- ══════════════════════════════════════════════════════ stdlib/audio -->
   <section id="audio">
     <h2>stdlib/audio</h2>
-    <div class="module-import"><code>import * as audio from '../../src/stdlib/audio.js'</code></div>
+    <div class="module-import"><code>import * as audio from '../../src/stdlib/audio.ts'</code></div>
 
     <h3><span class="fn">start</span>() <span class="ret">→ Promise&lt;void&gt;</span></h3>
     <p>Resume the audio context. Must be called from a user-gesture handler (click, keydown). Idempotent.</p>
@@ -439,7 +439,7 @@
   <!-- ══════════════════════════════════════════════════════ stdlib/video -->
   <section id="video">
     <h2>stdlib/video</h2>
-    <div class="module-import"><code>import { webcam, videoTexture, chromaKey, ... } from '../../src/stdlib/video.js'</code></div>
+    <div class="module-import"><code>import { webcam, videoTexture, chromaKey, ... } from '../../src/stdlib/video.ts'</code></div>
     <p>Video input, file playback, and GPU shader effects for video textures.</p>
 
     <table>
@@ -488,7 +488,7 @@
       </tbody>
     </table>
 
-    <pre><code><span class="kw">import</span> { webcam, videoPlane } <span class="kw">from</span> <span class="str">'../../src/stdlib/video.js'</span>
+    <pre><code><span class="kw">import</span> { webcam, videoPlane } <span class="kw">from</span> <span class="str">'../../src/stdlib/video.ts'</span>
 
 <span class="kw">let</span> cam
 
@@ -505,7 +505,7 @@
   <!-- ═══════════════════════════════════════════ stdlib/physics/particles -->
   <section id="physics">
     <h2>stdlib/physics/particles</h2>
-    <div class="module-import"><code>import { createParticleWorld, emitter, forceField } from '../../src/stdlib/physics/particles.js'</code></div>
+    <div class="module-import"><code>import { createParticleWorld, emitter, forceField } from '../../src/stdlib/physics/particles.ts'</code></div>
     <p>CPU particle simulation with optional force fields. For rigid-body and orbital physics see
        <code>src/physics/</code> (Rapier3D wrappers).</p>
 
@@ -534,7 +534,7 @@
   <!-- ═════════════════════════════════════════════════════════ stdlib/ui -->
   <section id="ui">
     <h2>stdlib/ui</h2>
-    <div class="module-import"><code>import { label, hud, progressBar, tooltip } from '../../src/stdlib/ui.js'</code></div>
+    <div class="module-import"><code>import { label, hud, progressBar, tooltip } from '../../src/stdlib/ui.ts'</code></div>
     <p>Overlay widgets rendered as DOM elements via CSS2D on top of the Three.js canvas.</p>
 
     <h3><span class="fn">label</span>(obj, text, options) <span class="ret">→ { label, setText(s), setOpacity(v), detach() }</span></h3>
@@ -568,7 +568,7 @@
 
 <section id="sketch">
   <h2>Shared sketch helpers</h2>
-  <p>Import from <code>../../src/stdlib/sketch.js</code>. Both IDE and standalone
+  <p>Import from <code>../../src/stdlib/sketch.ts</code>. Both IDE and standalone
   hosts provide the same context. New advanced sketches can use checked JSDoc
   with <code>SketchContext&lt;State&gt;</code> from the runtime contracts.</p>
   <table><thead><tr><th>Helper</th><th>Purpose</th></tr></thead><tbody>

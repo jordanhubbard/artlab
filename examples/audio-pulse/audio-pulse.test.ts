@@ -1,0 +1,235 @@
+// @vitest-environment jsdom
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
+import * as Three from 'three'
+
+vi.mock('three', async () => await vi.importActual('three'))
+
+const fakeAnalyser = {
+  fftSize: 256,
+  frequencyBinCount: 128,
+  getByteFrequencyData: vi.fn(),
+  connect: vi.fn(),
+  smoothingTimeConstant: 0,
+}
+
+const fakeOscillator = {
+  type: 'sine',
+  frequency: { value: 0 },
+  connect: vi.fn(),
+  start: vi.fn(),
+  stop: vi.fn(),
+  disconnect: vi.fn(),
+}
+const fakeSilentGain = { gain: { value: 0, setValueAtTime: vi.fn() }, connect: vi.fn(), disconnect: vi.fn() }
+const fakeSourceGain = { gain: { value: 0, setValueAtTime: vi.fn() }, connect: vi.fn(), disconnect: vi.fn() }
+
+const fakeAudioCtx = {
+  createAnalyser: vi.fn(() => fakeAnalyser),
+  createMediaStreamSource: vi.fn(() => ({ connect: vi.fn() })),
+  createOscillator: vi.fn(() => fakeOscillator),
+  createGain: vi.fn()
+    .mockImplementationOnce(() => fakeSilentGain)
+    .mockImplementation(() => fakeSourceGain),
+  destination: {},
+  currentTime: 0,
+  resume: vi.fn(),
+  close: vi.fn(),
+}
+
+vi.stubGlobal('AudioContext', vi.fn(function () { return fakeAudioCtx }))
+
+// Mock getUserMedia to reject so the fallback oscillator path runs (avoiding
+// real media device access in tests)
+Object.defineProperty(navigator, 'mediaDevices', {
+  value: {
+    getUserMedia: vi.fn().mockRejectedValue(new Error('no mic in test')),
+  },
+  writable: true,
+  configurable: true,
+})
+
+function makeMockCtx(overrides = {}) {
+  const container = document.createElement('div')
+  document.body.appendChild(container)
+  const canvas = document.createElement('canvas')
+  canvas.getBoundingClientRect = () => ({ left:0, top:0, width:800, height:600 })
+  container.appendChild(canvas)
+  const scene = { add: vi.fn(), remove: vi.fn(), children: [] }
+  const camera = {
+    position: new Three.Vector3(0,2,6), lookAt: vi.fn(),
+    fov: 60, aspect: 1, updateProjectionMatrix: vi.fn(),
+    projectionMatrix: new Three.Matrix4(), matrixWorldInverse: new Three.Matrix4(),
+  }
+  return {
+    Three, scene, camera,
+    renderer: { domElement: canvas, shadowMap:{enabled:false}, setSize: vi.fn(), render: vi.fn() },
+    controls: { update: vi.fn(), target: new Three.Vector3(), enabled: true, enableDamping: true },
+    labelRenderer: { render: vi.fn(), setSize: vi.fn(), domElement: document.createElement('div') },
+    add: vi.fn(obj => { scene.children.push(obj); return obj }),
+    remove: vi.fn(),
+    setBloom: vi.fn(),
+    setHelp:  vi.fn(),
+    elapsed: 0,
+    sphere: (r=1,s=32) => new Three.SphereGeometry(r,s,s),
+    box: (w=1,h=1,d=1) => new Three.BoxGeometry(w,h,d),
+    cylinder: (rt=1,rb=1,h=1,s=32) => new Three.CylinderGeometry(rt,rb,h,s),
+    torus: (r=1,t=0.4,rs=8,ts=32) => new Three.TorusGeometry(r,t,rs,ts),
+    plane: (w=1,h=1) => new Three.PlaneGeometry(w,h),
+    cone: (r=1,h=1,s=32) => new Three.ConeGeometry(r,h,s),
+    mesh: (geo,opts={}) => new Three.Mesh(geo, new Three.MeshStandardMaterial(opts)),
+    ambient: (c=0x404040,i=1) => new Three.AmbientLight(c,i),
+    point: (c=0xffffff,i=1,d=0,dc=2) => new Three.PointLight(c,i,d,dc),
+    directional: (c=0xffffff,i=1) => new Three.DirectionalLight(c,i),
+    ...overrides,
+  }
+}
+
+describe('audio-pulse', () => {
+  let ctx
+  let mod
+
+  beforeEach(async () => {
+    document.body.innerHTML = ''
+    vi.clearAllMocks()
+    fakeAudioCtx.createGain
+      .mockReset()
+      .mockImplementationOnce(() => fakeSilentGain)
+      .mockImplementation(() => fakeSourceGain)
+    ctx = makeMockCtx()
+    mod = await import('./audio-pulse.ts')
+  })
+
+  afterEach(() => {
+    // Make sure teardown is always called to clean up event listeners
+    try { mod.teardown(ctx) } catch (_) {}
+  })
+
+  it('setup() does not throw', () => {
+    expect(() => mod.setup(ctx)).not.toThrow()
+  })
+
+  it('setup() creates the core sphere mesh at ctx._core', () => {
+    mod.setup(ctx)
+    expect(ctx._core).toBeInstanceOf(Three.Mesh)
+  })
+
+  it('setup() creates SAT_COUNT satellite meshes in ctx._sats', () => {
+    mod.setup(ctx)
+    expect(ctx._sats).toHaveLength(8)
+    expect(ctx._sats[0]).toBeInstanceOf(Three.Mesh)
+  })
+
+  it('setup() adds a start button to the container', () => {
+    mod.setup(ctx)
+    const container = ctx.renderer.domElement.parentElement
+    const btn = container.querySelector('#start-btn')
+    expect(btn).not.toBeNull()
+    expect(btn.textContent).toContain('Click to enable audio')
+  })
+
+  it('setup() initialises ctx._bassSpring to 0', () => {
+    mod.setup(ctx)
+    expect(ctx._bassSpring).toBe(0)
+  })
+
+  it('setup() initialises ctx._audio to null', () => {
+    mod.setup(ctx)
+    expect(ctx._audio).toBeNull()
+  })
+
+  it('update() runs 3 frames without audio (idle path) without throwing', () => {
+    mod.setup(ctx)
+    expect(() => {
+      mod.update(ctx, 0.016)
+      ctx.elapsed = 0.016
+      mod.update(ctx, 0.016)
+      ctx.elapsed = 0.032
+      mod.update(ctx, 0.016)
+    }).not.toThrow()
+  })
+
+  it('update() scales the core sphere on each frame', () => {
+    mod.setup(ctx)
+    mod.update(ctx, 0.1)
+    // After an update the scale should be > 1 (bass spring drives it)
+    const s = ctx._core.scale
+    expect(s.x).toBeGreaterThan(0)
+    expect(s.y).toBeGreaterThan(0)
+  })
+
+  it('update() calls setBloom on idle path', () => {
+    mod.setup(ctx)
+    mod.update(ctx, 0.016)
+    expect(ctx.setBloom).toHaveBeenCalledWith(0.6)
+  })
+
+  it('button click starts audio (async) without throwing', async () => {
+    mod.setup(ctx)
+    const container = ctx.renderer.domElement.parentElement
+    const btn = container.querySelector('#start-btn')
+    expect(btn).not.toBeNull()
+    // Click the button — the handler is async and catches mic rejection internally
+    btn.click()
+    // Flush microtask queue
+    await new Promise(resolve => setTimeout(resolve, 0))
+    // No assertion on ctx._audio because getUserMedia rejects and the fallback
+    // oscillator branch runs; we just verify no uncaught error was thrown.
+  })
+
+  it('fallback audio connects analyser to a silent sink so FFT is pulled', async () => {
+    mod.setup(ctx)
+    const btn = ctx.renderer.domElement.parentElement.querySelector('#start-btn')
+    btn.click()
+    await new Promise(resolve => setTimeout(resolve, 0))
+
+    expect(fakeAudioCtx.resume).toHaveBeenCalled()
+    expect(fakeAnalyser.connect).toHaveBeenCalledWith(fakeSilentGain)
+    expect(fakeSilentGain.connect).toHaveBeenCalledWith(fakeAudioCtx.destination)
+    expect(fakeOscillator.start).toHaveBeenCalled()
+    expect(ctx._audio.sourceType).toBe('fallback')
+    expect(ctx.renderer.domElement.parentElement.querySelector('#start-btn')).toBeNull()
+  })
+
+  it('silent analyser data still produces visible satellite motion after calibration', async () => {
+    fakeAnalyser.getByteFrequencyData.mockImplementation(arr => arr.fill(0))
+    mod.setup(ctx)
+    const btn = ctx.renderer.domElement.parentElement.querySelector('#start-btn')
+    btn.click()
+    await new Promise(resolve => setTimeout(resolve, 0))
+
+    for (let i = 0; i < 14; i++) {
+      ctx.elapsed = i * 0.1
+      mod.update(ctx, 0.1)
+    }
+
+    expect(ctx._sats.some(sat => sat.position.y > 0)).toBe(true)
+    expect(ctx._core.scale.x).toBeGreaterThan(1)
+  })
+
+  it('teardown() does not throw', () => {
+    mod.setup(ctx)
+    expect(() => mod.teardown(ctx)).not.toThrow()
+  })
+
+  it('teardown() removes the start button', () => {
+    mod.setup(ctx)
+    const container = ctx.renderer.domElement.parentElement
+    expect(container.querySelector('#start-btn')).not.toBeNull()
+    mod.teardown(ctx)
+    expect(container.querySelector('#start-btn')).toBeNull()
+  })
+
+  it('teardown() stops fallback audio nodes', async () => {
+    mod.setup(ctx)
+    const btn = ctx.renderer.domElement.parentElement.querySelector('#start-btn')
+    btn.click()
+    await new Promise(resolve => setTimeout(resolve, 0))
+    mod.teardown(ctx)
+
+    expect(fakeOscillator.stop).toHaveBeenCalled()
+    expect(fakeOscillator.disconnect).toHaveBeenCalled()
+    expect(fakeSilentGain.disconnect).toHaveBeenCalled()
+    expect(fakeAudioCtx.close).toHaveBeenCalled()
+    expect(ctx._audio).toBeNull()
+  })
+})

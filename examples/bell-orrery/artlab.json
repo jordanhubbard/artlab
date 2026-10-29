@@ -1,7 +1,7 @@
 {
   "name": "bell-orrery",
   "version": "1.0.0",
-  "entry": "bell-orrery.js",
+  "entry": "bell-orrery.ts",
   "description": "Five spatialized singing-bowl rings orbit a dark obelisk in a polyrhythmic orrery",
   "category": "audio",
   "tags": ["spatial-audio", "tone"]

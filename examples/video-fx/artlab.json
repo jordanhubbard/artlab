@@ -1,6 +1,6 @@
 {
   "name": "video-fx",
   "version": "1.0.0",
-  "entry": "video-fx.js",
+  "entry": "video-fx.ts",
   "description": "Live webcam comparison \u2014 raw, pixelate, glitch, Sobel edges, and canvas recording"
 }
