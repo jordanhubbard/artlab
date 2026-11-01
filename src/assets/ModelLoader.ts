@@ -2,8 +2,14 @@ import * as Three from 'three'
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js'
 import { OBJLoader } from 'three/addons/loaders/OBJLoader.js'
 import { DRACOLoader } from 'three/addons/loaders/DRACOLoader.js'
+import type { AudioAssetReader as AssetReader } from './AudioAssetLoader.ts'
+
+export interface ModelOptions { castShadow?: boolean; receiveShadow?: boolean; scale?: number }
 
 export class ModelLoader {
+  private readonly _gltfLoader: GLTFLoader
+  private readonly _objLoader: OBJLoader
+  private _cache = new Map<string, Three.Group>()
   constructor() {
     this._gltfLoader = new GLTFLoader()
     this._objLoader = new OBJLoader()
@@ -25,10 +31,11 @@ export class ModelLoader {
    * @param {number}  [options.scale]  uniform scale applied after loading
    * @returns {Promise<Three.Group>}
    */
-  async loadURL(url, options = {}) {
-    if (this._cache.has(url)) return this._cache.get(url).clone()
+  async loadURL(url: string, options: ModelOptions = {}): Promise<Three.Group> {
+    const cached = this._cache.get(url)
+    if (cached) return cached.clone()
 
-    const ext = url.split('?')[0].split('.').pop().toLowerCase()
+    const ext = url.split('?')[0].split('.').pop()?.toLowerCase()
     let group
 
     if (ext === 'glb' || ext === 'gltf') {
@@ -58,10 +65,11 @@ export class ModelLoader {
    * @param {number}  [options.scale]  uniform scale applied after loading
    * @returns {Promise<Three.Group>}
    */
-  async loadPackage(reader, path, options = {}) {
-    if (this._cache.has(path)) return this._cache.get(path).clone()
+  async loadPackage(reader: AssetReader, path: string, options: ModelOptions = {}): Promise<Three.Group> {
+    const cached = this._cache.get(path)
+    if (cached) return cached.clone()
 
-    const ext = path.split('?')[0].split('.').pop().toLowerCase()
+    const ext = path.split('?')[0].split('.').pop()?.toLowerCase()
     const blob = await reader.readAsset(path)
     const objectURL = URL.createObjectURL(blob)
 
@@ -93,7 +101,7 @@ export class ModelLoader {
    * @param {number} [targetSize=1]
    * @returns {Three.Group}
    */
-  normalize(group, targetSize = 1) {
+  normalize(group: Three.Group, targetSize = 1) {
     const box = new Three.Box3().setFromObject(group)
     const size = new Three.Vector3()
     box.getSize(size)
@@ -114,12 +122,12 @@ export class ModelLoader {
 
   // ── Internals ──────────────────────────────────────────────────────────────
 
-  _applyOptions(group, options) {
+  private _applyOptions(group: Three.Group, options: ModelOptions) {
     const { castShadow = false, receiveShadow = false, scale } = options
 
     if (castShadow || receiveShadow) {
       group.traverse(node => {
-        if (node.isMesh) {
+        if (node instanceof Three.Mesh) {
           if (castShadow)    node.castShadow    = true
           if (receiveShadow) node.receiveShadow = true
         }

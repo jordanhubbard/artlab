@@ -1,6 +1,13 @@
 import * as Three from 'three'
 import { ArtlabTextureLoader } from './TextureLoader.ts'
 import { AudioAssetLoader } from './AudioAssetLoader.ts'
+import type { AudioAssetReader as AssetReader } from './AudioAssetLoader.ts'
+
+export type AssetType = 'texture' | 'audio' | 'model' | 'text'
+export type Asset = Three.Texture | AudioBuffer | string
+export interface AssetOptions { fallbackColor?: number }
+export interface AssetProgress { loaded: number; total: number; current: string }
+interface AssetEntry { type: AssetType; options: AssetOptions; state: 'pending' | 'loading' | 'loaded' | 'error'; asset: Asset | null }
 
 /**
  * AssetManager — central registry for all assets in an Artlab package.
@@ -15,6 +22,15 @@ import { AudioAssetLoader } from './AudioAssetLoader.ts'
  *   const tex = mgr.get('textures/earth.jpg')
  */
 export class AssetManager {
+  private _registry = new Map<string, AssetEntry>()
+  private _cache = new Map<string, Asset>()
+  private _totalBytes = 0
+  private _loadedBytes = 0
+  private _progressCallbacks: ((progress: AssetProgress) => void)[] = []
+  private _packageReader: AssetReader | null = null
+  private _textureLoader: ArtlabTextureLoader | null = null
+  private _audioLoader: AudioAssetLoader | null = null
+  private _audioContext: AudioContext | null = null
   constructor() {
     this._registry         = new Map()  // path → { type, options, state, asset }
     this._cache            = new Map()  // path → asset  (LRU-capable, currently FIFO)
@@ -36,7 +52,7 @@ export class AssetManager {
    * If not set, falls back to URL-based loading.
    * @param {import('../packages/PackageReader.ts').PackageReader} reader
    */
-  setPackageReader(reader) {
+  setPackageReader(reader: AssetReader) {
     this._packageReader = reader
     // Invalidate cached loaders so they pick up the new reader
     this._textureLoader = null
@@ -49,7 +65,7 @@ export class AssetManager {
    * AudioEngine.audioContext is the usual source.
    * @param {AudioContext} ctx
    */
-  setAudioContext(ctx) {
+  setAudioContext(ctx: AudioContext) {
     this._audioContext = ctx
     this._audioLoader  = null   // rebuild with new context
   }
@@ -64,7 +80,7 @@ export class AssetManager {
    * @param {number}  [options.fallbackColor]  hex fallback for texture type
    * @returns {AssetManager} for chaining
    */
-  register(path, type, options = {}) {
+  register(path: string, type: AssetType, options: AssetOptions = {}) {
     this._registry.set(path, { type, options, state: 'pending', asset: null })
     return this
   }
@@ -76,7 +92,7 @@ export class AssetManager {
    * @param {(progress: {loaded:number, total:number, current:string}) => void} [onProgress]
    * @returns {Promise<void>}
    */
-  async loadAll(onProgress) {
+  async loadAll(onProgress?: (progress: AssetProgress) => void) {
     if (onProgress) this._progressCallbacks.push(onProgress)
 
     const entries = [...this._registry.entries()].filter(
@@ -97,15 +113,17 @@ export class AssetManager {
    * @param {object} [options]
    * @returns {Promise<any>}
    */
-  async load(path, type, options = {}) {
-    if (this._registry.has(path)) {
-      const entry = this._registry.get(path)
+  async load(path: string, type: AssetType, options: AssetOptions = {}): Promise<Asset | null> {
+    const existing = this._registry.get(path)
+    if (existing) {
+      const entry = existing
       if (entry.state === 'loaded') return entry.asset
       if (entry.state === 'loading') {
         // Wait for in-flight load by polling (simple approach)
-        return new Promise((resolve, reject) => {
+        return new Promise<Asset | null>((resolve, reject) => {
           const interval = setInterval(() => {
             const e = this._registry.get(path)
+            if (!e) { clearInterval(interval); reject(new Error(`AssetManager: asset removed: ${path}`)); return }
             if (e.state === 'loaded')  { clearInterval(interval); resolve(e.asset) }
             if (e.state === 'error')   { clearInterval(interval); reject(new Error(`AssetManager: failed to load ${path}`)) }
           }, 50)
@@ -114,6 +132,7 @@ export class AssetManager {
     }
     this.register(path, type, options)
     const entry = this._registry.get(path)
+    if (!entry) throw new Error(`AssetManager: registration failed: ${path}`)
     await this._loadEntry(path, entry)
     return entry.asset
   }
@@ -126,7 +145,7 @@ export class AssetManager {
    * @param {string} path
    * @returns {Three.Texture|AudioBuffer|string|null}
    */
-  get(path) {
+  get(path: string): Asset | null {
     const entry = this._registry.get(path)
     if (!entry || entry.state !== 'loaded') return null
     return entry.asset
@@ -134,7 +153,7 @@ export class AssetManager {
 
   // ── Internals ──────────────────────────────────────────────────────────────
 
-  async _loadEntry(path, entry) {
+  private async _loadEntry(path: string, entry: AssetEntry) {
     entry.state = 'loading'
     try {
       entry.asset = await this._loadByType(path, entry.type, entry.options)
@@ -142,12 +161,12 @@ export class AssetManager {
       this._cache.set(path, entry.asset)
     } catch (err) {
       entry.state = 'error'
-      console.warn(`[AssetManager] Failed to load "${path}":`, err.message)
+      console.warn(`[AssetManager] Failed to load "${path}":`, err instanceof Error ? err.message : String(err))
     }
     this._emitProgress(path)
   }
 
-  async _loadByType(path, type, options) {
+  private async _loadByType(path: string, type: AssetType, options: AssetOptions): Promise<Asset> {
     switch (type) {
       case 'texture':
         return this._getTextureLoader().loadAsync(path, options.fallbackColor)
@@ -191,7 +210,7 @@ export class AssetManager {
     return this._audioLoader
   }
 
-  _emitProgress(current) {
+  private _emitProgress(current: string) {
     const loaded = [...this._registry.values()].filter(e => e.state === 'loaded').length
     const total  = this._registry.size
     this._progressCallbacks.forEach(cb => cb({ loaded, total, current }))

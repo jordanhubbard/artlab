@@ -1,4 +1,5 @@
 import * as Three from 'three'
+import type { AudioAssetReader as AssetReader } from './AudioAssetLoader.ts'
 
 /**
  * ArtlabTextureLoader — loads textures from a PackageReader (zip) or by URL.
@@ -14,7 +15,10 @@ import * as Three from 'three'
  * - Used internally by AssetManager for 'texture' assets
  */
 export class ArtlabTextureLoader {
-  constructor(packageReader = null) {
+  private readonly _reader: AssetReader | null
+  private readonly _threeLoader: Three.TextureLoader
+  private _cache = new Map<string, Three.Texture>()
+  constructor(packageReader: AssetReader | null = null) {
     this._reader      = packageReader
     this._threeLoader = new Three.TextureLoader()
     this._cache       = new Map()
@@ -29,8 +33,9 @@ export class ArtlabTextureLoader {
    * @param {number} [fallbackColor=0x888888]  hex color for the placeholder
    * @returns {Three.Texture}  placeholder (real image swapped in async)
    */
-  load(path, fallbackColor = 0x888888) {
-    if (this._cache.has(path)) return this._cache.get(path)
+  load(path: string, fallbackColor = 0x888888): Three.Texture {
+    const cached = this._cache.get(path)
+    if (cached) return cached
 
     const placeholder = this._colorTexture(fallbackColor)
     this._cache.set(path, placeholder)
@@ -53,8 +58,9 @@ export class ArtlabTextureLoader {
    * @param {number} [fallbackColor=0x888888]
    * @returns {Promise<Three.Texture>}
    */
-  async loadAsync(path, fallbackColor = 0x888888) {
-    if (this._cache.has(path)) return this._cache.get(path)
+  async loadAsync(path: string, fallbackColor = 0x888888): Promise<Three.Texture> {
+    const cached = this._cache.get(path)
+    if (cached) return cached
 
     try {
       const tex = await this._loadAsync(path, fallbackColor)
@@ -69,19 +75,19 @@ export class ArtlabTextureLoader {
 
   // ── Internals ──────────────────────────────────────────────────────────────
 
-  async _loadAsync(path, fallbackColor) {
+  private async _loadAsync(path: string, fallbackColor: number): Promise<Three.Texture> {
     if (this._reader) {
       const blob = await this._reader.readAsset(path)
       return this._blobToTexture(blob)
     }
-    return new Promise((resolve, reject) => {
+    return new Promise<Three.Texture>((resolve, reject) => {
       this._threeLoader.load(path, resolve, undefined, reject)
     })
   }
 
-  async _blobToTexture(blob) {
+  private async _blobToTexture(blob: Blob): Promise<Three.Texture> {
     const url = URL.createObjectURL(blob)
-    return new Promise((resolve, reject) => {
+    return new Promise<Three.Texture>((resolve, reject) => {
       this._threeLoader.load(url, tex => {
         URL.revokeObjectURL(url)
         this._configureTexture(tex)
@@ -93,7 +99,7 @@ export class ArtlabTextureLoader {
     })
   }
 
-  _configureTexture(tex) {
+  private _configureTexture(tex: Three.Texture) {
     tex.colorSpace       = Three.SRGBColorSpace
     tex.minFilter        = Three.LinearMipmapLinearFilter
     tex.magFilter        = Three.LinearFilter
@@ -106,10 +112,11 @@ export class ArtlabTextureLoader {
    * Generate a canvas texture with a base color and subtle noise,
    * matching the procedural style of TextureManager._colorTexture().
    */
-  _colorTexture(hex, size = 256) {
+  private _colorTexture(hex: number, size = 256) {
     const canvas = document.createElement('canvas')
     canvas.width = canvas.height = size
     const ctx = canvas.getContext('2d')
+    if (!ctx) throw new Error('Texture fallback requires a 2D canvas context')
 
     const r = (hex >> 16) & 0xff
     const g = (hex >> 8)  & 0xff

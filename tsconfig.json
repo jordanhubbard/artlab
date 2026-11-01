@@ -16,6 +16,7 @@
     "src/stdlib/sketch.ts", "src/stdlib/scene/**/*.ts",
     "src/stdlib/scene.ts", "src/stdlib/media.ts",
     "src/assets/AudioAssetLoader.ts",
+    "src/assets/AssetManager.ts", "src/assets/ModelLoader.ts", "src/assets/TextureLoader.ts", "src/assets/index.ts",
     "examples/flow-field/flow-field.ts",
     "examples/shader-playground/shader-playground.ts",
     "examples/music-visualizer/music-visualizer.ts",
