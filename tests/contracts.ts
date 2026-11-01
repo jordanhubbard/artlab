@@ -6,6 +6,7 @@ import { OrbitalWorld } from '../src/physics/OrbitalWorld.ts'
 import { FluidWorld } from '../src/physics/FluidWorld.ts'
 import { PhysicsComposer } from '../src/physics/PhysicsComposer.ts'
 import { hud, label, progressBar, tooltip } from '../src/stdlib/ui.ts'
+import type { AudioEventSink } from '../src/audio/FFTPipeline.ts'
 
 type State = { speed: number }
 const sketch: Sketch<State> = {
@@ -72,3 +73,11 @@ hud({ position: 'middle-left' })
 progressBar().setValue('half')
 // @ts-expect-error Attached labels require a scene object.
 label(document.body, 'Invalid')
+
+declare const audioEvents: AudioEventSink
+audioEvents.emit('audio:beat', { band: 'bass', strength: 0.8 })
+audioEvents.emit('audio:fft', { bass: 0.2, mid: 0.3, high: 0.1, data: new Float32Array(512) })
+// @ts-expect-error Beat events use one of the detector's supported bands.
+audioEvents.emit('audio:beat', { band: 'treble', strength: 0.8 })
+// @ts-expect-error FFT data is a floating point decibel buffer.
+audioEvents.emit('audio:fft', { bass: 0.2, mid: 0.3, high: 0.1, data: [1, 2] })

@@ -5,7 +5,15 @@
  * Supports both singleton usage (AudioEngine.getInstance()) and direct
  * constructor instantiation — both work identically.
  */
+import type * as ToneTypes from 'tone'
 export class AudioEngine {
+  private static _instance?: AudioEngine
+  started = false
+  private _Tone: typeof ToneTypes | null = null
+  reverb: ToneTypes.Reverb | null = null
+  delay: ToneTypes.FeedbackDelay | null = null
+  limiter: ToneTypes.Limiter | null = null
+  master: ToneTypes.Volume | null = null
   constructor() {
     this.started   = false
     this._Tone     = null
@@ -37,7 +45,7 @@ export class AudioEngine {
       // latencyHint is a performance hint only; in some Tone.js / browser
       // combinations it's a getter-only property, so failing to set it must
       // not abort start().
-      try { Tone.getContext().latencyHint = 'playback' } catch (_) {}
+      try { Reflect.set(Tone.getContext(), 'latencyHint', 'playback') } catch (_) {}
 
       // Master chain: pad → delay → reverb → limiter → out
       this.limiter = new Tone.Limiter(-3).toDestination()
@@ -50,7 +58,7 @@ export class AudioEngine {
       this.started = true
       console.info('[audio] Tone.js started')
     } catch (e) {
-      console.warn('[audio] Tone.js unavailable:', e.message)
+      console.warn('[audio] Tone.js unavailable:', e instanceof Error ? e.message : String(e))
     }
   }
 
@@ -111,7 +119,8 @@ export class AudioEngine {
     // 3. Close the AudioContext — the only call that truly frees OS resources.
     //    suspend() only pauses; close() is required for a real release.
     try {
-      await Tone.context.close()
+      const context = Tone.getContext()
+      if ('close' in context && typeof context.close === 'function') await context.close()
     } catch (_) {}
 
     // 4. Give Tone.js a fresh context so the next scene can call start() again.
@@ -132,7 +141,7 @@ export class AudioEngine {
    * @param {AudioBuffer} buffer
    * @returns {AudioBufferSourceNode|null}  null if not yet started
    */
-  createSource(buffer) {
+  createSource(buffer: AudioBuffer) {
     const ctx = this.audioContext
     if (!ctx) return null
 
@@ -141,7 +150,8 @@ export class AudioEngine {
 
     // Connect into the Tone.js destination so master chain applies
     const dest = this._Tone?.getDestination()?.input ?? ctx.destination
-    source.connect(dest)
+    if (this._Tone) this._Tone.connect(source, dest)
+    else source.connect(ctx.destination)
 
     return source
   }

@@ -17,6 +17,8 @@
     "src/stdlib/scene.ts", "src/stdlib/media.ts",
     "src/stdlib/video.ts",
     "src/stdlib/ui.ts",
+    "src/audio/AudioEngine.ts", "src/audio/FFTPipeline.ts",
+    "src/audio/ArtlabAudio.ts",
     "examples/data-sculpture/data-sculpture.ts", "examples/ui-showcase/ui-showcase.ts",
     "examples/video-kaleidoscope/video-kaleidoscope.ts",
     "examples/chroma-mirror/chroma-mirror.ts",

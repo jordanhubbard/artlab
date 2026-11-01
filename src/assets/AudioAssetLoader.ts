@@ -11,10 +11,10 @@
 export interface AudioAssetReader { readAsset(path: string): Promise<Blob> }
 export interface PlaybackOptions { volume?: number; detune?: number; offset?: number; loop?: boolean }
 export class AudioAssetLoader {
-  private readonly _ctx: AudioContext
+  private readonly _ctx: BaseAudioContext
   private readonly _reader: AudioAssetReader | null
   private _cache = new Map<string, AudioBuffer>()
-  constructor(audioContext: AudioContext, packageReader: AudioAssetReader | null = null) {
+  constructor(audioContext: BaseAudioContext, packageReader: AudioAssetReader | null = null) {
     this._ctx    = audioContext
     this._reader = packageReader
     this._cache  = new Map()   // path → AudioBuffer

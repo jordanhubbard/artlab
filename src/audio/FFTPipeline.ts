@@ -12,11 +12,27 @@
  *   'audio:fft'   → { bass, mid, high, data }       (every frame)
  *   'audio:beat'  → { band, strength }              (on beat detection)
  */
+import type * as Tone from 'tone'
+import type { AudioEngine } from './AudioEngine.ts'
+export interface AudioEvents {
+  'audio:fft': { bass: number; mid: number; high: number; data: Float32Array }
+  'audio:beat': { band: 'bass' | 'mid'; strength: number }
+}
+export interface AudioEventSink { emit<K extends keyof AudioEvents>(event: K, value: AudioEvents[K]): void }
 export class FFTPipeline {
+  private _fft: Tone.FFT | null = null
+  private _meter: Tone.Meter | null = null
+  private readonly _bus: AudioEventSink | null
+  data = { bass: 0, mid: 0, treble: 0, amplitude: 0 }
+  private _beatThreshold = 0.35
+  private _beatCooldown = 0
+  private _beatCooldownFrames = 8
+  private _prevBass = 0
+  private _prevMid = 0
   /**
    * @param {import('../runtime/EventBus.ts').EventBus|null} [eventBus]
    */
-  constructor(eventBus = null) {
+  constructor(eventBus: AudioEventSink | null = null) {
     this._fft    = null
     this._meter  = null
     this._bus    = eventBus
@@ -37,7 +53,7 @@ export class FFTPipeline {
    * Must be called after AudioEngine.start() (i.e. after user gesture).
    * @param {import('./AudioEngine.ts').AudioEngine} audioEngine
    */
-  connect(audioEngine) {
+  connect(audioEngine: AudioEngine) {
     if (!audioEngine.started) return
     const Tone = audioEngine.Tone
     if (!Tone) return
@@ -49,7 +65,7 @@ export class FFTPipeline {
       Tone.getDestination().connect(this._meter)
       console.info('[audio] FFTPipeline connected')
     } catch (e) {
-      console.warn('[audio] FFTPipeline failed:', e.message)
+      console.warn('[audio] FFTPipeline failed:', e instanceof Error ? e.message : String(e))
     }
   }
 
@@ -58,14 +74,14 @@ export class FFTPipeline {
    * analyzer without sending it to the speakers. Safe to call after connect().
    * @param {any} toneNode — any Tone.js node with .connect()
    */
-  connectInput(toneNode) {
-    if (!this._fft || !toneNode) return
+  connectInput(toneNode: Pick<Tone.ToneAudioNode, 'connect'> | null) {
+    if (!this._fft || !this._meter || !toneNode) return
     try {
       toneNode.connect(this._fft)
       toneNode.connect(this._meter)
       console.info('[audio] FFTPipeline input source connected')
     } catch (e) {
-      console.warn('[audio] FFTPipeline.connectInput failed:', e.message)
+      console.warn('[audio] FFTPipeline.connectInput failed:', e instanceof Error ? e.message : String(e))
     }
   }
 
@@ -76,14 +92,14 @@ export class FFTPipeline {
    * Updates this.data and, if an EventBus was provided, emits events.
    */
   update() {
-    if (!this._fft) return
+    if (!this._fft || !this._meter) return
 
     try {
       const values = this._fft.getValue()   // Float32Array of dB values
 
       // Convert dB → linear (0..1), then average frequency bands.
       // 512 bins, Nyquist ~22050 Hz → each bin ≈ 43 Hz
-      const toLinear = (db) => Math.pow(10, Math.max(-100, db) / 20)
+      const toLinear = (db: number) => Math.pow(10, Math.max(-100, db) / 20)
 
       // Bass: bins 0–5   (~0–215 Hz)
       let bass = 0
@@ -130,8 +146,8 @@ export class FFTPipeline {
 
   // ── EventBus integration ───────────────────────────────────────────────────
 
-  _emitFFT(rawData) {
-    this._bus.emit('audio:fft', {
+  private _emitFFT(rawData: Float32Array) {
+    this._bus?.emit('audio:fft', {
       bass:      this.data.bass,
       mid:       this.data.mid,
       high:      this.data.treble,    // 'high' alias for external consumers
@@ -151,10 +167,10 @@ export class FFTPipeline {
     const midRise  = this.data.mid  - this._prevMid
 
     if (this.data.bass > this._beatThreshold && bassRise > 0.05) {
-      this._bus.emit('audio:beat', { band: 'bass', strength: this.data.bass })
+      this._bus?.emit('audio:beat', { band: 'bass', strength: this.data.bass })
       this._beatCooldown = this._beatCooldownFrames
     } else if (this.data.mid > this._beatThreshold && midRise > 0.04) {
-      this._bus.emit('audio:beat', { band: 'mid',  strength: this.data.mid })
+      this._bus?.emit('audio:beat', { band: 'mid',  strength: this.data.mid })
       this._beatCooldown = this._beatCooldownFrames
     }
 

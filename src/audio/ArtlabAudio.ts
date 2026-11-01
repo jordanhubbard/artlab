@@ -1,6 +1,8 @@
 import { AudioEngine }      from './AudioEngine.ts'
 import { FFTPipeline }      from './FFTPipeline.ts'
 import { AudioAssetLoader } from '../assets/AudioAssetLoader.ts'
+import type { AudioEventSink } from './FFTPipeline.ts'
+import type { AudioAssetReader } from '../assets/AudioAssetLoader.ts'
 
 /**
  * ArtlabAudio — high-level audio facade for Artlab packages.
@@ -19,11 +21,17 @@ import { AudioAssetLoader } from '../assets/AudioAssetLoader.ts'
  *   audio.engine.createSource(buf).start()
  */
 export class ArtlabAudio {
+  private readonly _bus: AudioEventSink | null
+  private readonly _engine: AudioEngine
+  private readonly _fft: FFTPipeline
+  private _assetLoader: AudioAssetLoader | null = null
+  private readonly _reader: AudioAssetReader | null
+  private _started = false
   /**
    * @param {import('../runtime/EventBus.ts').EventBus|null} [eventBus]
    * @param {import('../packages/PackageReader.ts').PackageReader|null} [packageReader]
    */
-  constructor(eventBus = null, packageReader = null) {
+  constructor(eventBus: AudioEventSink | null = null, packageReader: AudioAssetReader | null = null) {
     this._bus         = eventBus
     this._engine      = new AudioEngine()
     this._fft         = new FFTPipeline(eventBus)
@@ -68,7 +76,7 @@ export class ArtlabAudio {
    * @param {string} path  package-relative path or URL
    * @returns {Promise<AudioBuffer>}
    */
-  async loadSound(path) {
+  async loadSound(path: string) {
     if (!this._assetLoader) throw new Error('ArtlabAudio: call start() first')
     return this._assetLoader.load(path)
   }
