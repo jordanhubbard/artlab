@@ -22,3 +22,11 @@ ctx.scope.own({ stop() {} })
 
 // @ts-expect-error ctx.add overrides the multi-argument geometry.add helper.
 ctx.add(ctx.scene, ctx.box())
+
+ctx.scope.set(ctx.camera, 'near', 0.1)
+// @ts-expect-error Property restoration must preserve the property's value type.
+ctx.scope.set(ctx.camera, 'near', 'close')
+// @ts-expect-error Scope attachment requires a scene object.
+ctx.scope.add(ctx, { dispose() {} })
+// @ts-expect-error Geometry helpers retain their actual implementation arity.
+ctx.sphere(1, 32, 32)

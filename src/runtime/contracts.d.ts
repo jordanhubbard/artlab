@@ -13,30 +13,11 @@ export interface RuntimeBindings {
   loadTexture?(path: string): Three.Texture
 }
 
-export interface ResourceScope {
-  own<T extends Three.Object3D | { dispose(): unknown }>(resource: T): T
-  defer(cleanup: () => unknown): () => unknown
-  listen(target: EventTarget, type: string, handler: EventListenerOrEventListenerObject, options?: AddEventListenerOptions | boolean): EventListenerOrEventListenerObject
-  dispose(): Promise<void>
-}
+export type ResourceScope = import('../stdlib/scene/ResourceScope.ts').ResourceScope
 
 export type MeshOptions = import('../stdlib/geometry.ts').MeshOptions
 
-export interface ArtlabContext extends RuntimeBindings {
-  Three: typeof Three
-  elapsed: number
-  scope: ResourceScope
-  add<T extends Three.Object3D>(object: T): T
-  remove<T extends Three.Object3D>(object: T): T
-  box(width?: number, height?: number, depth?: number): Three.BoxGeometry
-  sphere(radius?: number, widthSegments?: number, heightSegments?: number): Three.SphereGeometry
-  torus(radius?: number, tube?: number, radialSegments?: number, tubularSegments?: number): Three.TorusGeometry
-  mesh<G extends Three.BufferGeometry>(geometry: G, options?: MeshOptions): Three.Mesh<G, Three.MeshStandardMaterial>
-  ambient(color?: Three.ColorRepresentation, intensity?: number): Three.AmbientLight
-  point(color?: Three.ColorRepresentation, intensity?: number, distance?: number, decay?: number): Three.PointLight
-  lerp(a: number, b: number, t: number): number
-  clamp(value: number, min: number, max: number): number
-}
+export type ArtlabContext = import('./SceneContext.ts').SceneContext
 
 export type SketchContext<State> = ArtlabContext & { state: State }
 export interface Sketch<State> {

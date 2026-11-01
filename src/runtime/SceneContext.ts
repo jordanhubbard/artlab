@@ -4,15 +4,41 @@ import * as geometry from '../stdlib/geometry.ts'
 import * as lights from '../stdlib/lights.ts'
 import * as math from '../stdlib/math.ts'
 import { ResourceScope } from '../stdlib/scene/ResourceScope.ts'
+import type { RuntimeBindings } from './contracts'
+
+type StandardLibrary = Omit<typeof geometry & typeof lights & typeof math, 'add'>
+const StandardLibraryContext = class {
+  constructor() { Object.assign(this, geometry, lights, math) }
+} as new () => StandardLibrary
 
 /** The shared public context for editor previews and standalone compositions. */
-export class SceneContext {
+export class SceneContext extends StandardLibraryContext {
+  readonly Three = Three
+  readonly scene: RuntimeBindings['scene']
+  readonly camera: RuntimeBindings['camera']
+  readonly renderer: RuntimeBindings['renderer']
+  readonly controls: RuntimeBindings['controls']
+  readonly labelRenderer: RuntimeBindings['labelRenderer']
+  readonly setBloom: RuntimeBindings['setBloom']
+  readonly setHelp: RuntimeBindings['setHelp']
+  readonly loadTexture: NonNullable<RuntimeBindings['loadTexture']>
+  elapsed = 0
+  _added: Three.Object3D[] = []
+  _userVars: Record<string, unknown> = {}
+  readonly add: <T extends Three.Object3D>(object: T) => T
+  readonly remove: (object: Three.Object3D) => void
+  readonly vec2: (x?: number, y?: number) => Three.Vector2
+  readonly vec3: (x?: number, y?: number, z?: number) => Three.Vector3
+  readonly vec4: (x?: number, y?: number, z?: number, w?: number) => Three.Vector4
+  readonly color: (r?: Three.ColorRepresentation, g?: number, b?: number) => Three.Color
+  readonly quat: (x?: number, y?: number, z?: number, w?: number) => Three.Quaternion
+  readonly range: (a: number, b?: number) => number[]
   #resources = new ResourceScope()
   get scope() { return this.#resources }
 
   /** @param {import('./contracts').RuntimeBindings} bindings */
-  constructor({ scene, camera, renderer, controls, labelRenderer, setBloom, setHelp, loadTexture }) {
-    Object.assign(this, geometry, lights, math)
+  constructor({ scene, camera, renderer, controls, labelRenderer, setBloom, setHelp, loadTexture }: RuntimeBindings) {
+    super()
     this.Three = Three
     this.scene = scene
     this.camera = camera
@@ -27,7 +53,7 @@ export class SceneContext {
     this.setHelp = setHelp ?? (() => {})
     this.loadTexture = loadTexture ?? (path => new Three.TextureLoader().load(path))
     // Arrow functions preserve the public API's existing destructuring convention.
-    this.add = /** @template {Three.Object3D} T @param {T} object */ object => {
+    this.add = <T extends Three.Object3D>(object: T): T => {
       if (this.#resources.disposed) { this.#resources.own(object); return object }
       scene.add(object)
       if (!this._added.includes(object)) this._added.push(object)

@@ -1,5 +1,25 @@
+import type * as Three from 'three'
+
+type OwnedResource = Three.Object3D | { dispose(): unknown }
+type SceneHost = { add(object: Three.Object3D): unknown; remove(object: Three.Object3D): unknown }
+type RenderObject = Three.Object3D & {
+  geometry?: Three.BufferGeometry
+  material?: Three.Material | Three.Material[]
+  element?: HTMLElement
+  shadow?: { dispose(): void }
+  dispose?(): void
+}
+function isTexture(value: unknown): value is Three.Texture {
+  return typeof value === 'object' && value !== null && 'isTexture' in value && value.isTexture === true
+}
+
 /** Own a scene's objects, resources, listeners, and temporary settings. */
 export class ResourceScope {
+  disposed = false
+  private _cleanup: (() => unknown)[] = []
+  private _owned = new Set<OwnedResource>()
+  private _released = new WeakSet<object>()
+  private _completion?: Promise<void>
   constructor() {
     this.disposed = false
     this._cleanup = []
@@ -8,14 +28,14 @@ export class ResourceScope {
   }
 
   /** @param {() => unknown} cleanup */
-  defer(cleanup) {
+  defer<T>(cleanup: () => T): (() => T) | T {
     if (this.disposed) return cleanup()
     this._cleanup.push(cleanup)
     return cleanup
   }
 
   /** @template {import('three').Object3D | { dispose(): unknown }} T @param {T} resource @returns {T} */
-  own(resource) {
+  own<T extends OwnedResource>(resource: T): T {
     if (resource && !this._owned.has(resource)) {
       this._owned.add(resource)
       this.defer(() => this._release(resource))
@@ -23,7 +43,7 @@ export class ResourceScope {
     return resource
   }
 
-  add(ctx, object) {
+  add<T extends Three.Object3D>(ctx: SceneHost, object: T): T {
     ctx.add(object)
     this.own(object)
     this.defer(() => ctx.remove(object))
@@ -31,30 +51,31 @@ export class ResourceScope {
   }
 
   /** @param {EventTarget} target @param {string} type @param {EventListener} handler @param {AddEventListenerOptions|boolean} [options] */
-  listen(target, type, handler, options) {
+  listen(target: EventTarget, type: string, handler: EventListenerOrEventListenerObject, options?: AddEventListenerOptions | boolean) {
     target.addEventListener(type, handler, options)
     this.defer(() => target.removeEventListener(type, handler, options))
     return handler
   }
 
-  append(parent, element) {
+  append<T extends Element>(parent: Node, element: T): T {
     parent.appendChild(element)
     this.defer(() => element.remove())
     return element
   }
 
-  set(target, key, value) {
+  set<T, K extends keyof T>(target: T, key: K, value: T[K]): T[K] {
     const previous = target[key]
     target[key] = value
     this.defer(() => { target[key] = previous })
     return value
   }
 
-  _release(resource) {
-    if (!resource || this._released.has(resource)) return
+  private _release(resource: unknown): unknown {
+    if (!resource || typeof resource !== 'object' || this._released.has(resource)) return
     this._released.add(resource)
-    if (resource.isObject3D) {
-      resource.traverse(object => {
+    if ('isObject3D' in resource && resource.isObject3D === true) {
+      const root = resource as RenderObject
+      root.traverse((object: RenderObject) => {
         if (object !== resource && this._released.has(object)) return
         this._released.add(object)
         this._release(object.geometry)
@@ -63,19 +84,20 @@ export class ResourceScope {
         object.shadow?.dispose()
         object.dispose?.()
       })
-      resource.removeFromParent()
+      root.removeFromParent()
     } else {
-      if (resource.isMaterial) {
+      if ('isMaterial' in resource && resource.isMaterial === true) {
         for (const value of Object.values(resource)) {
-          if (value?.isTexture) this._release(value)
+          if (isTexture(value)) this._release(value)
         }
-        for (const uniform of Object.values(resource.uniforms ?? {})) {
+        const uniforms = 'uniforms' in resource ? resource.uniforms : undefined
+        for (const uniform of Object.values((uniforms ?? {}) as Record<string, Three.IUniform<unknown>>)) {
           for (const value of [uniform.value].flat()) {
-            if (value?.isTexture) this._release(value)
+            if (isTexture(value)) this._release(value)
           }
         }
       }
-      return resource.dispose?.()
+      if ('dispose' in resource && typeof resource.dispose === 'function') return resource.dispose()
     }
   }
 
@@ -83,8 +105,8 @@ export class ResourceScope {
   dispose() {
     if (this.disposed) return this._completion ?? Promise.resolve()
     this.disposed = true
-    const pending = []
-    const errors = []
+    const pending: unknown[] = []
+    const errors: unknown[] = []
     for (const cleanup of this._cleanup.reverse()) {
       try { pending.push(cleanup()) } catch (error) { errors.push(error) }
     }

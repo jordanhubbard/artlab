@@ -10,5 +10,5 @@
     "skipLibCheck": true,
     "types": ["node", "vitest/globals"]
   },
-  "include": ["src/runtime/contracts.d.ts", "tests/contracts.ts", "src/stdlib/math.ts", "src/stdlib/geometry.ts", "src/stdlib/lights.ts", "src/stdlib/scene/InstanceField.ts", "src/stdlib/scene/ShaderSurface.ts"]
+  "include": ["src/runtime/contracts.d.ts", "src/runtime/SceneContext.ts", "src/stdlib/scene/ResourceScope.ts", "tests/contracts.ts", "src/stdlib/math.ts", "src/stdlib/geometry.ts", "src/stdlib/lights.ts", "src/stdlib/scene/InstanceField.ts", "src/stdlib/scene/ShaderSurface.ts"]
 }
