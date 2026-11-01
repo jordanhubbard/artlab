@@ -31,6 +31,20 @@ import 'monaco-editor/esm/vs/language/typescript/monaco.contribution.js'
 import editorWorker from 'monaco-editor/esm/vs/editor/editor.worker.js?worker'
 import jsonWorker from 'monaco-editor/esm/vs/language/json/json.worker.js?worker'
 import tsWorker from 'monaco-editor/esm/vs/language/typescript/ts.worker.js?worker'
+import { parseManifest, readSavedProject, parseTutorial, errorMessage } from './WorkspaceData.ts'
+import type { PackageManifest, Tutorial, TutorialPage } from './WorkspaceData.ts'
+import type { Diagnostic } from './ArtlabLinter.ts'
+import type {} from './browser.ts'
+
+type Example = typeof EXAMPLES[number]
+type IDEDiagnostic = Pick<Diagnostic, 'message' | 'severity'> & Partial<Pick<Diagnostic, 'file' | 'line' | 'col'>> & { runtime?: boolean }
+type ContextItem = '---' | { label: string; danger?: boolean; action(): unknown }
+
+function requiredElement<T extends HTMLElement = HTMLElement>(id: string): T {
+  const element = document.getElementById(id)
+  if (!element) throw new Error(`Missing IDE element: ${id}`)
+  return element as T
+}
 
 globalThis.MonacoEnvironment = {
   getWorker(_workerId, label) {
@@ -121,26 +135,13 @@ import { EXAMPLES, EXAMPLE_ALIASES } from '../examples/catalog.ts'
 
 // ── Constants ─────────────────────────────────────────────────────────────────
 
-/**
- * Parse and lightly validate an artlab.json manifest string.
- * Returns the parsed object; throws a descriptive TypeError on problems.
- */
-function parseManifest(text) {
-  let obj
-  try { obj = JSON.parse(text) } catch (e) { throw new TypeError(`JSON parse error: ${e.message}`) }
-  if (!obj || typeof obj !== 'object') throw new TypeError('Manifest must be a JSON object')
-  if (typeof obj.name !== 'string' || !obj.name.trim()) throw new TypeError('"name" must be a non-empty string')
-  if (typeof obj.entry !== 'string' || !obj.entry.trim()) throw new TypeError('"entry" must be a non-empty string')
-  return obj
-}
-
 const DEBOUNCE_MS = 900
 
 // ── Utilities ─────────────────────────────────────────────────────────────────
 
-function debounce(fn, ms) {
-  let t = null
-  return (...a) => { clearTimeout(t); t = setTimeout(() => fn(...a), ms) }
+function debounce<A extends unknown[]>(fn: (...args: A) => unknown, ms: number) {
+  let t: ReturnType<typeof setTimeout> | undefined
+  return (...a: A) => { clearTimeout(t); t = setTimeout(() => fn(...a), ms) }
 }
 
 function ts() {
@@ -152,11 +153,11 @@ async function getJSZip() {
   return JSZip
 }
 
-function isKeyboardActivation(e) {
+function isKeyboardActivation(e: KeyboardEvent) {
   return e.key === 'Enter' || e.key === ' '
 }
 
-function bindKeyboardActivation(el, fn) {
+function bindKeyboardActivation(el: HTMLElement, fn: (event: KeyboardEvent) => unknown) {
   el.addEventListener('keydown', e => {
     if (!isKeyboardActivation(e)) return
     e.preventDefault()
@@ -164,7 +165,7 @@ function bindKeyboardActivation(el, fn) {
   })
 }
 
-function makeButtonLike(el, label, fn) {
+function makeButtonLike(el: HTMLElement, label: string, fn?: (event: MouseEvent | KeyboardEvent) => unknown) {
   el.setAttribute('role', 'button')
   el.tabIndex = 0
   if (label) el.setAttribute('aria-label', label)
@@ -176,8 +177,8 @@ function makeButtonLike(el, label, fn) {
 
 // ── Toast ──────────────────────────────────────────────────────────────────────
 
-let _toastTimer = null
-function toast(msg, ms = 2500) {
+let _toastTimer: ReturnType<typeof setTimeout> | undefined
+function toast(msg: string, ms = 2500) {
   const el = document.getElementById('toast')
   if (!el) return
   el.textContent = msg
@@ -189,7 +190,8 @@ function toast(msg, ms = 2500) {
 // ── Context menu ───────────────────────────────────────────────────────────────
 
 const ctxMenu = document.getElementById('ctx-menu')
-function showCtxMenu(x, y, items) {
+function showCtxMenu(x: number, y: number, items: ContextItem[]) {
+  if (!ctxMenu) return
   ctxMenu.innerHTML = ''
   for (const item of items) {
     if (item === '---') {
@@ -215,15 +217,40 @@ function showCtxMenu(x, y, items) {
   ctxMenu.style.top  = Math.min(y, vh - mh - 10) + 'px'
   ctxMenu.setAttribute('role', 'menu')
   ctxMenu.classList.add('open')
-  ctxMenu.querySelector('[role="menuitem"]')?.focus()
+  ctxMenu.querySelector<HTMLElement>('[role="menuitem"]')?.focus()
 }
-function hideCtxMenu() { ctxMenu.classList.remove('open') }
+function hideCtxMenu() { ctxMenu?.classList.remove('open') }
 document.addEventListener('click', hideCtxMenu)
 document.addEventListener('keydown', e => { if (e.key === 'Escape') hideCtxMenu() })
 
 // ── IDE class ─────────────────────────────────────────────────────────────────
 
 export class IDE {
+  get diagnostics(): readonly IDEDiagnostic[] { return this._errors }
+  _monaco: typeof monacoApi | null = null
+  editor: monacoApi.editor.IStandaloneCodeEditor | null = null
+  manifest: PackageManifest | null = null
+  artFiles = new Map<string, string>()
+  assetFiles = new Map<string, Uint8Array<ArrayBuffer>>()
+  readonly library: SourceLibrary
+  readonly compiler: ModuleCompiler
+  private _buildId = 0
+  private _exampleLoadId = 0
+  private _openFiles: string[] = []
+  private _activeFile: string | null = null
+  private _dirty = new Set<string>()
+  private _models = new Map<string, monacoApi.editor.ITextModel>()
+  private _viewStates = new Map<string, monacoApi.editor.ICodeEditorViewState | null>()
+  preview: PreviewPane | null = null
+  private _paused = false
+  private _fpsSamples: number[] = []
+  private _lastFpsTs = 0
+  private _errors: IDEDiagnostic[] = []
+  private _compile: () => void
+  private _fromExample = false
+  private _sourceBrowser?: SourceBrowser
+  private _tut?: TutorialMgr
+  private _examplesReturnFocus: HTMLElement | null = null
   constructor() {
     // Monaco
     this._monaco    = null
@@ -291,15 +318,15 @@ export class IDE {
     this._setBuild('', '—')
     try {
       await this._bootMonaco()
-      document.getElementById('monaco-loading').style.display = 'none'
-      document.getElementById('editor-placeholder').style.display = 'flex'
+      requiredElement('monaco-loading').style.display = 'none'
+      requiredElement('editor-placeholder').style.display = 'flex'
     } catch (err) {
-      document.getElementById('monaco-loading').textContent =
-        'Monaco failed — check network. ' + err.message
+      requiredElement('monaco-loading').textContent =
+        'Monaco failed — check network. ' + errorMessage(err)
     }
 
     this._buildExamplesNav()
-    this._sourceBrowser = new SourceBrowser(document.getElementById('file-tree'), this.library, path => this.openSource(path))
+    this._sourceBrowser = new SourceBrowser(requiredElement('file-tree'), this.library, path => this.openSource(path))
     this._initTutorial()
 
     // Deep-link: load example from URL hash; fall back to saved project.
@@ -307,7 +334,8 @@ export class IDE {
     const _loadFromHash = () => {
       const name = location.hash.slice(1)
       if (!name) return false
-      const ex = EXAMPLES.find(e => e.name === (EXAMPLE_ALIASES[name] ?? name))
+      const aliases = new Map(Object.entries(EXAMPLE_ALIASES))
+      const ex = EXAMPLES.find(e => e.name === (aliases.get(name) ?? name))
       if (ex) {
         if (!this._restoreProject(ex.name)) this._loadExample(ex)
         return true
@@ -330,13 +358,16 @@ export class IDE {
         const path = decodeURIComponent(resource.path.replace('/workspace/', ''))
         if (!this.artFiles.has(path)) return false
         this.openFile(path)
-        if (selection) this.editor.setPosition({ lineNumber: selection.startLineNumber ?? selection.lineNumber, column: selection.startColumn ?? selection.column })
+        if (selection) this.editor?.setPosition({
+          lineNumber: 'startLineNumber' in selection ? selection.startLineNumber : selection.lineNumber,
+          column: 'startColumn' in selection ? selection.startColumn : selection.column,
+        })
         return true
       },
     })
   }
 
-  _configureJS(monaco) {
+  _configureJS(monaco: typeof monacoApi) {
     const jsDefaults = monaco.languages.typescript.javascriptDefaults
 
     // Show syntax errors, not type errors (prevents confusing squiggles for
@@ -361,7 +392,7 @@ export class IDE {
     jsDefaults.addExtraLib(TONE_TYPES_DTS, 'artlab://types/tone.d.ts')
   }
 
-  _defineTheme(monaco) {
+  _defineTheme(monaco: typeof monacoApi) {
     monaco.editor.defineTheme('artlab-dark', {
       base: 'vs-dark', inherit: true,
       rules: [
@@ -394,13 +425,13 @@ export class IDE {
     })
   }
 
-  _createEditor(monaco) {
-    const wrap    = document.getElementById('monaco-wrap')
+  _createEditor(monaco: typeof monacoApi) {
+    const wrap    = requiredElement('monaco-wrap')
     const wrapDiv = document.createElement('div')
     wrapDiv.className = 'monaco-editor-wrapper'
     wrap.appendChild(wrapDiv)
 
-    this.editor = monaco.editor.create(wrapDiv, {
+    const editor = this.editor = monaco.editor.create(wrapDiv, {
       theme:               'artlab-dark',
       language:            JS_LANG,
       value:               '',
@@ -435,7 +466,7 @@ export class IDE {
     // Auto-compile on change
     this.editor.onDidChangeModelContent(() => {
       if (this._activeFile) {
-        this.artFiles.set(this._activeFile, this.editor.getValue())
+        this.artFiles.set(this._activeFile, editor.getValue())
         this._dirty.add(this._activeFile)
         this._renderTabs()
       }
@@ -458,7 +489,7 @@ export class IDE {
     }
     let dirHandle
     try { dirHandle = await window.showDirectoryPicker({ mode: 'read' }) } catch (e) {
-      if (e.name !== 'AbortError') toast(`Could not open directory: ${e.message}`, 4000)
+      if (!(e instanceof DOMException && e.name === 'AbortError')) toast(`Could not open directory: ${errorMessage(e)}`, 4000)
       return
     }
 
@@ -471,7 +502,7 @@ export class IDE {
     try {
       manifest = parseManifest(await (await manifestHandle.getFile()).text())
     } catch (e) {
-      toast(`Invalid manifest: ${e.message}`, 4000); return
+      toast(`Invalid manifest: ${errorMessage(e)}`, 4000); return
     }
 
     this.artFiles.clear()
@@ -497,7 +528,7 @@ export class IDE {
     await this.compile()
   }
 
-  async _readDirHandle(dirHandle, prefix, manifest) {
+  async _readDirHandle(dirHandle: FileSystemDirectoryHandle, prefix: string, manifest: PackageManifest): Promise<void> {
     for await (const [name, handle] of dirHandle.entries()) {
       const path = prefix ? `${prefix}/${name}` : name
       if (handle.kind === 'directory') {
@@ -514,13 +545,13 @@ export class IDE {
     }
   }
 
-  async loadPackage(file) {
+  async loadPackage(file: File) {
     this._exampleLoadId++
     this._buildId++
     const JSZip = await getJSZip()
     let zip
     try { zip = await JSZip.loadAsync(file) } catch (e) {
-      toast(`Failed to open zip: ${e.message}`, 4000); return
+      toast(`Failed to open zip: ${errorMessage(e)}`, 4000); return
     }
 
     const manifestEntry = zip.file('artlab.json')
@@ -530,7 +561,7 @@ export class IDE {
     try {
       manifest = parseManifest(await manifestEntry.async('string'))
     } catch (e) {
-      toast(`Invalid manifest: ${e.message}`, 4000); return
+      toast(`Invalid manifest: ${errorMessage(e)}`, 4000); return
     }
 
     // Load all files
@@ -545,7 +576,7 @@ export class IDE {
       if (isText) {
         this.artFiles.set(path, await entry.async('string'))
       } else {
-        this.assetFiles.set(path, await entry.async('uint8array'))
+        this.assetFiles.set(path, (await entry.async('uint8array')).slice())
       }
     }
 
@@ -569,7 +600,7 @@ export class IDE {
 
   // ── File operations ─────────────────────────────────────────────────────────
 
-  openFile(filename) {
+  openFile(filename: string) {
     if (!this.artFiles.has(filename)) return
 
     // Save view state for current
@@ -593,25 +624,25 @@ export class IDE {
                    : filename.endsWith('.css')  ? 'css'
                    : filename.endsWith('.html') ? 'html'
                    : 'plaintext'
-        model = this._monaco.editor.createModel(src, lang, this._monaco.Uri.parse(`file:///workspace/${filename}`))
+        model = monacoApi.editor.createModel(src, lang, monacoApi.Uri.parse(`file:///workspace/${filename}`))
         this._models.set(filename, model)
       }
       this.editor.setModel(model)
       const vs = this._viewStates.get(filename)
       if (vs) this.editor.restoreViewState(vs)
-      document.getElementById('editor-placeholder').style.display = 'none'
+      requiredElement('editor-placeholder').style.display = 'none'
     }
 
     this._renderTabs()
     this._renderFileTree()
-    document.getElementById('st-file').textContent = filename
+    requiredElement('st-file').textContent = filename
   }
 
-  closeFile(filename) {
+  closeFile(filename: string) {
     // Save content from model if dirty
     if (this._dirty.has(filename) && this.editor && this._models.has(filename)) {
       const model = this._models.get(filename)
-      this.artFiles.set(filename, model.getValue())
+      if (model) this.artFiles.set(filename, model.getValue())
     }
 
     const idx = this._openFiles.indexOf(filename)
@@ -630,10 +661,10 @@ export class IDE {
         this.openFile(next)
       } else {
         if (this.editor) {
-          this.editor.setModel(this._monaco.editor.createModel('', JS_LANG))
-          document.getElementById('editor-placeholder').style.display = 'flex'
+          this.editor.setModel(monacoApi.editor.createModel('', JS_LANG))
+          requiredElement('editor-placeholder').style.display = 'flex'
         }
-        document.getElementById('st-file').textContent = 'no file open'
+        requiredElement('st-file').textContent = 'no file open'
       }
     }
     this._renderTabs()
@@ -651,7 +682,7 @@ export class IDE {
     toast('Saved')
   }
 
-  newFile(name) {
+  newFile(name?: string | null) {
     if (!name) {
       name = window.prompt('New file name (e.g. scene.ts):')
       if (!name) return
@@ -677,14 +708,14 @@ export class IDE {
     toast(`Created ${name}`)
   }
 
-  renameFile(oldName) {
+  renameFile(oldName: string) {
     const newName = window.prompt('Rename to:', oldName)
     if (!newName || newName === oldName) return
     if (this.artFiles.has(newName)) { toast('A file with that name already exists'); return }
 
     // Get current content (from model if open)
     let content = this.artFiles.get(oldName) ?? ''
-    if (this._models.has(oldName)) content = this._models.get(oldName).getValue()
+    content = this._models.get(oldName)?.getValue() ?? content
 
     this.artFiles.delete(oldName)
     this.artFiles.set(newName, content)
@@ -715,7 +746,7 @@ export class IDE {
     toast(`Renamed to ${newName}`)
   }
 
-  deleteFile(filename) {
+  deleteFile(filename: string) {
     if (!confirm(`Delete "${filename}"?`)) return
     if (this._openFiles.includes(filename)) this.closeFile(filename)
     this.artFiles.delete(filename)
@@ -733,7 +764,7 @@ export class IDE {
     const files = new Map(this.artFiles)
     const assets = new Map(this.assetFiles)
     try {
-      const manifest = parseManifest(files.get('artlab.json'))
+      const manifest = parseManifest(files.get('artlab.json') ?? '')
       const build = await this.compiler.compile({ manifest, artFiles: files })
       for (const [path, source] of build.dependencies) if (!files.has(path)) files.set(path, source)
       build.dispose()
@@ -752,7 +783,7 @@ export class IDE {
       setTimeout(() => URL.revokeObjectURL(url), 5000)
       toast(`Exported ${name}`)
     } catch (error) {
-      toast(`Export failed: ${error.message}`, 5000)
+      toast(`Export failed: ${errorMessage(error)}`, 5000)
     }
   }
 
@@ -770,7 +801,7 @@ export class IDE {
     this._logCompile(`[${ts()}] Building ${this.manifest.name}…`)
 
     try {
-      if (this.artFiles.has('artlab.json')) this.manifest = parseManifest(this.artFiles.get('artlab.json'))
+      if (this.artFiles.has('artlab.json')) this.manifest = parseManifest(this.artFiles.get('artlab.json') ?? '')
       const { code, dependencies, dispose } = await this.compiler.compile({ manifest: this.manifest, artFiles: workspace, assetFiles: this.assetFiles })
       if (buildId !== this._buildId || workspace !== this.artFiles) { dispose(); return }
       for (const [path, source] of dependencies) {
@@ -787,9 +818,9 @@ export class IDE {
     } catch (err) {
       if (buildId !== this._buildId) return
       this._setBuild('error', '✗ Error')
-      const diags = this._parseError(err.message)
+      const diags = this._parseError(errorMessage(err))
       this._setErrors(diags)
-      this._logCompile(`[${ts()}] Error: ${err.message}`)
+      this._logCompile(`[${ts()}] Error: ${errorMessage(err)}`)
     }
   }
 
@@ -833,26 +864,25 @@ export class IDE {
         activeFile: this._activeFile,
       }))
     } catch (e) {
-      console.warn('[IDE] localStorage save failed:', e.message)
+      console.warn('[IDE] localStorage save failed:', errorMessage(e))
     }
   }
 
-  _restoreProject(expectedName) {
+  _restoreProject(expectedName?: string) {
     let data
     try {
       const raw = localStorage.getItem('artlab:project')
       if (!raw) return
-      data = JSON.parse(raw)
-      if (!data?.manifest?.name || !data?.manifest?.entry) return false
+      data = readSavedProject(JSON.parse(raw))
       if (expectedName && data.manifest.name !== expectedName) return false
     } catch (e) {
-      console.warn('[IDE] localStorage restore failed:', e.message)
+      console.warn('[IDE] localStorage restore failed:', errorMessage(e))
       return
     }
 
     this._exampleLoadId++
     this.manifest = data.manifest
-    this.artFiles = new Map(Object.entries(data.artFiles ?? {}))
+    this.artFiles = data.artFiles
     this.assetFiles.clear()
     this._fromExample = false
 
@@ -868,7 +898,7 @@ export class IDE {
     return true
   }
 
-  _parseError(msg) {
+  _parseError(msg: string): IDEDiagnostic[] {
     // Try to extract file:line:col from error messages
     const match = msg.match(/([^:]+\.[jt]s):(\d+)(?::(\d+))?/)
     if (match) {
@@ -879,10 +909,10 @@ export class IDE {
 
   // ── Diagnostics ─────────────────────────────────────────────────────────────
 
-  _addRuntimeError(msg) {
+  _addRuntimeError(msg: string) {
     // Switch to the Errors tab so the user sees it
-    document.querySelectorAll('.output-tab').forEach(t => t.classList.remove('active'))
-    document.querySelectorAll('.output-pane').forEach(p => p.classList.remove('active'))
+    document.querySelectorAll<HTMLElement>('.output-tab').forEach(t => t.classList.remove('active'))
+    document.querySelectorAll<HTMLElement>('.output-pane').forEach(p => p.classList.remove('active'))
     document.querySelector('.output-tab[data-out="errors"]')?.classList.add('active')
     document.getElementById('out-errors')?.classList.add('active')
 
@@ -892,7 +922,7 @@ export class IDE {
     this._setErrors(existing)
   }
 
-  _setErrors(diags) {
+  _setErrors(diags: IDEDiagnostic[]) {
     this._errors = diags
     const errCount = diags.filter(d => d.severity === 'error').length
     const badge = document.getElementById('error-badge')
@@ -958,7 +988,7 @@ export class IDE {
     if (errCount > 0) this._showOutputPane('errors')
   }
 
-  log(level, message) {
+  log(level: string, message: string) {
     const panel = document.getElementById('out-log')
     if (!panel) return
 
@@ -987,7 +1017,7 @@ export class IDE {
     panel.scrollTop = panel.scrollHeight
   }
 
-  _logCompile(msg) {
+  _logCompile(msg: string) {
     const panel = document.getElementById('out-compile')
     if (!panel) return
 
@@ -1024,7 +1054,7 @@ export class IDE {
 
       const name = document.createElement('span')
       name.className = 'tab-name'
-      name.textContent = filename.split('/').pop()
+      name.textContent = filename.split('/').pop() ?? filename
       name.title = filename
 
       const close = document.createElement('button')
@@ -1122,7 +1152,7 @@ export class IDE {
       makeButtonLike(row, `Open ${filename}`, () => this.openFile(filename))
       row.addEventListener('contextmenu', e => {
         e.preventDefault()
-        const items = [
+        const items: ContextItem[] = [
           { label: 'Open',                    action: () => this.openFile(filename) },
           '---',
           { label: 'Rename',                  action: () => this.renameFile(filename) },
@@ -1132,11 +1162,12 @@ export class IDE {
         }
         if (this.manifest && !isManifest) {
           items.splice(1, 0, { label: 'Set as entry', action: () => {
+            if (!this.manifest) return
             this.manifest.entry = filename
             // Update manifest file content too
             const manifestContent = JSON.stringify(this.manifest, null, 2)
             this.artFiles.set('artlab.json', manifestContent)
-            if (this._models.has('artlab.json')) this._models.get('artlab.json').setValue(manifestContent)
+            this._models.get('artlab.json')?.setValue(manifestContent)
             this._renderFileTree()
             toast(`Entry set to ${filename}`)
           }})
@@ -1176,7 +1207,7 @@ export class IDE {
 
   // ── Status + build ──────────────────────────────────────────────────────────
 
-  _setBuild(state, text) {
+  _setBuild(state: '' | 'building' | 'ok' | 'error', text: string) {
     const cells = [document.getElementById('tb-build'), document.getElementById('st-build')]
     for (const el of cells) {
       if (!el) continue
@@ -1194,11 +1225,11 @@ export class IDE {
     if (stl) stl.textContent = label
   }
 
-  _enablePkgButtons(on) {
+  _enablePkgButtons(on: boolean) {
     const ids = ['btn-save', 'btn-run', 'btn-export', 'btn-new-file']
     for (const id of ids) {
       const el = document.getElementById(id)
-      if (el) el.disabled = !on
+      if (el instanceof HTMLButtonElement) el.disabled = !on
     }
   }
 
@@ -1215,9 +1246,9 @@ export class IDE {
     this._renderFileTree()
     if (this.editor) {
       this.editor.setModel(this._monaco?.editor.createModel('', JS_LANG) ?? null)
-      document.getElementById('editor-placeholder').style.display = 'flex'
+      requiredElement('editor-placeholder').style.display = 'flex'
     }
-    document.getElementById('st-file').textContent = 'no file open'
+    requiredElement('st-file').textContent = 'no file open'
   }
 
   // ── New package scaffold ─────────────────────────────────────────────────────
@@ -1266,8 +1297,9 @@ export const { setup, update, teardown } = defineScene(Composition)
 
   _initOutputTabs() {
     document.getElementById('output-tabs')?.setAttribute('role', 'tablist')
-    document.querySelectorAll('.output-tab[data-out]').forEach(tab => {
+    document.querySelectorAll<HTMLElement>('.output-tab[data-out]').forEach(tab => {
       const id = tab.dataset.out
+      if (!id) return
       tab.id = `tab-${id}`
       tab.setAttribute('role', 'tab')
       tab.setAttribute('aria-controls', `out-${id}`)
@@ -1275,21 +1307,21 @@ export const { setup, update, teardown } = defineScene(Composition)
       tab.addEventListener('click', () => this._showOutputPane(id))
       bindKeyboardActivation(tab, () => this._showOutputPane(id))
     })
-    document.querySelectorAll('.output-pane').forEach(pane => {
+    document.querySelectorAll<HTMLElement>('.output-pane').forEach(pane => {
       pane.setAttribute('role', 'tabpanel')
       pane.setAttribute('aria-labelledby', `tab-${pane.id.replace('out-', '')}`)
     })
     this._showOutputPane('errors')
   }
 
-  _showOutputPane(id) {
-    document.querySelectorAll('.output-tab').forEach(t => {
+  _showOutputPane(id: string) {
+    document.querySelectorAll<HTMLElement>('.output-tab').forEach(t => {
       const active = t.dataset.out === id
       t.classList.toggle('active', active)
       t.setAttribute('aria-selected', String(active))
       t.tabIndex = active ? 0 : -1
     })
-    document.querySelectorAll('.output-pane').forEach(p => {
+    document.querySelectorAll<HTMLElement>('.output-pane').forEach(p => {
       const active = p.id === `out-${id}`
       p.classList.toggle('active', active)
       p.hidden = !active
@@ -1324,7 +1356,7 @@ export const { setup, update, teardown } = defineScene(Composition)
 
     let startY = 0, startH = 0, dragging = false
 
-    const beginDrag = (clientY) => {
+    const beginDrag = (clientY: number) => {
       dragging = true
       startY = clientY
       startH = panel.clientHeight
@@ -1339,7 +1371,7 @@ export const { setup, update, teardown } = defineScene(Composition)
     handle.addEventListener('mousedown', e => { e.preventDefault(); beginDrag(e.clientY) })
     handle.addEventListener('touchstart', e => { e.preventDefault(); beginDrag(e.touches[0].clientY) }, { passive: false })
 
-    const applyDrag = (clientY) => {
+    const applyDrag = (clientY: number) => {
       if (!dragging) return
       const dy  = startY - clientY
       const newH = Math.max(60, Math.min(window.innerHeight * 0.6, startH + dy))
@@ -1347,7 +1379,7 @@ export const { setup, update, teardown } = defineScene(Composition)
       if (collapsed && dy > 10) { collapsed = false; colBtn && (colBtn.textContent = '▾') }
     }
 
-    const resizeBy = (delta) => {
+    const resizeBy = (delta: number) => {
       const newH = Math.max(60, Math.min(window.innerHeight * 0.6, panel.clientHeight + delta))
       panel.style.height = newH + 'px'
       if (collapsed && delta > 0) { collapsed = false; colBtn && (colBtn.textContent = '▾') }
@@ -1362,9 +1394,9 @@ export const { setup, update, teardown } = defineScene(Composition)
       window.removeEventListener('touchend', onTouchUp)
     }
 
-    const onMouseMove = e => applyDrag(e.clientY)
+    const onMouseMove = (e: MouseEvent) => applyDrag(e.clientY)
     const onMouseUp   = () => endDrag()
-    const onTouchMove = e => { e.preventDefault(); applyDrag(e.touches[0].clientY) }
+    const onTouchMove = (e: TouchEvent) => { e.preventDefault(); applyDrag(e.touches[0].clientY) }
     const onTouchUp   = () => endDrag()
 
     handle.addEventListener('keydown', e => {
@@ -1379,6 +1411,7 @@ export const { setup, update, teardown } = defineScene(Composition)
     const workspace = document.getElementById('workspace')
     const sidebar   = document.getElementById('sidebar')
     const canvas    = document.getElementById('canvas-zone')
+    if (!sidebar || !canvas) return
 
     // Left handle: drag resizes sidebar width
     this._makeDraggable(
@@ -1399,7 +1432,7 @@ export const { setup, update, teardown } = defineScene(Composition)
     )
   }
 
-  _makeDraggable(handle, onDrag) {
+  _makeDraggable(handle: HTMLElement | null, onDrag: (delta: number) => void) {
     if (!handle) return
     handle.setAttribute('role', 'separator')
     handle.setAttribute('aria-orientation', 'vertical')
@@ -1407,11 +1440,11 @@ export const { setup, update, teardown } = defineScene(Composition)
     handle.tabIndex = 0
     let lastX = 0
 
-    const start = (clientX) => {
+    const start = (clientX: number) => {
       lastX = clientX
       handle.classList.add('dragging')
 
-      const move = (clientX) => {
+      const move = (clientX: number) => {
         onDrag(clientX - lastX)
         lastX = clientX
       }
@@ -1422,9 +1455,9 @@ export const { setup, update, teardown } = defineScene(Composition)
         window.removeEventListener('touchmove', onTouchMove)
         window.removeEventListener('touchend', onTouchEnd)
       }
-      const onMouseMove = e => move(e.clientX)
+      const onMouseMove = (e: MouseEvent) => move(e.clientX)
       const onMouseUp   = () => up()
-      const onTouchMove = e => { e.preventDefault(); move(e.touches[0].clientX) }
+      const onTouchMove = (e: TouchEvent) => { e.preventDefault(); move(e.touches[0].clientX) }
       const onTouchEnd  = () => up()
 
       window.addEventListener('mousemove', onMouseMove)
@@ -1444,7 +1477,7 @@ export const { setup, update, teardown } = defineScene(Composition)
   // ── Toolbar + sidebar button wiring ────────────────────────────────────────
 
   _bindToolbar() {
-    const wire = (id, fn) => document.getElementById(id)?.addEventListener('click', fn)
+    const wire = (id: string, fn: () => unknown) => document.getElementById(id)?.addEventListener('click', fn)
 
     wire('btn-open',     () => document.getElementById('file-input')?.click())
     wire('btn-open-dir', () => this.loadDirectory())
@@ -1457,6 +1490,7 @@ export const { setup, update, teardown } = defineScene(Composition)
     wire('tab-new',      () => this.newFile())
 
     document.getElementById('file-input')?.addEventListener('change', e => {
+      if (!(e.target instanceof HTMLInputElement)) return
       const file = e.target.files?.[0]
       if (file) this.loadPackage(file)
       e.target.value = ''
@@ -1483,8 +1517,8 @@ export const { setup, update, teardown } = defineScene(Composition)
         return
       }
       if (e.key === 'Tab') {
-        const focusable = [...modal.querySelectorAll('button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])')]
-          .filter(el => !el.disabled && el.offsetParent !== null)
+        const focusable = [...modal.querySelectorAll<HTMLElement>('button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])')]
+          .filter(el => !('disabled' in el && el.disabled) && el.offsetParent !== null)
         if (focusable.length === 0) return
         const first = focusable[0]
         const last = focusable[focusable.length - 1]
@@ -1549,12 +1583,12 @@ export const { setup, update, teardown } = defineScene(Composition)
       }
     }
 
-    this._examplesReturnFocus = document.activeElement
+    this._examplesReturnFocus = document.activeElement instanceof HTMLElement ? document.activeElement : null
     modal.style.display = 'block'
     document.getElementById('close-examples')?.focus()
   }
 
-  async _loadExample(ex) {
+  async _loadExample(ex: Example) {
     const loadId = ++this._exampleLoadId
     this._buildId++
     this._setErrors([])
@@ -1568,7 +1602,7 @@ export const { setup, update, teardown } = defineScene(Composition)
       this._reset()
       this._updatePkgLabel()
       this._enablePkgButtons(true)
-      document.querySelectorAll('.ex-row').forEach(row => {
+      document.querySelectorAll<HTMLElement>('.ex-row').forEach(row => {
         const active = row.dataset.name === ex.name
         row.classList.toggle('active', active)
         if (active) row.setAttribute('aria-current', 'true')
@@ -1581,7 +1615,7 @@ export const { setup, update, teardown } = defineScene(Composition)
       if (loadId !== this._exampleLoadId) return
       await this.compile()
     } catch (error) {
-      if (loadId === this._exampleLoadId) this._runtimeError(error.message)
+      if (loadId === this._exampleLoadId) this._addRuntimeError(errorMessage(error))
     }
   }
 
@@ -1589,15 +1623,17 @@ export const { setup, update, teardown } = defineScene(Composition)
     for (const [path, model] of this._models) this.artFiles.set(path, model.getValue())
   }
 
-  _sourceModel(path) {
+  _sourceModel(path: string) {
     if (!this._monaco || this._models.has(path)) return
+    const source = this.artFiles.get(path)
+    if (source === undefined) return
     const language = path.endsWith('.ts') ? 'typescript' : path.endsWith('.json') ? 'json' : 'javascript'
     this._models.set(path, this._monaco.editor.createModel(
-      this.artFiles.get(path), language, this._monaco.Uri.parse(`file:///workspace/${path}`),
+      source, language, this._monaco.Uri.parse(`file:///workspace/${path}`),
     ))
   }
 
-  async openSource(path) {
+  async openSource(path: string) {
     try {
       const workspace = this.artFiles
       if (!workspace.has(path)) {
@@ -1606,7 +1642,7 @@ export const { setup, update, teardown } = defineScene(Composition)
         workspace.set(path, source)
       }
       this.openFile(path)
-    } catch (error) { toast(error.message, 4000) }
+    } catch (error) { toast(errorMessage(error), 4000) }
   }
 
   // ── Project Navigator ────────────────────────────────────────────────────────
@@ -1616,6 +1652,7 @@ export const { setup, update, teardown } = defineScene(Composition)
     const hdr = document.getElementById('nav-examples-hdr')
     const body = document.getElementById('nav-examples-body')
     const toggleExamples = () => {
+      if (!body || !hdr) return
       const collapsed = body.classList.toggle('collapsed')
       hdr.classList.toggle('collapsed', collapsed)
       hdr.setAttribute('aria-expanded', String(!collapsed))
@@ -1627,9 +1664,10 @@ export const { setup, update, teardown } = defineScene(Composition)
     }
 
     // Same for PROJECTS section
-    const phdr = document.querySelector('#nav-projects .nav-section-hdr')
+    const phdr = document.querySelector<HTMLElement>('#nav-projects .nav-section-hdr')
     const pbody = document.getElementById('nav-projects-body')
     const toggleProjects = () => {
+      if (!pbody || !phdr) return
       const collapsed = pbody.classList.toggle('collapsed')
       phdr.classList.toggle('collapsed', collapsed)
       phdr.setAttribute('aria-expanded', String(!collapsed))
@@ -1662,7 +1700,7 @@ export const { setup, update, teardown } = defineScene(Composition)
     }
   }
 
-  _addProjectToNav(name) {
+  _addProjectToNav(name: string) {
     const body = document.getElementById('nav-projects-body')
     if (!body) return
     // Remove empty hint
@@ -1721,10 +1759,11 @@ export const { setup, update, teardown } = defineScene(Composition)
     document.getElementById('btn-pause')?.addEventListener('click', () => {
       this._paused = !this._paused
       const btn = document.getElementById('btn-pause')
+      if (!btn) return
       btn.textContent = this._paused ? '▶' : '⏸'
       btn.classList.toggle('active', this._paused)
       btn.title = this._paused ? 'Resume' : 'Pause'
-      if (this.preview) this.preview._clock[this._paused ? 'stop' : 'start']?.()
+      this.preview?.setPaused(this._paused)
     })
 
     document.getElementById('btn-fullscreen')?.addEventListener('click', () => {
@@ -1803,19 +1842,31 @@ export const { setup, update, teardown } = defineScene(Composition)
 // ── Tutorial pane manager ─────────────────────────────────────────────────────
 
 class TutorialMgr {
-  constructor(ide) {
+  private readonly _ide: IDE
+  private _data: Tutorial | null = null
+  private _ex: Example | null = null
+  private _pageIdx = 0
+  private _decorations: monacoApi.editor.IEditorDecorationsCollection | null = null
+  private readonly _pane: HTMLElement
+  private readonly _crumb: HTMLElement
+  private readonly _body: HTMLElement
+  private readonly _btnUp: HTMLButtonElement
+  private readonly _btnPrev: HTMLButtonElement
+  private readonly _btnNext: HTMLButtonElement
+  private readonly _btnClose: HTMLButtonElement
+  constructor(ide: IDE) {
     this._ide     = ide   // IDE instance — for editor + monaco access
     this._data    = null
     this._ex      = null  // current example {name, entry}
     this._pageIdx = 0
     this._decorations = null
-    this._pane    = document.getElementById('tutorial-pane')
-    this._crumb   = document.getElementById('tut-breadcrumb')
-    this._body    = document.getElementById('tut-body')
-    this._btnUp   = document.getElementById('tut-up')
-    this._btnPrev = document.getElementById('tut-prev')
-    this._btnNext = document.getElementById('tut-next')
-    this._btnClose = document.getElementById('tut-close')
+    this._pane    = requiredElement('tutorial-pane')
+    this._crumb   = requiredElement('tut-breadcrumb')
+    this._body    = requiredElement('tut-body')
+    this._btnUp   = requiredElement<HTMLButtonElement>('tut-up')
+    this._btnPrev = requiredElement<HTMLButtonElement>('tut-prev')
+    this._btnNext = requiredElement<HTMLButtonElement>('tut-next')
+    this._btnClose = requiredElement<HTMLButtonElement>('tut-close')
 
     this._btnUp.addEventListener('click',    () => this._goUp())
     this._btnPrev.addEventListener('click',  () => this._goPrev())
@@ -1831,7 +1882,7 @@ class TutorialMgr {
     })
   }
 
-  async tryLoad(ex) {
+  async tryLoad(ex: Example) {
     this._ex = ex
     if (!ex.tutorial) { this.close(); return }
     this._data = null
@@ -1840,7 +1891,7 @@ class TutorialMgr {
     try {
       const path = `examples/${ex.name}/tutorial.json`
       if (!this._ide.library.has(path)) { this.close(); return }
-      const data = JSON.parse(await this._ide.library.read(path))
+      const data = parseTutorial(await this._ide.library.read(path))
       if (this._ex !== ex) return
       for (const page of data.pages) {
         if (page.file && !this._ide.artFiles.has(page.file)) {
@@ -1890,10 +1941,11 @@ class TutorialMgr {
 
     // Breadcrumb: build full ancestry path
     const crumbParts = []
-    let cur = page
+    let cur: TutorialPage | undefined = page
     while (cur) {
       crumbParts.unshift(cur.title)
-      cur = cur.parent ? pages.find(p => p.id === cur.parent) : null
+      const parent: string | undefined = cur.parent
+      cur = parent ? pages.find(p => p.id === parent) : undefined
     }
     this._crumb.textContent = [this._data.title, ...crumbParts].join(' › ')
 
@@ -1913,7 +1965,7 @@ class TutorialMgr {
     this._btnUp.disabled   = !page.parent
   }
 
-  _highlight(startLine, endLine, file) {
+  _highlight(startLine: number, endLine: number, file?: string) {
     const ide = this._ide
     if (!ide?.editor || !ide?._monaco) return
 
@@ -1942,11 +1994,11 @@ class TutorialMgr {
   }
 }
 
-function _renderTutBody(text) {
+function _renderTutBody(text: string) {
   const lines = text.split('\n')
   let html = ''
   let inCode = false
-  let codeBuf = []
+  let codeBuf: string[] = []
 
   for (const raw of lines) {
     if (raw.startsWith('```')) {
@@ -1983,6 +2035,6 @@ function _renderTutBody(text) {
   return html
 }
 
-function _tutEsc(s) {
+function _tutEsc(s: string) {
   return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
 }

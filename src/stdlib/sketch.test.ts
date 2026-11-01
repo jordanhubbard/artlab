@@ -62,5 +62,5 @@ test('catch-up is bounded and canvas input cannot leak across unloads', () => {
   ctx.dispose()
   ctx.renderer.domElement.dispatchEvent(new MouseEvent('pointerdown'))
   expect(handler).toHaveBeenCalledTimes(1)
-  ctx.renderer.domElement.parentElement.remove()
+  ctx.renderer.domElement.parentElement?.remove()
 })

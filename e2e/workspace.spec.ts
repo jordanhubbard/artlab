@@ -1,15 +1,27 @@
 import { test, expect } from '@playwright/test'
+import type { Page } from '@playwright/test'
 import JSZip from 'jszip'
 import { readFile } from 'node:fs/promises'
+
+async function particleState(page: Page) {
+  return page.evaluate(() => {
+    const ide = window.__artlabIDE
+    const ctx = ide?.preview?.context
+    if (!ctx) return { count: undefined, color: undefined, error: ide?.diagnostics }
+    // Imported sketches and host helpers can use separate Three module instances.
+    const mesh = ctx.scene.children.find((object): object is import('three').InstancedMesh =>
+      'isInstancedMesh' in object && object.isInstancedMesh === true)
+    const isBasic = (material: import('three').Material | import('three').Material[] | undefined): material is import('three').MeshBasicMaterial =>
+      !!material && !Array.isArray(material) && 'isMeshBasicMaterial' in material && material.isMeshBasicMaterial === true
+    const color = isBasic(mesh?.material) ? mesh.material.color.getHex() : undefined
+    return { count: mesh?.count, color, error: ide?.diagnostics }
+  })
+}
 
 test('edit an example and its shared class, run, export, and reopen the same composition', async ({ page }) => {
   test.setTimeout(60_000)
   await page.goto('./#physics-particles')
-  const state = () => page.evaluate(() => {
-    const ide = window.__artlabIDE
-    const mesh = ide?.preview?._ctx?._added.find(object => object.isInstancedMesh)
-    return { count: mesh?.count, color: mesh?.material.color.getHex(), error: ide?._errors }
-  })
+  const state = () => particleState(page)
   await expect.poll(async () => (await state()).count).toBe(2400)
   await expect(page.locator('#btn-run')).toBeEnabled()
 
@@ -19,6 +31,7 @@ test('edit an example and its shared class, run, export, and reopen the same com
   await expect(page.locator('#st-file')).toHaveText('src/stdlib/scene/InstanceField.ts')
   await page.evaluate(() => {
     const ide = window.__artlabIDE
+    if (!ide?.editor || !ide.manifest) throw new Error('Editor has no active package')
     ide.editor.setValue(ide.editor.getValue().replace(
       'this.object.frustumCulled = false',
       'this.object.frustumCulled = false\n    this.object.material.color.set(0x00ff00)',
@@ -34,10 +47,15 @@ test('edit an example and its shared class, run, export, and reopen the same com
   const downloadPromise = page.waitForEvent('download')
   await page.locator('#btn-export').click()
   const download = await downloadPromise
-  const bytes = await readFile(await download.path())
+  const downloadPath = await download.path()
+  if (!downloadPath) throw new Error('Export did not produce a local download')
+  const bytes = await readFile(downloadPath)
   const zip = await JSZip.loadAsync(bytes)
-  expect(await zip.file('src/stdlib/scene/InstanceField.ts').async('string')).toContain('color.set(0x00ff00)')
-  expect(await zip.file('examples/physics-particles/physics-particles.ts').async('string')).toContain('const COUNT = 72')
+  const sharedSource = zip.file('src/stdlib/scene/InstanceField.ts')
+  const sketchSource = zip.file('examples/physics-particles/physics-particles.ts')
+  if (!sharedSource || !sketchSource) throw new Error('Export is missing edited source')
+  expect(await sharedSource.async('string')).toContain('color.set(0x00ff00)')
+  expect(await sketchSource.async('string')).toContain('const COUNT = 72')
   await page.evaluate(() => { location.hash = '#hello-cube' })
   await page.setInputFiles('#file-input', { name: 'edited.zip', mimeType: 'application/zip', buffer: bytes })
   await expect.poll(async () => (await state()).count).toBe(72)
@@ -62,10 +80,21 @@ test('runs an imported TypeScript entry and helper, and reports a broken helper'
   await page.goto('./')
   await expect(page.locator('.ex-row').first()).toBeVisible()
   await page.setInputFiles('#file-input', { name: 'typed.zip', mimeType: 'application/zip', buffer: await zip.generateAsync({ type: 'nodebuffer' }) })
-  await expect.poll(() => page.evaluate(() => window.__artlabIDE.preview._ctx?._added[0]?.material?.color.getHex())).toBe(0x123456)
-  expect(await page.evaluate(() => window.__artlabIDE.preview._ctx._added[0].userData.marker)).toBe('loaded from the ZIP')
+  const importedState = () => page.evaluate(() => {
+    const ctx = window.__artlabIDE?.preview?.context
+    if (!ctx) return null
+    const mesh = ctx.scene.children.find((object): object is import('three').Mesh => 'isMesh' in object && object.isMesh === true)
+    const isStandard = (material: import('three').Material | import('three').Material[] | undefined): material is import('three').MeshStandardMaterial =>
+      !!material && !Array.isArray(material) && 'isMeshStandardMaterial' in material && material.isMeshStandardMaterial === true
+    if (!mesh || !isStandard(mesh.material)) return null
+    const marker: unknown = mesh.userData.marker
+    return { color: mesh.material.color.getHex(), marker: typeof marker === 'string' ? marker : undefined }
+  })
+  await expect.poll(async () => (await importedState())?.color).toBe(0x123456)
+  expect((await importedState())?.marker).toBe('loaded from the ZIP')
   await page.evaluate(() => {
     const ide = window.__artlabIDE
+    if (!ide?.editor) throw new Error('Editor did not initialize')
     ide.openFile('Palette.ts')
     ide.editor.setValue('export class Palette { broken = ; }')
   })
@@ -77,13 +106,14 @@ test('runs an imported TypeScript entry and helper, and reports a broken helper'
 test('a helper edit survives reloading a bookmarked example', async ({ page }) => {
   test.setTimeout(60_000)
   await page.goto('./#physics-particles')
-  await expect.poll(() => page.evaluate(() => window.__artlabIDE?.preview?._ctx?._added.find(o => o.isInstancedMesh)?.count)).toBe(2400)
+  await expect.poll(async () => (await particleState(page)).count).toBe(2400)
   await page.evaluate(async () => {
     const ide = window.__artlabIDE
+    if (!ide?.editor) throw new Error('Editor did not initialize')
     await ide.openSource('src/stdlib/scene/InstanceField.ts')
     ide.editor.setValue(ide.editor.getValue().replace('this.object.frustumCulled = false', 'this.object.frustumCulled = false\n    this.object.material.color.set(0x00ff00)'))
     await ide.compile()
   })
   await page.reload()
-  await expect.poll(() => page.evaluate(() => window.__artlabIDE?.preview?._ctx?._added.find(o => o.isInstancedMesh)?.material.color.getHex())).toBe(0x00ff00)
+  await expect.poll(async () => (await particleState(page)).color).toBe(0x00ff00)
 })

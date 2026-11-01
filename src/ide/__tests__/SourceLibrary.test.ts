@@ -18,9 +18,12 @@ test('loads a typed example package with a workspace-relative entry', async () =
 
 test('rejects missing and malformed manifest entries before compilation', async () => {
   await expect(new SourceLibrary({}).example('missing')).rejects.toThrow('Manifest not found')
-  for (const source of ['null', '{}', '{"entry":42}']) {
+  for (const [source, message] of [
+    ['null', 'JSON object'], ['{}', 'string entry'], ['{"entry":42}', 'string entry'],
+    ['{"name":false,"entry":"main.ts"}', '"name"'],
+  ]) {
     const library = new SourceLibrary({ '/examples/demo/artlab.json': async () => source })
-    await expect(library.example('demo')).rejects.toThrow('string entry')
+    await expect(library.example('demo')).rejects.toThrow(message)
   }
 })
 

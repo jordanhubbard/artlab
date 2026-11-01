@@ -32,6 +32,12 @@ import type { ModulePackage } from './ModuleCompiler.ts'
 import type { RuntimeModule } from '../runtime/StandaloneRunner.ts'
 
 export class PreviewPane {
+  get context() { return this._ctx }
+  get scene() { return this._scene }
+  setPaused(paused: boolean) {
+    if (paused) this._clock.stop()
+    else this._clock.start()
+  }
   private readonly _container: HTMLElement
   readonly canvas: HTMLCanvasElement
   private readonly _renderer: Three.WebGLRenderer

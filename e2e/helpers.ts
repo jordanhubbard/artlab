@@ -1,6 +1,7 @@
 /**
  * Shared Playwright helpers for Artlab e2e tests.
  */
+import type { Page, ConsoleMessage } from '@playwright/test'
 
 // Console messages that are expected / harmless in a headless environment.
 // Filtering these avoids false failures on examples that use audio, video, or
@@ -22,7 +23,7 @@ const NOISE_PATTERNS = [
   /autoplay/i,
 ]
 
-export function isNoise(msg) {
+export function isNoise(msg: ConsoleMessage) {
   return NOISE_PATTERNS.some(p => p.test(msg.text()))
 }
 
@@ -30,9 +31,9 @@ export function isNoise(msg) {
  * Navigate to an example by hash and wait up to `ms` for setup to complete.
  * Returns { errors } — filtered console errors seen during that window.
  */
-export async function loadExample(page, name, ms = 4000) {
-  const errors = []
-  const handler = msg => {
+export async function loadExample(page: Page, name: string, ms = 4000) {
+  const errors: string[] = []
+  const handler = (msg: ConsoleMessage) => {
     if (msg.type() === 'error' && !isNoise(msg)) errors.push(msg.text())
   }
   page.on('console', handler)
@@ -48,19 +49,19 @@ export async function loadExample(page, name, ms = 4000) {
  * True if the PreviewPane error overlay is currently visible.
  * A visible overlay means setup() or update() threw an unhandled exception.
  */
-export async function hasPreviewError(page) {
+export async function hasPreviewError(page: Page) {
   return page.evaluate(() => {
-    const el = document.querySelector('.preview-error')
-    return el != null && el.style.display !== 'none' && el.textContent.trim().length > 0
+    const el = document.querySelector<HTMLElement>('.preview-error')
+    return el != null && el.style.display !== 'none' && (el.textContent ?? '').trim().length > 0
   })
 }
 
 /**
  * True if a WebGL context was successfully obtained on the canvas.
  */
-export async function canvasHasWebGL(page) {
+export async function canvasHasWebGL(page: Page) {
   return page.evaluate(() => {
-    const canvas = document.querySelector('#canvas-container canvas')
+    const canvas = document.querySelector<HTMLCanvasElement>('#canvas-container canvas')
     if (!canvas) return false
     return !!(canvas.getContext('webgl2') || canvas.getContext('webgl'))
   })

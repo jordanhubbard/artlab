@@ -171,9 +171,9 @@ npm run test:e2e       # Playwright end-to-end (builds first)
 
 Demo tests exercise `setup`/`update`/`teardown` against a shared context or a lightweight host fixture. Stdlib modules have unit tests under `src/stdlib/__tests__/`.
 
-Strict checking covers the framework and all 55 canonical demo graphs. The IDE
-coordinator/boot modules and most test implementations still await migration;
-the whole-repository syntax pass still uses `noCheck`. See the
+Strict checking covers all production sources, all 55 canonical demo graphs,
+and the browser, framework, and CLI test suites. Older demo unit tests still
+await migration; the whole-repository syntax pass still uses `noCheck`. See the
 [migration context](docs/demo-refresh.md#follow-up-migration-context) for the
 remaining boundaries.
 

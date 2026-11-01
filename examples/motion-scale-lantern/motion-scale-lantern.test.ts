@@ -1,9 +1,10 @@
 // @vitest-environment jsdom
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import * as Three from 'three'
+import { makeContext } from '../../tests/context.ts'
 
 const mockTrack = { stop: vi.fn() }
-const mockStream = { getTracks: () => [mockTrack] }
+const mockStream = { getTracks: () => [mockTrack] } as unknown as MediaStream
 
 vi.stubGlobal('navigator', {
   mediaDevices: {
@@ -16,64 +17,53 @@ Object.defineProperty(window.HTMLVideoElement.prototype, 'play', {
   value: vi.fn().mockResolvedValue(undefined),
 })
 
-const _origAddEL = HTMLButtonElement.prototype.addEventListener
-HTMLButtonElement.prototype.addEventListener = function (type, cb, opts) {
-  _origAddEL.call(this, type, cb, opts)
-  if (type === 'click') cb(new MouseEvent('click'))
-}
-
 function makeMockCtx() {
-  const container = document.createElement('div')
-  document.body.appendChild(container)
-  const canvas = document.createElement('canvas')
-  container.appendChild(canvas)
-  const scene = { add: vi.fn(), remove: vi.fn(), children: [] }
-  return {
-    Three,
-    scene,
-    camera: {
-      position: new Three.Vector3(0, 0, 8),
-      lookAt: vi.fn(),
-    },
-    renderer: { domElement: canvas, shadowMap: { enabled: false } },
-    controls: { target: new Three.Vector3(), update: vi.fn() },
-    add: vi.fn(obj => { scene.children.push(obj); return obj }),
-    remove: vi.fn(),
-    setBloom: vi.fn(),
-    setHelp: vi.fn(),
-    elapsed: 0,
-  }
+  const ctx = makeContext()
+  vi.spyOn(ctx, 'add')
+  vi.spyOn(ctx, 'remove')
+  vi.spyOn(ctx, 'setBloom')
+  vi.spyOn(ctx, 'setHelp')
+  return ctx
 }
 
 describe('motion-scale-lantern', () => {
-  let ctx, mod
+  let ctx: ReturnType<typeof makeMockCtx>
+  let mod: typeof import('./motion-scale-lantern.ts')
+
+  async function setupScene() {
+    const ready = mod.setup(ctx)
+    const button = ctx.renderer.domElement.parentElement?.querySelector('button')
+    if (!button) throw new Error('Camera gesture button is missing')
+    button.click()
+    await ready
+  }
 
   beforeEach(async () => {
     document.body.innerHTML = ''
     vi.clearAllMocks()
-    navigator.mediaDevices.getUserMedia.mockResolvedValue(mockStream)
+    vi.mocked(navigator.mediaDevices.getUserMedia).mockResolvedValue(mockStream)
     ctx = makeMockCtx()
     mod = await import('./motion-scale-lantern.ts')
   })
 
   afterEach(() => {
-    try { mod.teardown(ctx) } catch (_) { /* ignore */ }
+    mod.teardown(ctx)
   })
 
   it('setup() calls setHelp and setBloom', async () => {
-    await mod.setup(ctx)
+    await setupScene()
     expect(ctx.setHelp).toHaveBeenCalled()
     expect(ctx.setBloom).toHaveBeenCalled()
   })
 
   it('setup() adds an inner shell and outward scales', async () => {
-    await mod.setup(ctx)
+    await setupScene()
     const meshes = ctx.scene.children.filter(o => o instanceof Three.Mesh)
     expect(meshes.length).toBeGreaterThan(20)
   })
 
   it('update() flares scales without throwing', async () => {
-    await mod.setup(ctx)
+    await setupScene()
     expect(() => {
       ctx.elapsed = 0.2
       mod.update(ctx, 0.016)
@@ -83,11 +73,11 @@ describe('motion-scale-lantern', () => {
   })
 
   it('teardown() removes meshes and stops the webcam', async () => {
-    await mod.setup(ctx)
+    await setupScene()
     await Promise.resolve()
-    const addCount = ctx.add.mock.calls.length
+    const addCount = vi.mocked(ctx.add).mock.calls.length
     mod.teardown(ctx)
-    expect(ctx.remove.mock.calls.length).toBe(addCount)
+    expect(vi.mocked(ctx.remove).mock.calls.length).toBe(addCount)
     expect(mockTrack.stop).toHaveBeenCalled()
   })
 })

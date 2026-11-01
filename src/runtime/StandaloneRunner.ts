@@ -24,6 +24,8 @@ export interface RuntimeModule {
  *   runner.run(await import('../examples/solar-system/solar-system.ts'))
  */
 export class StandaloneRunner {
+  get context() { return this._ctx }
+  get scene() { return this._scene }
   private readonly _canvas: HTMLCanvasElement
   private readonly _renderer: Three.WebGLRenderer
   private readonly _scene: Three.Scene

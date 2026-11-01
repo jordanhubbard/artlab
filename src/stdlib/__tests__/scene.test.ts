@@ -2,15 +2,10 @@
 import { describe, it, expect, vi } from 'vitest'
 import * as Three from 'three'
 import { ResourceScope, Scene, defineScene, ParticleField, InstanceField, Trail, ShaderSurface, GestureButton } from '../scene.ts'
+import { makeContext } from '../../../tests/context.ts'
 
 function context() {
-  const scene = new Three.Scene()
-  return {
-    scene, elapsed: 0,
-    camera: new Three.PerspectiveCamera(),
-    renderer: { domElement: document.createElement('canvas') },
-    add: object => scene.add(object), remove: object => scene.remove(object),
-  }
+  return makeContext()
 }
 
 describe('resource ownership', () => {
@@ -56,10 +51,11 @@ describe('resource ownership', () => {
   })
 
   it('keeps scene instances independent and disposes a failed setup', async () => {
-    const instances = []
+    const instances: Demo[] = []
     class Demo extends Scene {
+      field!: ParticleField
       setup() { instances.push(this); this.field = this.use(new ParticleField(4)) }
-      update(dt) { this.field.positions[0] += dt }
+      update(dt: number) { this.field.positions[0] += dt }
     }
     const demo = defineScene(Demo), a = context(), b = context()
     demo.setup(a); demo.setup(b)
@@ -114,7 +110,7 @@ describe('rendering components', () => {
   })
 
   it('allows gesture retry and never resurrects a disposed button after rejection', async () => {
-    const start = vi.fn().mockRejectedValueOnce(new Error('denied')).mockResolvedValueOnce()
+    const start = vi.fn().mockRejectedValueOnce(new Error('denied')).mockResolvedValueOnce(undefined)
     const gesture = new GestureButton(document.body, { label: 'Start', start, onError: vi.fn() })
     gesture.button.click()
     await vi.waitFor(() => expect(gesture.button.disabled).toBe(false))

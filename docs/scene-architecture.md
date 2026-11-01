@@ -31,7 +31,7 @@ part of the editable source catalog.
 
 ## The composition contract
 
-```js
+```ts
 import { Scene, defineScene } from '../../src/stdlib/scene.ts'
 import { EmberField } from './EmberField.ts'
 
@@ -57,6 +57,14 @@ owns a plain Three object, including geometry, materials, textures, and nested c
 Override `update` only when orchestration is necessary; call `super.update(dt, elapsed)`
 to continue updating components. `defineScene` adapts the class to Artlab's existing
 lifecycle exports and keeps instances separate for different contexts.
+
+`PreviewPane` and `StandaloneRunner` expose their current nullable `context` and
+their `scene` for inspection; `IDE.diagnostics` exposes the current diagnostic
+list as a readonly array. Controls pause the preview through
+`PreviewPane.setPaused(boolean)`. These APIs avoid reaching into private host
+fields. When inspecting objects from imported sketches, use Three's type flags
+such as `isInstancedMesh`: vendor and host modules can have different constructor
+identities even though their objects implement the same API.
 
 Existing setup/update/teardown modules remain supported. Tutorials can continue to
 show the underlying Three APIs directly. Stateless geometry and math operations remain

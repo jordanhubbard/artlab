@@ -21,14 +21,13 @@
   "include": [
     "src/**/*.ts",
     "examples/**/*.ts",
+    "e2e/**/*.ts",
     "bin/**/*.ts",
     "*.config.ts",
     "tests/contracts.ts",
     "tests/context.ts"
   ],
   "exclude": [
-    "**/*.test.ts",
-    "src/ide/IDE.ts",
-    "src/ide/index.ts"
+    "**/*.test.ts"
   ]
 }

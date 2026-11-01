@@ -92,8 +92,9 @@ hardcoded list.
 
 ## Verification and practical limits
 
-`npm run typecheck` runs strict checking on the opted-in core and refreshed
-sketches, not on the entire legacy application. CI includes that gate alongside
+`npm run typecheck` runs strict checking on all production sources and browser,
+framework, and CLI tests, plus the migrated demo tests. Older demo unit tests
+still receive only the whole-repository syntax pass. CI includes that gate alongside
 lint, unit tests, production build, and Playwright. Numerical tests cover
 interference cancellation, absorption subdivision, display-rate-independent
 flocking, spatial queries against brute force, bounded catch-up, and cleanup.
@@ -117,11 +118,11 @@ Screenshots were inspected and are attached to the browser report. No native-GPU
 throughput claim is inferred from these tests.
 
 Migration qualification on 2026-11-01 passed lint, the strict compiler projects,
-538 Vitest tests, and the production build. Five focused production-browser
-checks passed: Signal Salvage loading, keyboard fallback, synthetic camera/mic
-input, late-stream cleanup, and Long Winter's complete act sequence including
-reflection and ray-marching shaders. The complete browser suite has not yet
-been rerun for the finished semantic migration.
+543 Vitest tests, and the production build. The complete browser sweep passed
+all gallery, media, rendering, and IDE cases; two workspace inspection checks
+needed a fix for Three module constructor identity. All three workspace cases
+then passed a focused rerun. A clean complete-suite browser run remains a final
+migration gate.
 
 ## Follow-up migration context
 
@@ -137,10 +138,12 @@ TypeScript rather than constructing a fully typechecked browser program. The
 strict CI gate now checks the runtime context, scene components, renderers,
 physics backends, assets, audio/video/UI libraries, compiler and preview hosts,
 CLI, and all 55 canonical demo entry graphs, including their helper modules.
-The IDE coordinator and most test implementations remain outside the strict
-project. The shared test context, Solar System audio and camera journey tests,
-all five Signal Salvage test modules, and Long Winter's test module are checked
-by `tsconfig.tests.json`.
+The IDE coordinator and boot modules now also pass strict checking. The default
+project includes new production and browser-test files automatically.
+`tsconfig.tests.json` checks all framework/CLI test modules and the shared test
+context, plus Solar System's audio and camera tests, Signal Salvage, Long
+Winter, Bell Orrery, Motion Scale Lantern, and Tide Eroded Vessel. Older demo
+tests remain to migrate.
 `tsconfig.transpile.json` still uses `noCheck` for
 the whole-repository syntax pass; this is an unfinished semantic migration,
 not whole-repository type safety. An editor diagnostics service using the

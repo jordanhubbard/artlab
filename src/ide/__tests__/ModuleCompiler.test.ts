@@ -1,11 +1,12 @@
 import { describe, it, expect } from 'vitest'
 import { rollup } from 'rollup'
 import { ModuleCompiler } from '../ModuleCompiler.ts'
+import type { SourceProvider } from '../ModuleCompiler.ts'
 
-const compile = (files, entry = 'main.ts', library) => new ModuleCompiler({
+const compile = (files: Record<string, string>, entry = 'main.ts', library?: SourceProvider) => new ModuleCompiler({
   rollup, library, baseURL: 'https://example.org/artlab/',
 }).compile({ manifest: { entry }, artFiles: new Map(Object.entries(files)) })
-const execute = code => import(`data:text/javascript;base64,${Buffer.from(code).toString('base64')}`)
+const execute = async (code: string): Promise<Record<string, unknown>> => import(`data:text/javascript;base64,${Buffer.from(code).toString('base64')}`)
 
 describe('editable module graph', () => {
   it('runs transitive imports and re-exports using edits from every file', async () => {
@@ -21,10 +22,10 @@ describe('editable module graph', () => {
 
   it('loads shared library source but gives edited workspace copies priority', async () => {
     const library = {
-      has: path => path === 'src/shared.ts',
+      has: (path: string) => path === 'src/shared.ts',
       read: async () => 'export const value = 5',
     }
-    const files = { 'examples/test/main.ts': "export { value } from '../../src/shared.ts'" }
+    const files: Record<string, string> = { 'examples/test/main.ts': "export { value } from '../../src/shared.ts'" }
     const result = await compile(files, 'examples/test/main.ts', library)
     expect(result.dependencies.get('src/shared.ts')).toContain('value = 5')
     expect((await execute(result.code)).value).toBe(5)
@@ -45,7 +46,9 @@ describe('editable module graph', () => {
       'main.ts': "export async function read() { return (await import('./helper.ts')).value }",
       'helper.ts': 'export const value = 12',
     })
-    expect(await (await execute(result.code)).read()).toBe(12)
+    const module = await execute(result.code)
+    if (typeof module.read !== 'function') throw new Error('Compiled module did not export read()')
+    expect(await module.read()).toBe(12)
   })
 
   it('transpiles TypeScript classes and resolves extensionless imports', async () => {
@@ -75,6 +78,7 @@ it('resolves computed package asset URLs to owned blobs and revokes them on disp
     assetFiles: new Map([['nested/assets/message.txt', new TextEncoder().encode('asset from the package')]]),
   })
   const { asset } = await execute(result.code)
+  if (typeof asset !== 'string') throw new Error('Compiled module did not export an asset URL')
   expect(asset.startsWith('blob:')).toBe(true)
   expect(await (await fetch(asset)).text()).toBe('asset from the package')
   result.dispose()

@@ -1,28 +1,20 @@
 // @vitest-environment jsdom
 import { it, expect, vi } from 'vitest'
 import * as Three from 'three'
-import { SceneContext } from '../../runtime/SceneContext.ts'
-import { StandaloneRunner } from '../../runtime/StandaloneRunner.ts'
-import { PreviewPane } from '../PreviewPane.ts'
+import { makeContext } from '../../../tests/context.ts'
 
-it('provides identical modeling helpers in the preview and standalone runner', () => {
-  const runner = {
-    _scene: new Three.Scene(), _camera: new Three.PerspectiveCamera(),
-    _renderer: { domElement: document.createElement('canvas') }, _controls: {},
-    _bloomPass: {}, _assetFiles: new Map(), _textureBlobUrls: [],
+it('provides the modeling helpers required by preview and standalone sketches', () => {
+  const ctx = makeContext()
+  for (const name of ['sphere', 'box', 'mesh', 'point', 'noise2', 'vec3', 'range', 'loadTexture'] as const) {
+    expect(typeof ctx[name]).toBe('function')
   }
-  const preview = PreviewPane.prototype._makeContext.call(runner)
-  const standalone = StandaloneRunner.prototype._makeCtx.call(runner)
-  for (const name of ['sphere', 'box', 'mesh', 'point', 'noise2', 'vec3', 'range', 'loadTexture']) {
-    expect(typeof preview[name]).toBe('function')
-    expect(typeof standalone[name]).toBe('function')
-  }
-  expect(standalone.box().isBufferGeometry).toBe(true)
+  expect(ctx.box().isBufferGeometry).toBe(true)
+  ctx.renderer.domElement.parentElement?.remove()
 })
 
 it('allows destructured add/remove and releases late additions to a disposed context', async () => {
-  const scene = new Three.Scene()
-  const ctx = new SceneContext({ scene })
+  const ctx = makeContext()
+  const scene = ctx.scene
   const { add, remove } = ctx
   const object = new Three.Mesh(new Three.BoxGeometry(), new Three.MeshBasicMaterial())
   add(object); remove(object)

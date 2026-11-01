@@ -30,6 +30,20 @@ test.describe('IDE shell', () => {
     await expect(page.locator('.ex-row[data-name="aurora"]')).toHaveClass(/active/, { timeout: 10000 })
   })
 
+  test('failed example loads appear as diagnostics without crashing the IDE', async ({ page }) => {
+    const errors: string[] = []
+    page.on('pageerror', error => errors.push(error.message))
+    await expect(page.locator('.ex-row[data-name="aurora"]')).toBeVisible()
+    await page.evaluate(() => {
+      const ide = window.__artlabIDE
+      if (!ide) throw new Error('IDE did not initialize')
+      ide.library.example = async () => { throw new Error('Example source unavailable') }
+      location.hash = '#aurora'
+    })
+    await expect(page.locator('#out-errors')).toContainText('Example source unavailable')
+    expect(errors).toEqual([])
+  })
+
   test('switching away from solar-system clears its planet labels', async ({ page }) => {
     // solar-system loads textures and an audio graph before any label appears.
     test.setTimeout(45_000)
@@ -102,16 +116,17 @@ test.describe('IDE shell', () => {
         canvas.width = 64
         canvas.height = 48
         const context = canvas.getContext('2d')
+        if (!context) throw new Error('Synthetic camera has no 2D context')
         const cameraStream = canvas.captureStream(0)
         const videoTrack = cameraStream.getVideoTracks()[0]
         let phase = false
-        const animation = setInterval(() => {
+        const animation = window.setInterval(() => {
           phase = !phase
           context.fillStyle = '#001122'
           context.fillRect(0, 0, 64, 48)
           context.fillStyle = '#ffffff'
           context.fillRect(phase ? 0 : 32, 0, 32, 48)
-          videoTrack.requestFrame()
+          if ('requestFrame' in videoTrack && typeof videoTrack.requestFrame === 'function') videoTrack.requestFrame()
         }, 80)
         const sourceContext = new AudioContext()
         const oscillator = sourceContext.createOscillator()
@@ -130,13 +145,13 @@ test.describe('IDE shell', () => {
         Object.defineProperty(navigator, 'mediaDevices', {
           configurable: true,
           value: {
-            getUserMedia: constraints => Promise.resolve(
+            getUserMedia: (constraints: MediaStreamConstraints) => Promise.resolve(
               constraints.video ? cameraStream : destination.stream,
             ),
           },
         })
       } catch (error) {
-        window.__signalInitError = error.message
+        window.__signalInitError = error instanceof Error ? error.message : String(error)
       }
     })
     await page.goto('./#signal-salvage', { waitUntil: 'domcontentloaded' })
@@ -152,6 +167,7 @@ test.describe('IDE shell', () => {
     await page.evaluate(() => { location.hash = '#hello-cube' })
     await page.evaluate(async () => {
       const media = window.__signalSyntheticMedia
+      if (!media) throw new Error('Synthetic media did not initialize')
       clearInterval(media.animation)
       media.oscillator.stop()
       await media.sourceContext.close()
@@ -161,8 +177,9 @@ test.describe('IDE shell', () => {
   test('Signal Salvage stops media that resolves after switching examples', async ({ page }) => {
     test.setTimeout(45_000)
     await page.evaluate(() => {
-      const pending = []
-      window.__signalProbe = { pending, error: null }
+      const pending: PendingMedia[] = []
+      const probe: SignalProbe = { pending, error: null }
+      window.__signalProbe = probe
       try {
         const canvas = document.createElement('canvas')
         canvas.width = 32
@@ -174,50 +191,54 @@ test.describe('IDE shell', () => {
         oscillator.connect(destination)
         oscillator.start()
         const microphoneStream = destination.stream
-        Object.assign(window.__signalProbe, {
+        probe.media = {
           cameraStream,
           microphoneStream,
           sourceContext,
           oscillator,
-        })
+        }
         Object.defineProperty(navigator, 'mediaDevices', {
           configurable: true,
           value: {
-            getUserMedia: constraints => new Promise(resolve => {
+            getUserMedia: (constraints: MediaStreamConstraints) => new Promise<MediaStream>(resolve => {
               pending.push({ resolve, video: Boolean(constraints.video) })
             }),
           },
         })
       } catch (error) {
-        window.__signalProbe.error = error.message
+        probe.error = error instanceof Error ? error.message : String(error)
       }
     })
 
     await page.goto('./#signal-salvage', { waitUntil: 'domcontentloaded' })
     expect(await page.evaluate(() => window.__signalProbe?.error)).toBeNull()
     await page.getByRole('button', { name: 'START MISSION' }).click()
-    await expect.poll(() => page.evaluate(() => window.__signalProbe.pending.length)).toBe(2)
+    await expect.poll(() => page.evaluate(() => window.__signalProbe?.pending.length)).toBe(2)
     await page.evaluate(() => { location.hash = '#hello-cube' })
     await page.evaluate(() => {
       const probe = window.__signalProbe
+      if (!probe?.media) throw new Error('Synthetic media did not initialize')
       for (const request of probe.pending) {
-        request.resolve(request.video ? probe.cameraStream : probe.microphoneStream)
+        request.resolve(request.video ? probe.media.cameraStream : probe.media.microphoneStream)
       }
     })
 
     await expect.poll(() => page.evaluate(() => {
       const probe = window.__signalProbe
-      return [...probe.cameraStream.getTracks(), ...probe.microphoneStream.getTracks()]
+      if (!probe?.media) throw new Error('Synthetic media did not initialize')
+      return [...probe.media.cameraStream.getTracks(), ...probe.media.microphoneStream.getTracks()]
         .every(track => track.readyState === 'ended')
     })).toBe(true)
     await page.evaluate(async () => {
-      window.__signalProbe.oscillator.stop()
-      await window.__signalProbe.sourceContext.close()
+      const media = window.__signalProbe?.media
+      if (!media) throw new Error('Synthetic media did not initialize')
+      media.oscillator.stop()
+      await media.sourceContext.close()
     })
   })
 
   test('no JS errors on cold load', async ({ page }) => {
-    const errors = []
+    const errors: string[] = []
     page.on('pageerror', e => errors.push(e.message))
     await page.goto('./', { waitUntil: 'domcontentloaded' })
     await page.waitForTimeout(2000)

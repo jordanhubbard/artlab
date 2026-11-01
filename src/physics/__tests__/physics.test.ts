@@ -2,8 +2,8 @@ import { describe, it, expect } from 'vitest'
 import * as Three from 'three'
 import * as P from '../Physics.ts'
 
-const approx = (a, b, eps = 1e-6) => Math.abs(a - b) < eps
-const v3near = (v, x, y, z, eps = 1e-6) =>
+const approx = (a: number, b: number, eps = 1e-6) => Math.abs(a - b) < eps
+const v3near = (v: Three.Vector3Like, x: number, y: number, z: number, eps = 1e-6) =>
   approx(v.x, x, eps) && approx(v.y, y, eps) && approx(v.z, z, eps)
 
 // ── 1. body() ─────────────────────────────────────────────────────────────────

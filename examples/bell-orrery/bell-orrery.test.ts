@@ -1,9 +1,16 @@
 // @vitest-environment jsdom
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
-import * as Three from 'three'
+import { makeContext } from '../../tests/context.ts'
 
 // Panner3D instances created by the example, in construction order.
-const panners = []
+const panners: ReturnType<typeof makePanner>[] = []
+
+function makePanner() {
+  return {
+    positionX: { value: 0 }, positionY: { value: 0 }, positionZ: { value: 0 },
+    toDestination: vi.fn().mockReturnThis(), dispose: vi.fn(),
+  }
+}
 
 vi.mock('../../src/stdlib/audio.ts', () => ({
   engine: {
@@ -40,42 +47,30 @@ vi.mock('tone', () => ({
     }
   }),
   Panner3D: vi.fn(function Panner3D() {
-    const panner = {
-      positionX: { value: 0 },
-      positionY: { value: 0 },
-      positionZ: { value: 0 },
-      toDestination: vi.fn().mockReturnThis(),
-      dispose: vi.fn(),
-    }
+    const panner = makePanner()
     panners.push(panner)
     return panner
   }),
 }))
 
 function makeMockCtx() {
-  const container = document.createElement('div')
-  document.body.appendChild(container)
-  const canvas = document.createElement('canvas')
-  container.appendChild(canvas)
-  const scene = { add: vi.fn(), remove: vi.fn(), children: [] }
-  const camera = new Three.PerspectiveCamera(60, 1, 0.1, 1000)
-  camera.position.set(0, 8, 18)
-  return {
-    Three,
-    scene,
-    camera,
-    renderer: { domElement: canvas, shadowMap: { enabled: false } },
-    controls: { target: new Three.Vector3(), update: vi.fn(), enabled: true },
-    add: vi.fn(obj => { scene.children.push(obj); return obj }),
-    remove: vi.fn(),
-    setBloom: vi.fn(),
-    setHelp: vi.fn(),
-    elapsed: 0,
-  }
+  const ctx = makeContext()
+  vi.spyOn(ctx, 'add')
+  vi.spyOn(ctx, 'remove')
+  vi.spyOn(ctx, 'setBloom')
+  vi.spyOn(ctx, 'setHelp')
+  return ctx
+}
+
+function button(ctx: ReturnType<typeof makeMockCtx>) {
+  const button = ctx.renderer.domElement.parentElement?.querySelector('button')
+  if (!button) throw new Error('Bell start button is missing')
+  return button
 }
 
 describe('bell-orrery', () => {
-  let ctx, mod
+  let ctx: ReturnType<typeof makeMockCtx>
+  let mod: typeof import('./bell-orrery.ts')
 
   beforeEach(async () => {
     document.body.innerHTML = ''
@@ -86,15 +81,15 @@ describe('bell-orrery', () => {
   })
 
   afterEach(async () => {
-    try { await mod.teardown(ctx) } catch (_) { /* ignore */ }
+    await mod.teardown(ctx)
   })
 
   it('setup() calls setHelp and setBloom and adds orbital rings', () => {
     mod.setup(ctx)
     expect(ctx.setHelp).toHaveBeenCalled()
     expect(ctx.setBloom).toHaveBeenCalled()
-    expect(ctx.add.mock.calls.length).toBeGreaterThanOrEqual(7)
-    const btn = ctx.renderer.domElement.parentElement.querySelector('button')
+    expect(vi.mocked(ctx.add).mock.calls.length).toBeGreaterThanOrEqual(7)
+    const btn = button(ctx)
     expect(btn).not.toBeNull()
     expect(btn.textContent).toMatch(/Start/i)
   })
@@ -112,34 +107,35 @@ describe('bell-orrery', () => {
     const { engine } = await import('../../src/stdlib/audio.ts')
     const Tone = await import('tone')
     mod.setup(ctx)
-    const btn = ctx.renderer.domElement.parentElement.querySelector('button')
+    const btn = button(ctx)
     btn.click()
     await Promise.resolve()
     await Promise.resolve()
     expect(engine.start).toHaveBeenCalled()
     expect(Tone.FMSynth).toHaveBeenCalled()
     // Tone sources must be panned by a Tone node, never stdlib spatialize().
-    expect(Tone.Panner3D.mock.calls.length).toBe(5)
+    expect(vi.mocked(Tone.Panner3D).mock.calls.length).toBe(5)
     expect(panners.length).toBe(5)
     for (const p of panners) expect(p.toDestination).toHaveBeenCalled()
   })
 
   it('Start button hides before the engine promise settles', async () => {
     const { engine } = await import('../../src/stdlib/audio.ts')
-    let release
-    engine.start.mockImplementationOnce(() => new Promise(r => { release = r }))
+    let release: (() => void) | undefined
+    vi.mocked(engine.start).mockImplementationOnce(() => new Promise<void>(r => { release = r }))
     mod.setup(ctx)
-    const btn = ctx.renderer.domElement.parentElement.querySelector('button')
+    const btn = button(ctx)
     btn.click()
     expect(btn.style.display).toBe('none')
+    if (!release) throw new Error('Audio startup did not begin')
     release()
   })
 
   it('Start button returns for a retry when audio init fails', async () => {
     const { engine } = await import('../../src/stdlib/audio.ts')
-    engine.start.mockRejectedValueOnce(new Error('no audio device'))
+    vi.mocked(engine.start).mockRejectedValueOnce(new Error('no audio device'))
     mod.setup(ctx)
-    const btn = ctx.renderer.domElement.parentElement.querySelector('button')
+    const btn = button(ctx)
     btn.click()
     await Promise.resolve()
     await Promise.resolve()
@@ -155,7 +151,7 @@ describe('bell-orrery', () => {
 
   it('update() after start tracks panners to ring meshes', async () => {
     mod.setup(ctx)
-    ctx.renderer.domElement.parentElement.querySelector('button').click()
+    button(ctx).click()
     await Promise.resolve()
     await Promise.resolve()
     mod.update(ctx, 0.016)
@@ -168,14 +164,14 @@ describe('bell-orrery', () => {
   it('teardown() removes UI, disconnects spatializers, and stops the engine', async () => {
     const { engine } = await import('../../src/stdlib/audio.ts')
     mod.setup(ctx)
-    ctx.renderer.domElement.parentElement.querySelector('button').click()
+    button(ctx).click()
     await Promise.resolve()
     await Promise.resolve()
-    const addCount = ctx.add.mock.calls.length
+    const addCount = vi.mocked(ctx.add).mock.calls.length
     await mod.teardown(ctx)
-    expect(ctx.remove.mock.calls.length).toBe(addCount)
+    expect(vi.mocked(ctx.remove).mock.calls.length).toBe(addCount)
     for (const p of panners) expect(p.dispose).toHaveBeenCalled()
     expect(engine.stop).toHaveBeenCalled()
-    expect(ctx.renderer.domElement.parentElement.querySelector('button')).toBeNull()
+    expect(ctx.renderer.domElement.parentElement?.querySelector('button')).toBeNull()
   })
 })

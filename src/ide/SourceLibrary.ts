@@ -1,4 +1,5 @@
 // Raw source stays available in production, independently of Vite's executable bundles.
+import { parseManifest } from './WorkspaceData.ts'
 const sources = import.meta.glob<string>([
   '/src/**/*.{js,ts}', '/examples/**/*.{js,ts,json}',
   '!**/*.test.*', '!**/*.spec.*', '!**/__tests__/**',
@@ -42,9 +43,7 @@ export class SourceLibrary {
     const files = new Map(await Promise.all(this.list(prefix).map(async path => [path, await this.read(path)] as const)))
     const source = files.get(`${prefix}artlab.json`)
     if (source === undefined) throw new Error(`Manifest not found: ${prefix}artlab.json`)
-    const parsed: unknown = JSON.parse(source)
-    if (!parsed || typeof parsed !== 'object' || !('entry' in parsed) || typeof parsed.entry !== 'string') throw new Error('Manifest requires a string entry')
-    const manifest = { ...parsed, entry: parsed.entry }
+    const manifest = parseManifest(source)
     manifest.entry = prefix + manifest.entry
     files.set('artlab.json', JSON.stringify(manifest, null, 2))
     files.delete(`${prefix}artlab.json`)

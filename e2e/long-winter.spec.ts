@@ -3,7 +3,7 @@ import { test, expect } from '@playwright/test'
 test('Northern Light renders every act, including reflection and ray-marching shaders', async ({ page }) => {
   test.setTimeout(180000)
   await page.setViewportSize({ width: 960, height: 540 })
-  const errors = []
+  const errors: string[] = []
   page.on('pageerror', error => errors.push(error.message))
   page.on('console', message => {
     // Unlike gallery smoke tests, do not filter out renderer or shader errors.
