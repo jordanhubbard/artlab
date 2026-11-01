@@ -6,6 +6,8 @@ A browser-based TypeScript creative-coding IDE for building interactive 3D scene
 
 ## Quick start
 
+Use Node.js 22.18 or newer for development and the TypeScript CLI.
+
 ```bash
 git clone https://github.com/jordanhubbard/artlab.git
 cd artlab
