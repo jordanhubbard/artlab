@@ -2,9 +2,15 @@ import { WebGPURenderer, PostProcessing, pass, uniform } from 'three/webgpu'
 import { bloom } from 'three/addons/tsl/display/BloomNode.js'
 import * as Three from 'three'
 import { IRenderer } from './IRenderer.ts'
+import type { AnimationLoop, BloomSettings } from './IRenderer.ts'
 
 export class WebGPUBackend extends IRenderer {
-  constructor(canvas) {
+  private readonly _renderer: WebGPURenderer
+  private _postProcessing: PostProcessing | null = null
+  private readonly _bloomStrengthUniform = uniform(0.55)
+  private _scene: Three.Scene | null = null
+  private _camera: Three.Camera | null = null
+  constructor(canvas: HTMLCanvasElement) {
     super()
 
     this._renderer = new WebGPURenderer({
@@ -48,7 +54,7 @@ export class WebGPUBackend extends IRenderer {
    *
    * @param {Function|null} callback
    */
-  setAnimationLoop(callback) {
+  setAnimationLoop(callback: AnimationLoop) {
     this._renderer.setAnimationLoop(async (time, xrFrame) => {
       if (callback) callback(time, xrFrame)
 
@@ -67,7 +73,7 @@ export class WebGPUBackend extends IRenderer {
    * @param {Three.Scene}  scene
    * @param {Three.Camera} camera
    */
-  render(scene, camera) {
+  render(scene: Three.Scene, camera: Three.Camera) {
     if (scene !== this._scene || camera !== this._camera) {
       this._scene  = scene
       this._camera = camera
@@ -75,15 +81,15 @@ export class WebGPUBackend extends IRenderer {
     }
   }
 
-  resize(w, h) {
+  resize(w: number, h: number) {
     this._renderer.setSize(w, h)
   }
 
-  setBloomStrength(v) {
+  setBloomStrength(v: number) {
     this._bloomStrengthUniform.value = v
   }
 
-  setPostProcessing(desc) {
+  setPostProcessing(desc: BloomSettings) {
     if (desc?.type === 'bloom') {
       if (desc.strength  !== undefined) this.setBloomStrength(desc.strength)
     }
@@ -97,17 +103,18 @@ export class WebGPUBackend extends IRenderer {
 
   // ── Private ─────────────────────────────────────────────────────────────────
 
-  _initPostProcessing(scene, camera) {
+  private _initPostProcessing(scene: Three.Scene, camera: Three.Camera) {
     try {
       const scenePass = pass(scene, camera)
-      const bloomPass = bloom(scenePass, this._bloomStrengthUniform, 0.25, 0.85)
+      const bloomPass = bloom(scenePass, this._bloomStrengthUniform.value, 0.25, 0.85)
+      bloomPass.strength = this._bloomStrengthUniform
 
       this._postProcessing = new PostProcessing(this._renderer)
       this._postProcessing.outputNode = bloomPass
 
       console.info('[WebGPUBackend] PostProcessing + bloom active')
     } catch (e) {
-      console.warn('[WebGPUBackend] PostProcessing setup failed, using direct renderAsync:', e.message)
+      console.warn('[WebGPUBackend] PostProcessing setup failed, using direct renderAsync:', e instanceof Error ? e.message : String(e))
       this._postProcessing = null
     }
   }

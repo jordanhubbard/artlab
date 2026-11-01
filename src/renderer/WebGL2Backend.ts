@@ -4,12 +4,19 @@ import { RenderPass } from 'three/addons/postprocessing/RenderPass.js'
 import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js'
 import { OutputPass } from 'three/addons/postprocessing/OutputPass.js'
 import { IRenderer } from './IRenderer.ts'
+import type { AnimationLoop, BloomSettings } from './IRenderer.ts'
 
 export class WebGL2Backend extends IRenderer {
+  private readonly _renderer: Three.WebGLRenderer
+  private _composer: EffectComposer | null = null
+  private _bloomPass: UnrealBloomPass | null = null
+  private _bloomStrengthPending = 0.55
+  private _scene: Three.Scene | null = null
+  private _camera: Three.Camera | null = null
   /**
    * @param {HTMLCanvasElement} canvas
    */
-  constructor(canvas) {
+  constructor(canvas: HTMLCanvasElement) {
     super()
 
     this._renderer = new Three.WebGLRenderer({
@@ -62,7 +69,7 @@ export class WebGL2Backend extends IRenderer {
    * @param {Three.Scene}  scene
    * @param {Three.Camera} camera
    */
-  render(scene, camera) {
+  render(scene: Three.Scene, camera: Three.Camera) {
     // Lazily initialise (or re-initialise when scene/camera change)
     if (!this._composer || this._scene !== scene || this._camera !== camera) {
       this._initComposer(scene, camera)
@@ -79,7 +86,7 @@ export class WebGL2Backend extends IRenderer {
    * @param {number} w
    * @param {number} h
    */
-  resize(w, h) {
+  resize(w: number, h: number) {
     this._renderer.setSize(w, h)
     if (this._composer) {
       this._composer.setSize(w, h)
@@ -90,7 +97,7 @@ export class WebGL2Backend extends IRenderer {
   /**
    * @param {number} v  bloom strength 0–3
    */
-  setBloomStrength(v) {
+  setBloomStrength(v: number) {
     this._bloomStrengthPending = v
     if (this._bloomPass) this._bloomPass.strength = v
   }
@@ -102,7 +109,7 @@ export class WebGL2Backend extends IRenderer {
    *
    * @param {{ type: string, [key: string]: any }} desc
    */
-  setPostProcessing(desc) {
+  setPostProcessing(desc: BloomSettings) {
     if (!desc || !desc.type) return
     if (desc.type === 'bloom') {
       if (this._bloomPass) {
@@ -116,7 +123,7 @@ export class WebGL2Backend extends IRenderer {
   /**
    * @param {Function|null} callback
    */
-  setAnimationLoop(callback) {
+  setAnimationLoop(callback: AnimationLoop) {
     this._renderer.setAnimationLoop(callback)
   }
 
@@ -129,7 +136,7 @@ export class WebGL2Backend extends IRenderer {
 
   // ── Private helpers ─────────────────────────────────────────────────────────
 
-  _initComposer(scene, camera) {
+  private _initComposer(scene: Three.Scene, camera: Three.Camera) {
     this._scene  = scene
     this._camera = camera
 
@@ -151,7 +158,7 @@ export class WebGL2Backend extends IRenderer {
 
       console.info('[WebGL2Backend] EffectComposer + UnrealBloom active')
     } catch (e) {
-      console.warn('[WebGL2Backend] EffectComposer failed, using direct render:', e.message)
+      console.warn('[WebGL2Backend] EffectComposer failed, using direct render:', e instanceof Error ? e.message : String(e))
       this._composer  = null
       this._bloomPass = null
     }

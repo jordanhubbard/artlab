@@ -1,4 +1,10 @@
 import * as Three from 'three'
+type CommonOptions = Pick<Three.MaterialParameters, 'transparent' | 'depthWrite' | 'side' | 'blending'>
+type PbrOptions = CommonOptions & Pick<Three.MeshStandardMaterialParameters, 'color' | 'map' | 'normalMap' | 'roughnessMap' | 'roughness' | 'metalness' | 'emissive' | 'emissiveIntensity'>
+export type MaterialDescriptor =
+  | (PbrOptions & { type: 'pbr' | 'emissive' })
+  | (CommonOptions & Pick<Three.MeshBasicMaterialParameters, 'color' | 'map'> & { type: 'unlit' })
+  | (CommonOptions & { type: 'custom'; vertexShader: string; fragmentShader: string; uniforms?: Record<string, Three.IUniform> })
 
 /**
  * Create a Three.js material from a descriptor object.
@@ -22,7 +28,7 @@ import * as Three from 'three'
  * @param {Object}          [desc.uniforms]         - for 'custom' type
  * @returns {Three.Material}
  */
-export function createMaterial(desc) {
+export function createMaterial(desc: MaterialDescriptor): Three.Material {
   if (!desc || !desc.type) {
     throw new Error('[MaterialFactory] desc.type is required')
   }
@@ -41,7 +47,7 @@ export function createMaterial(desc) {
       return _makeCustom(desc)
 
     default:
-      throw new Error(`[MaterialFactory] Unknown material type: "${desc.type}"`)
+      throw new Error(`[MaterialFactory] Unknown material type: "${(desc as { type: string }).type}"`)
   }
 }
 
@@ -51,8 +57,8 @@ export function createMaterial(desc) {
  * Standard physically-based material (MeshStandardMaterial).
  * Covers the pattern used by Planet.js and Moon in main.js.
  */
-function _makePBR(desc) {
-  const params = {}
+function _makePBR(desc: PbrOptions) {
+  const params: Three.MeshStandardMaterialParameters = {}
   if (desc.color        !== undefined) params.color        = new Three.Color(desc.color)
   if (desc.map          !== undefined) params.map          = desc.map
   if (desc.normalMap    !== undefined) params.normalMap    = desc.normalMap
@@ -67,8 +73,8 @@ function _makePBR(desc) {
  * Emissive variant of MeshStandardMaterial.
  * Covers the pattern used by Sun.js (core sphere).
  */
-function _makeEmissive(desc) {
-  const params = {}
+function _makeEmissive(desc: PbrOptions) {
+  const params: Three.MeshStandardMaterialParameters = {}
   if (desc.color             !== undefined) params.color             = new Three.Color(desc.color)
   if (desc.map               !== undefined) params.map               = desc.map
   if (desc.roughness         !== undefined) params.roughness         = desc.roughness
@@ -89,8 +95,8 @@ function _makeEmissive(desc) {
 /**
  * Unlit material (MeshBasicMaterial).
  */
-function _makeUnlit(desc) {
-  const params = {}
+function _makeUnlit(desc: Extract<MaterialDescriptor, { type: 'unlit' }>) {
+  const params: Three.MeshBasicMaterialParameters = {}
   if (desc.color !== undefined) params.color = new Three.Color(desc.color)
   if (desc.map   !== undefined) params.map   = desc.map
   _applyCommon(params, desc)
@@ -101,12 +107,12 @@ function _makeUnlit(desc) {
  * Custom shader material (ShaderMaterial).
  * Covers the pattern used by Sun.js corona and Planet.js atmosphere.
  */
-function _makeCustom(desc) {
+function _makeCustom(desc: Extract<MaterialDescriptor, { type: 'custom' }>) {
   if (!desc.vertexShader || !desc.fragmentShader) {
     throw new Error('[MaterialFactory] custom type requires vertexShader and fragmentShader')
   }
 
-  const params = {
+  const params: Three.ShaderMaterialParameters = {
     vertexShader:   desc.vertexShader,
     fragmentShader: desc.fragmentShader,
     uniforms:       desc.uniforms ?? {},
@@ -118,7 +124,7 @@ function _makeCustom(desc) {
 /**
  * Apply shared material properties that all types can carry.
  */
-function _applyCommon(params, desc) {
+function _applyCommon(params: CommonOptions, desc: CommonOptions) {
   if (desc.transparent !== undefined) params.transparent = desc.transparent
   if (desc.depthWrite  !== undefined) params.depthWrite  = desc.depthWrite
   if (desc.side        !== undefined) params.side        = desc.side

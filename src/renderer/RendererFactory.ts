@@ -1,3 +1,4 @@
+import type { IRenderer } from './IRenderer.ts'
 /**
  * Create the appropriate renderer backend.
  * Prefers WebGPU when available; falls back to WebGL2.
@@ -6,7 +7,7 @@
  * @param {Object}            [options]
  * @returns {Promise<import('./IRenderer.ts').IRenderer>}
  */
-export async function createRenderer(canvas, options = {}) {
+export async function createRenderer(canvas: HTMLCanvasElement, options: Record<string, unknown> = {}): Promise<IRenderer> {
   if (navigator.gpu) {
     try {
       const { WebGPUBackend } = await import('./WebGPUBackend.ts')
@@ -15,7 +16,7 @@ export async function createRenderer(canvas, options = {}) {
       console.info('[RendererFactory] Using WebGPU backend')
       return backend
     } catch (e) {
-      console.warn('[RendererFactory] WebGPU init failed, falling back to WebGL2:', e.message)
+      console.warn('[RendererFactory] WebGPU init failed, falling back to WebGL2:', e instanceof Error ? e.message : String(e))
     }
   }
 
