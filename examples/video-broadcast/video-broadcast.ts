@@ -3,6 +3,7 @@
 
 import * as Three from 'three'
 import { webcam } from '../../src/stdlib/video.ts'
+import type { ArtlabContext } from '../../src/runtime/contracts.ts'
 
 // ── Ticker content ────────────────────────────────────────────────────────────
 
@@ -31,8 +32,14 @@ const TICKER_SPEED = 80                  // px / sec
 
 // ── Module-level state ────────────────────────────────────────────────────────
 
-let _cam, _mesh
-let _overlay, _liveBadge, _liveDot, _lowerThird, _ticker, _branding
+let _cam: ReturnType<typeof webcam> | null = null
+let _mesh: Three.Mesh<Three.PlaneGeometry, Three.MeshBasicMaterial> | null = null
+let _overlay: HTMLDivElement | null = null
+let _liveBadge: HTMLDivElement | null = null
+let _liveDot: HTMLDivElement | null = null
+let _lowerThird: HTMLDivElement | null = null
+let _ticker: HTMLDivElement | null = null
+let _branding: HTMLDivElement | null = null
 let _lowerThirdIn = false
 let _lowerThirdT = 0          // animation progress [0, 1]
 let _lowerThirdVisible = false
@@ -41,8 +48,9 @@ let _startTime = 0
 
 // ── Lifecycle ─────────────────────────────────────────────────────────────────
 
-export async function setup(ctx) {
+export async function setup(ctx: ArtlabContext) {
   const container = ctx.renderer.domElement.parentElement
+  if (!container) throw new Error('Video Broadcast requires a canvas container')
 
   // Camera is set back enough to frame a 16:9 plane snugly
   ctx.camera.position.set(0, 0, 9)
@@ -73,10 +81,10 @@ export async function setup(ctx) {
   })
   container.appendChild(_overlay)
 
-  _buildLiveBadge()
-  _buildCornerBranding()
-  _buildLowerThird()
-  _buildTicker()
+  _buildLiveBadge(_overlay)
+  _buildCornerBranding(_overlay)
+  _buildLowerThird(_overlay)
+  _buildTicker(_overlay)
 
   _startTime = performance.now() / 1000
   _lowerThirdVisible = false
@@ -84,7 +92,7 @@ export async function setup(ctx) {
   _tickerX = 0
 }
 
-export function update(ctx, dt) {
+export function update(ctx: ArtlabContext, dt: number) {
   const elapsed = ctx.elapsed
 
   // ── Pulsing LIVE dot ──────────────────────────────────────────────────────
@@ -112,7 +120,7 @@ export function update(ctx, dt) {
   }
 }
 
-export function teardown(ctx) {
+export function teardown(ctx: ArtlabContext) {
   _cam?.stop()
   _overlay?.remove()
   _overlay = null
@@ -130,7 +138,7 @@ export function teardown(ctx) {
 
 // ── Builder helpers ───────────────────────────────────────────────────────────
 
-function _buildLiveBadge() {
+function _buildLiveBadge(overlay: HTMLDivElement) {
   _liveBadge = document.createElement('div')
   Object.assign(_liveBadge.style, {
     position: 'absolute',
@@ -164,10 +172,10 @@ function _buildLiveBadge() {
 
   _liveBadge.appendChild(_liveDot)
   _liveBadge.appendChild(label)
-  _overlay.appendChild(_liveBadge)
+  overlay.appendChild(_liveBadge)
 }
 
-function _buildCornerBranding() {
+function _buildCornerBranding(overlay: HTMLDivElement) {
   _branding = document.createElement('div')
   Object.assign(_branding.style, {
     position: 'absolute',
@@ -180,10 +188,10 @@ function _buildCornerBranding() {
     fontWeight: 'bold',
   })
   _branding.textContent = 'ARTLAB'
-  _overlay.appendChild(_branding)
+  overlay.appendChild(_branding)
 }
 
-function _buildLowerThird() {
+function _buildLowerThird(overlay: HTMLDivElement) {
   _lowerThird = document.createElement('div')
   Object.assign(_lowerThird.style, {
     position: 'absolute',
@@ -222,10 +230,10 @@ function _buildLowerThird() {
 
   _lowerThird.appendChild(name)
   _lowerThird.appendChild(title)
-  _overlay.appendChild(_lowerThird)
+  overlay.appendChild(_lowerThird)
 }
 
-function _buildTicker() {
+function _buildTicker(overlay: HTMLDivElement) {
   // Outer band
   const band = document.createElement('div')
   Object.assign(band.style, {
@@ -286,14 +294,14 @@ function _buildTicker() {
   scroll.appendChild(_ticker)
   band.appendChild(chip)
   band.appendChild(scroll)
-  _overlay.appendChild(band)
+  overlay.appendChild(band)
 }
 
 // ── Gesture gate ──────────────────────────────────────────────────────────────
 
-function _awaitGesture(container) {
-  return new Promise(resolve => {
-    let btn = container.querySelector('#vb-start-btn')
+function _awaitGesture(container: HTMLElement) {
+  return new Promise<void>(resolve => {
+    let btn = container.querySelector<HTMLButtonElement>('#vb-start-btn')
     if (!btn) {
       btn = document.createElement('button')
       btn.id = 'vb-start-btn'
@@ -317,6 +325,7 @@ function _awaitGesture(container) {
       btn.textContent = '▶  Enable Camera'
       container.appendChild(btn)
     }
-    btn.addEventListener('click', () => { btn.remove(); resolve() }, { once: true })
+    const button = btn
+    button.addEventListener('click', () => { button.remove(); resolve() }, { once: true })
   })
 }

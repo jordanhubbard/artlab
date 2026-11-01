@@ -9,6 +9,17 @@ import * as Three from 'three'
 import { ResourceScope } from '../../src/stdlib/scene/ResourceScope.ts'
 import { ParticleField } from '../../src/stdlib/scene/ParticleField.ts'
 import { keplerPosition } from '../../src/physics/Physics.ts'
+import type { ArtlabContext } from '../../src/runtime/contracts'
+type OrbitData = typeof BODIES[number]
+type OrbitBody = ReturnType<typeof buildBody>
+type OrbitalContext = ArtlabContext & {
+  _scope: ResourceScope
+  _restore: { controlsEnabled: boolean; shadowsEnabled: boolean }
+  _backdrop: ReturnType<typeof buildBackdrop>
+  _starfield: ParticleField['object']
+  _star: ReturnType<typeof buildStar>['core']
+  _bodies: OrbitBody[]; _worldPos: Float64Array; _eclipse: Float32Array
+}
 
 const TRAIL_SAMPLES    = 72     // fixed vertices per trail — buffers never resize
 const TRAIL_SPAN       = 2.4    // radians of mean anomaly held behind a body
@@ -31,7 +42,7 @@ const BODIES = [
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
 /** Deterministic PRNG so the starfield is identical on every run. */
-function mulberry32(seed) {
+function mulberry32(seed: number) {
   let s = seed >>> 0
   return () => {
     s = (s + 0x6d2b79f5) >>> 0
@@ -41,14 +52,14 @@ function mulberry32(seed) {
   }
 }
 
-function clamp01(v) {
+function clamp01(v: number) {
   return v < 0 ? 0 : v > 1 ? 1 : v
 }
 
 // ── Scene construction ────────────────────────────────────────────────────────
 
 /** Inverted gradient dome: an indigo deep field instead of an empty black void. */
-function buildBackdrop(ctx) {
+function buildBackdrop(ctx: ArtlabContext) {
   const geometry = new Three.SphereGeometry(BACKDROP_RADIUS, 48, 32)
   const count    = geometry.attributes.position.count
   const colors   = new Float32Array(count * 3)
@@ -74,7 +85,7 @@ function buildBackdrop(ctx) {
   return new Three.Mesh(geometry, material)
 }
 
-function buildStarfield(ctx) {
+function buildStarfield(ctx: OrbitalContext) {
   const random    = mulberry32(0x51a4)
   const field = ctx._scope.own(new ParticleField(STARFIELD_COUNT, {
     size: 1.9, sizeAttenuation: false, opacity: 0.9, blending: Three.NormalBlending,
@@ -104,7 +115,7 @@ function buildStarfield(ctx) {
   return field.object
 }
 
-function buildStar(ctx) {
+function buildStar(ctx: ArtlabContext) {
   const group = new Three.Group()
 
   const coreGeometry = new Three.SphereGeometry(STAR_RADIUS, 48, 32)
@@ -128,7 +139,7 @@ function buildStar(ctx) {
 }
 
 /** Elliptical annulus lying in the orbital plane, focus at the origin. */
-function buildVeil(ctx, data, innerScale, outerScale, opacity) {
+function buildVeil(ctx: ArtlabContext, data: OrbitData, innerScale: number, outerScale: number, opacity: number) {
   const semiMinor = data.a * Math.sqrt(1 - data.e * data.e)
   const geometry  = new Three.RingGeometry(innerScale, outerScale, 220)
   const material  = new Three.MeshBasicMaterial({
@@ -148,7 +159,7 @@ function buildVeil(ctx, data, innerScale, outerScale, opacity) {
  * Positions are rewritten in place each frame; colours are static fades so
  * only one attribute per object is uploaded.
  */
-function buildTrail(ctx, data) {
+function buildTrail(ctx: ArtlabContext, data: OrbitData) {
   const linePositions = new Float32Array(TRAIL_SAMPLES * 3)
   const lineColors    = new Float32Array(TRAIL_SAMPLES * 3)
   const ribbonCount   = TRAIL_SAMPLES * 2
@@ -213,7 +224,7 @@ function buildTrail(ctx, data) {
   return { line, ribbon, linePositions, ribbonPos }
 }
 
-function buildBody(ctx, data) {
+function buildBody(ctx: ArtlabContext, data: OrbitData) {
   const group = new Three.Group()
   group.rotation.x = data.tilt
 
@@ -246,7 +257,7 @@ function buildBody(ctx, data) {
 // ── Per-frame posing (no allocation of geometry or materials) ──────────────────
 
 /** Rewrite one body's position and trail buffers for the given time. */
-function poseBody(body, elapsed, worldPos, index) {
+function poseBody(body: OrbitBody, elapsed: number, worldPos: Float64Array, index: number) {
   const { a, e, speed, phase, tilt, radius } = body.data
   const meanAnomaly = elapsed * speed + phase
   const halfWidth   = 0.22 + 0.42 * radius
@@ -289,7 +300,7 @@ function poseBody(body, elapsed, worldPos, index) {
 }
 
 /** Shadow fraction on each body cast by any body closer to the star. */
-function poseEclipses(bodies, worldPos, eclipse) {
+function poseEclipses(bodies: OrbitBody[], worldPos: Float64Array, eclipse: Float32Array) {
   for (let i = 0; i < bodies.length; i++) {
     const xi = worldPos[i * 3], yi = worldPos[i * 3 + 1], zi = worldPos[i * 3 + 2]
     const ri = Math.hypot(xi, yi, zi) || 1
@@ -313,7 +324,7 @@ function poseEclipses(bodies, worldPos, eclipse) {
 }
 
 /** Slow rise, dolly, and swing so the composition keeps re-framing itself. */
-function poseCamera(ctx, elapsed) {
+function poseCamera(ctx: ArtlabContext, elapsed: number) {
   const angle  = elapsed * 0.075 + 0.45 * Math.sin(elapsed * 0.031)
   const radius = 26 + 5.5 * Math.sin(elapsed * 0.085)
   const height = 6.0 + 5.5 * Math.sin(elapsed * 0.11 + 0.4)
@@ -326,7 +337,7 @@ function poseCamera(ctx, elapsed) {
   )
 }
 
-function poseSystem(ctx, elapsed) {
+function poseSystem(ctx: OrbitalContext, elapsed: number) {
   for (let i = 0; i < ctx._bodies.length; i++) {
     poseBody(ctx._bodies[i], elapsed, ctx._worldPos, i)
   }
@@ -335,7 +346,7 @@ function poseSystem(ctx, elapsed) {
 
 // ── Lifecycle ─────────────────────────────────────────────────────────────────
 
-export function setup(ctx) {
+export function setup(ctx: OrbitalContext) {
   ctx.setHelp('Five worlds orbit a burning star — watch for eclipses as the camera drifts')
 
   ctx._scope = new ResourceScope()
@@ -375,13 +386,13 @@ export function setup(ctx) {
   poseCamera(ctx, 0)
 }
 
-export function update(ctx) {
+export function update(ctx: OrbitalContext) {
   const elapsed = ctx.elapsed ?? 0
   poseSystem(ctx, elapsed)
   poseCamera(ctx, elapsed)
 }
 
-export function teardown(ctx) {
+export function teardown(ctx: OrbitalContext) {
   if (!ctx._scope) return
   if (ctx._restore) {
     ctx.controls.enabled = ctx._restore.controlsEnabled

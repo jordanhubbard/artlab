@@ -1,11 +1,17 @@
-import { PLANET_DATA, PLANET_ORDER } from '../orbital/planetData.ts'
+import { PLANET_DATA, PLANET_ORDER } from '../stdlib/physics/planetData.ts'
+import type * as ToneTypes from 'tone'
+import type { AudioEngine } from './AudioEngine.ts'
 
 /**
  * Creates one FMSynth pad per planet.
  * Pads fade in/out based on camera distance to each planet.
  */
 export class SynthPads {
-  constructor(audioEngine) {
+  private _engine: AudioEngine
+  private _synths: Record<string, { synth: ToneTypes.FMSynth; vol: ToneTypes.Volume; note: string; active: boolean }> = {}
+  private _active = new Set<string>()
+  private _started = false
+  constructor(audioEngine: AudioEngine) {
     this._engine  = audioEngine
     this._synths  = {}
     this._active  = new Set()
@@ -15,14 +21,15 @@ export class SynthPads {
   async init() {
     if (!this._engine.started) return
     const Tone = this._engine.Tone
-    if (!Tone) return
+    const output = this._engine.output
+    if (!Tone || !output) return
 
     const fmDefaults = {
       harmonicity: 2.5,
       modulationIndex: 10,
-      oscillator: { type: 'sine' },
+      oscillator: { type: 'sine' as const },
       envelope: { attack: 5, decay: 2, sustain: 0.85, release: 10 },
-      modulation: { type: 'triangle' },
+      modulation: { type: 'triangle' as const },
       modulationEnvelope: { attack: 8, decay: 1, sustain: 0.9, release: 10 },
     }
 
@@ -31,7 +38,7 @@ export class SynthPads {
       const synth = new Tone.FMSynth(fmDefaults)
       const vol   = new Tone.Volume(-40)  // start silent
       synth.connect(vol)
-      vol.connect(this._engine.output)
+      vol.connect(output)
       this._synths[name] = { synth, vol, note: data.toneNote, active: false }
     }
 
@@ -42,7 +49,7 @@ export class SynthPads {
   /**
    * Call each frame with camera-to-planet distances (map of name → distance)
    */
-  update(distances) {
+  update(distances: Readonly<Record<string, number>>) {
     if (!this._started) return
 
     for (const [name, dist] of Object.entries(distances)) {

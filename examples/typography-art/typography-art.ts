@@ -11,6 +11,16 @@
 // before rising again.
 
 import * as Three from 'three'
+import type { ArtlabContext } from '../../src/runtime/contracts.ts'
+
+type MonumentContext = ArtlabContext & {
+  _prevFog: Three.Scene['fog']; _prevBackground: Three.Scene['background'];
+  _camPos: Three.Vector3; _camLook: Three.Vector3;
+  _roots: Three.Object3D[] | null; _geometries: Three.BufferGeometry[] | null;
+  _materials: Three.Material[] | null; _textures: Three.Texture[] | null;
+  _sky: Three.Mesh | null; _ground: Three.Mesh | null;
+  _monument: Three.Group | null; _pillars: Three.Group | null; _rubble: Three.Group | null;
+}
 
 // ── Letterforms ───────────────────────────────────────────────────────────────
 // Strokes are [x, y, width, height] rectangles on a 5x7 cell grid whose origin is
@@ -79,12 +89,12 @@ const PATH_CLEARANCE = 9
 const PATH_HEADROOM  = 3
 
 /** Deterministic pseudo-random value in [0,1) — keeps the ruin reproducible. */
-function hash(n) {
+function hash(n: number) {
   const x = Math.sin(n * 12.9898) * 43758.5453
   return x - Math.floor(x)
 }
 
-function pathPoint(phase, out) {
+function pathPoint(phase: number, out: Three.Vector3) {
   const lift = 0.5 + 0.5 * Math.cos(phase)
   return out.set(
     PATH_RADIUS_X * Math.sin(phase) * (1 + PATH_SPREAD * lift),
@@ -93,7 +103,7 @@ function pathPoint(phase, out) {
   )
 }
 
-function lookPoint(phase, out) {
+function lookPoint(phase: number, out: Three.Vector3) {
   const drift = 0.5 - 0.5 * Math.cos(phase)
   const p = phase + LOOK_LEAD
   return out.set(
@@ -103,14 +113,14 @@ function lookPoint(phase, out) {
   )
 }
 
-function placeCamera(ctx, elapsed) {
+function placeCamera(ctx: MonumentContext, elapsed: number) {
   const phase = (elapsed * Math.PI * 2) / LOOP_SECONDS
   ctx.camera.position.copy(pathPoint(phase, ctx._camPos))
   ctx.camera.lookAt(lookPoint(phase, ctx._camLook))
 }
 
 /** True when the camera passage never enters the column standing at (x, z). */
-function pathClearsColumn(x, z, height, scratch) {
+function pathClearsColumn(x: number, z: number, height: number, scratch: Three.Vector3) {
   for (let i = 0; i < PATH_SAMPLES; i++) {
     pathPoint((i / PATH_SAMPLES) * Math.PI * 2, scratch)
     if (scratch.y > height + PATH_HEADROOM) continue
@@ -124,7 +134,7 @@ function pathClearsColumn(x, z, height, scratch) {
 // ── Construction helpers ──────────────────────────────────────────────────────
 
 /** A single extruded stone block, sized from the shared unit box. */
-function block(group, geometry, material, x, y, z, w, h, d) {
+function block(group: Three.Group, geometry: Three.BufferGeometry, material: Three.Material, x: number, y: number, z: number, w: number, h: number, d: number) {
   const m = new Three.Mesh(geometry, material)
   m.scale.set(w, h, d)
   m.position.set(x, y, z)
@@ -135,7 +145,7 @@ function block(group, geometry, material, x, y, z, w, h, d) {
 }
 
 /** One glyph: a plinth plus its extruded strokes, settled slightly with age. */
-function buildGlyph(letter, index, geometry, material) {
+function buildGlyph(letter: keyof typeof GLYPH_STROKES, index: number, geometry: Three.BufferGeometry, material: Three.Material) {
   const glyph = new Three.Group()
   const glyphWidth = GLYPH_CELLS_W * CELL
 
@@ -163,14 +173,14 @@ function buildGlyph(letter, index, geometry, material) {
 }
 
 /** Glyph centres, split by the plaza: half the word on each side of the origin. */
-function glyphCenterX(index) {
+function glyphCenterX(index: number) {
   const half = WORD.length / 2
   const fromPlaza = index < half ? half - 1 - index : index - half
   const offset = PLAZA_HALF + (GLYPH_CELLS_W * CELL) / 2 + fromPlaza * ADVANCE
   return index < half ? -offset : offset
 }
 
-function buildPillars(geometry, material) {
+function buildPillars(geometry: Three.BufferGeometry, material: Three.Material) {
   const pillars = new Three.Group()
   const scratch = new Three.Vector3()
   let seed = 0
@@ -190,7 +200,7 @@ function buildPillars(geometry, material) {
   return pillars
 }
 
-function buildRubble(geometry, material) {
+function buildRubble(geometry: Three.BufferGeometry, material: Three.Material) {
   const rubble = new Three.Group()
   for (let i = 0; i < RUBBLE_COUNT; i++) {
     const width  = 3 + hash(i * 2 + 1) * 4
@@ -233,7 +243,7 @@ function makeSkyTexture() {
 
 // ── Lifecycle ─────────────────────────────────────────────────────────────────
 
-export function setup(ctx) {
+export function setup(ctx: MonumentContext) {
   ctx.setHelp('Monument — dawn drifts through a word built as architecture; no input needed')
 
   ctx._prevFog = ctx.scene.fog ?? null
@@ -275,7 +285,10 @@ export function setup(ctx) {
 
   ctx._monument = new Three.Group()
   for (let i = 0; i < WORD.length; i++) {
-    ctx._monument.add(buildGlyph(WORD[i], i, strokeGeo, stoneMat))
+    const letter = WORD[i]
+    if (letter in GLYPH_STROKES) {
+      ctx._monument.add(buildGlyph(letter as keyof typeof GLYPH_STROKES, i, strokeGeo, stoneMat))
+    }
   }
 
   ctx._pillars = buildPillars(strokeGeo, pillarMat)
@@ -306,14 +319,14 @@ export function setup(ctx) {
   placeCamera(ctx, 0)
 }
 
-export function update(ctx, dt) {  // eslint-disable-line no-unused-vars
+export function update(ctx: MonumentContext, dt: number) {  // eslint-disable-line no-unused-vars
   placeCamera(ctx, ctx.elapsed)
 }
 
-export function teardown(ctx) {
+export function teardown(ctx: MonumentContext) {
   for (const root of ctx._roots ?? []) {
     ctx.remove(root)
-    root.dispose?.()   // lights own shadow resources; meshes share the pools below
+    if (root instanceof Three.Light) root.dispose()
   }
   for (const geometry of ctx._geometries ?? []) geometry.dispose()
   for (const material of ctx._materials ?? []) material.dispose()

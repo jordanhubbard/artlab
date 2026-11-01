@@ -3,6 +3,16 @@ import * as Three from 'three'
 import * as Tone from 'tone'
 import { Trail } from '../../src/stdlib/scene/Trail.ts'
 import { engine } from '../../src/stdlib/audio.ts'
+import type { ArtlabContext } from '../../src/runtime/contracts.ts'
+
+interface Bell {
+  pivot: Three.Object3D;
+  mesh: Three.Mesh<Three.TorusGeometry, Three.MeshStandardMaterial>;
+  trail: Trail['object']; trailBuffer: Trail;
+  speed: number; note: string; prevZ: number; glow: number;
+  synth: Tone.FMSynth | null;
+  spatial: { update(object: Three.Object3D): void; disconnect(): void } | null;
+}
 
 const NOTES = ['C3', 'E3', 'G3', 'A3', 'D4']
 const COLORS = [0xc9a227, 0xd4b45a, 0xaa8844, 0xe8d48a, 0x8a7030]
@@ -10,20 +20,20 @@ const RADII = [6.5, 5.2, 4.1, 3.2, 2.3]
 const INCLINE = [0.35, -0.22, 0.48, -0.4, 0.15]
 const SPEEDS = [0.22, 0.33, 0.47, 0.61, 0.79]
 
-let added = []
-let bells = []
-let startBtn = null
+let added: Three.Object3D[] = []
+let bells: Bell[] = []
+let startBtn: HTMLButtonElement | null = null
 let started = false
 let starting = false
 let showTrails = true
-let onKey = null
-let onClick = null
+let onKey: ((event: KeyboardEvent) => void) | null = null
+let onClick: ((event: MouseEvent) => void) | null = null
 let _pos = new Three.Vector3()
 let _fwd = new Three.Vector3()
 let _ndc = new Three.Vector2()
 let raycaster = new Three.Raycaster()
 
-function styleButton(btn) {
+function styleButton(btn: HTMLButtonElement) {
   btn.style.cssText = [
     'position:absolute', 'bottom:50%', 'left:50%', 'transform:translate(-50%,50%)',
     'background:rgba(10,12,24,0.92)', 'border:1px solid rgba(201,162,39,0.55)',
@@ -33,7 +43,7 @@ function styleButton(btn) {
   ].join(';')
 }
 
-function makeBell(i) {
+function makeBell(i: number): Bell {
   const pivot = new Three.Object3D()
   pivot.rotation.x = INCLINE[i]
   const geo = new Three.TorusGeometry(1.05 - i * 0.08, 0.08, 10, 48)
@@ -64,12 +74,12 @@ function makeBell(i) {
   }
 }
 
-function strike(bell) {
+function strike(bell: Bell) {
   bell.synth?.triggerAttackRelease(bell.note, '8n')
   bell.glow = 1
 }
 
-function syncListener(camera) {
+function syncListener(camera: Three.Camera) {
   const listener = engine.audioContext?.listener
   if (!listener) return
   camera.getWorldPosition(_pos)
@@ -122,7 +132,7 @@ async function startAudio() {
   started = true
 }
 
-export function setup(ctx) {
+export function setup(ctx: ArtlabContext) {
   ctx.setHelp('Start  •  Click a ring to strike  •  Space: trails  •  orbit the camera to move the listener')
   ctx.setBloom(0.55)
   ctx.camera.position.set(0, 9, 16)
@@ -162,24 +172,26 @@ export function setup(ctx) {
   }
 
   const container = ctx.renderer.domElement.parentElement
+  if (!container) throw new Error('Bell Orrery requires a canvas container')
   container.style.position = 'relative'
   startBtn = document.createElement('button')
   startBtn.textContent = 'Start Bells'
   styleButton(startBtn)
+  const button = startBtn
   // Hide before awaiting: if audio init stalls the button must not linger,
   // and it has to come back clickable when init fails outright.
   startBtn.addEventListener('click', async () => {
     if (started || starting) return
     starting = true
-    startBtn.style.display = 'none'
+    button.style.display = 'none'
     try {
       await startAudio()
       startBtn?.remove()
       startBtn = null
     } catch (err) {
       console.error('bell-orrery: audio init failed', err)
-      startBtn.textContent = 'Retry Bells'
-      startBtn.style.display = ''
+      button.textContent = 'Retry Bells'
+      button.style.display = ''
     } finally {
       starting = false
     }
@@ -213,7 +225,7 @@ export function setup(ctx) {
   ctx.renderer.domElement.addEventListener('click', onClick)
 }
 
-export function update(ctx, dt) {
+export function update(ctx: ArtlabContext, dt: number) {
   syncListener(ctx.camera)
   for (const bell of bells) {
     bell.pivot.rotation.y += bell.speed * dt
@@ -230,9 +242,9 @@ export function update(ctx, dt) {
   }
 }
 
-export async function teardown(ctx) {
-  window.removeEventListener('keydown', onKey)
-  ctx.renderer.domElement.removeEventListener('click', onClick)
+export async function teardown(ctx: ArtlabContext) {
+  if (onKey) window.removeEventListener('keydown', onKey)
+  if (onClick) ctx.renderer.domElement.removeEventListener('click', onClick)
   startBtn?.remove()
   startBtn = null
   for (const bell of bells) {

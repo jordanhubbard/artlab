@@ -2,6 +2,16 @@
 // A dome of stars fills the sky. In the upper hemisphere, thin vertical
 // curtains of color undulate with slow sine waves — greens fading into teals
 // and violets, like the northern lights.
+import type * as Three from 'three';
+import type { ArtlabContext } from '../../src/runtime/contracts.ts';
+
+type AuroraPanel = Three.Mesh<Three.PlaneGeometry, Three.MeshStandardMaterial> & {
+  userData: { ci: number; seg: number; base_x: number; base_y: number; base_z: number; arcAngle: number; emBase: number };
+};
+type AuroraContext = ArtlabContext & {
+  _stars: Three.Mesh<Three.SphereGeometry, Three.MeshStandardMaterial>[];
+  _panels: AuroraPanel[];
+};
 
 const STAR_COUNT    = 280;
 const CURTAIN_COUNT = 9;
@@ -10,21 +20,21 @@ const CURTAIN_HEIGHT = 8.0;
 const CURTAIN_WIDTH  = 3.5;
 const ARC_RADIUS     = 16.0;
 
-function curtainColor(ci) {
+function curtainColor(ci: number) {
   const t = ci % 3;
   if (t < 1) return 0x00ff88;
   if (t < 2) return 0x00ddcc;
   return 0x9933ff;
 }
 
-function curtainEmissive(ci) {
+function curtainEmissive(ci: number) {
   const t = ci % 3;
   if (t < 1) return 0x004422;
   if (t < 2) return 0x003333;
   return 0x220044;
 }
 
-function starColor(i) {
+function starColor(i: number) {
   const t = Math.abs(Math.sin(i * 127.3 + 31.7)) % 1.0;
   if (t < 0.25) return 0xaaccff;
   if (t < 0.50) return 0xffffff;
@@ -32,11 +42,11 @@ function starColor(i) {
   return 0xddeeff;
 }
 
-function rand(seed) {
+function rand(seed: number) {
   return Math.abs(Math.sin(seed * 127.1 + 311.7) * Math.cos(seed * 269.5 + 183.3));
 }
 
-export function setup(ctx) {
+export function setup(ctx: AuroraContext) {
   const { Three, sphere, plane, mesh, ambient, point } = ctx;
 
   ctx.camera.position.set(0, 1.5, 0);
@@ -102,24 +112,19 @@ export function setup(ctx) {
         emissive: new Three.Color(emissiveBase),
         roughness: 1.0, metalness: 0.0
       });
-      const panel = new Three.Mesh(panelGeo, mat);
+      const panel = Object.assign(new Three.Mesh(panelGeo, mat), {
+        userData: { ci, seg, base_x: cx, base_y, base_z: cz, arcAngle, emBase: emissiveBase },
+      });
       panel.position.set(cx, base_y, cz);
       panel.rotation.y = arcAngle + Math.PI / 2;
       panel.rotation.z = tilt;
-      panel.userData.ci        = ci;
-      panel.userData.seg       = seg;
-      panel.userData.base_x    = cx;
-      panel.userData.base_y    = base_y;
-      panel.userData.base_z    = cz;
-      panel.userData.arcAngle  = arcAngle;
-      panel.userData.emBase    = emissiveBase;
       ctx.add(panel);
       ctx._panels.push(panel);
     }
   }
 }
 
-export function update(ctx, dt) {
+export function update(ctx: AuroraContext, dt: number) {
   const t = ctx.elapsed;
 
   // Animate curtain panels
@@ -156,4 +161,4 @@ export function update(ctx, dt) {
   }
 }
 
-export function teardown(ctx) {}
+export function teardown(ctx: AuroraContext) {}

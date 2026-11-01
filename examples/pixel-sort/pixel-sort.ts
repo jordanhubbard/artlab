@@ -3,6 +3,18 @@
 // tears, while the sun, its reflection, and the treeline are held intact so the
 // landscape stays legible.
 import * as Three from 'three'
+import type { ArtlabContext } from '../../src/runtime/contracts.ts'
+
+type Pixels = Uint8Array | Uint8ClampedArray
+type PlateMesh = Three.Mesh<Three.PlaneGeometry, Three.MeshBasicMaterial>
+interface CorruptionState {
+  _pixelData: Uint8ClampedArray<ArrayBuffer>; _sourcePixels: Uint8ClampedArray<ArrayBuffer>;
+  _dirtyRows: number[]; _time: number; _sortRow: number; _sortedPixels: number;
+  _imageData: ImageData | null; _ctx2d: CanvasRenderingContext2D | null;
+  _canvas2d: HTMLCanvasElement; _texture: Three.Texture;
+  _quad: PlateMesh; _backdrop: PlateMesh;
+}
+type CorruptionContext = ArtlabContext & CorruptionState
 
 export const IMAGE_WIDTH = 256
 export const IMAGE_HEIGHT = 256
@@ -24,7 +36,7 @@ export const ANCHOR_REGIONS = [
 
 export const SOURCE_LAYERS = [
   'sky', 'clouds', 'sun', 'ridges', 'water', 'reflection', 'shoreline', 'trees', 'birds',
-]
+] as const
 
 // Sorting budget. Every value below caps per-frame work so the frame cost is
 // constant regardless of image content.
@@ -76,7 +88,7 @@ const TREES = [
   { x: 214, base: 240, height: 48, width: 17 },
 ]
 
-function ridgeProfile(x, ridge) {
+function ridgeProfile(x: number, ridge: typeof RIDGES[number]) {
   const wave =
     Math.sin(x * ridge.frequency + ridge.phase) * 0.6 +
     Math.sin(x * ridge.frequency * 2.3 + ridge.phase * 1.7) * 0.3 +
@@ -84,7 +96,7 @@ function ridgeProfile(x, ridge) {
   return ridge.base - ridge.amplitude * (0.45 + 0.55 * wave)
 }
 
-function paintSky(g) {
+function paintSky(g: CanvasRenderingContext2D) {
   const sky = g.createLinearGradient(0, 0, 0, HORIZON_Y)
   sky.addColorStop(0, '#080b1f')
   sky.addColorStop(0.42, '#2c2158')
@@ -95,7 +107,7 @@ function paintSky(g) {
   g.fillRect(0, 0, IMAGE_WIDTH, HORIZON_Y)
 }
 
-function paintClouds(g) {
+function paintClouds(g: CanvasRenderingContext2D) {
   for (const band of CLOUD_BANDS) {
     g.save()
     g.globalAlpha = band.alpha
@@ -107,7 +119,7 @@ function paintClouds(g) {
   }
 }
 
-function paintSun(g) {
+function paintSun(g: CanvasRenderingContext2D) {
   const glow = g.createRadialGradient(SUN_X, SUN_Y, 1, SUN_X, SUN_Y, SUN_GLOW_RADIUS)
   glow.addColorStop(0, 'rgba(255,238,196,0.92)')
   glow.addColorStop(0.3, 'rgba(255,176,104,0.42)')
@@ -121,7 +133,7 @@ function paintSun(g) {
   g.fill()
 }
 
-function paintRidges(g) {
+function paintRidges(g: CanvasRenderingContext2D) {
   for (const ridge of RIDGES) {
     g.fillStyle = ridge.color
     g.beginPath()
@@ -134,7 +146,7 @@ function paintRidges(g) {
   }
 }
 
-function paintWater(g) {
+function paintWater(g: CanvasRenderingContext2D) {
   const water = g.createLinearGradient(0, HORIZON_Y, 0, IMAGE_HEIGHT)
   water.addColorStop(0, '#8a4655')
   water.addColorStop(0.22, '#4d2947')
@@ -158,7 +170,7 @@ function paintWater(g) {
   g.restore()
 }
 
-function paintReflection(g) {
+function paintReflection(g: CanvasRenderingContext2D) {
   g.save()
   for (let y = HORIZON_Y; y < IMAGE_HEIGHT; y += 2) {
     const depth = (y - HORIZON_Y) / (IMAGE_HEIGHT - HORIZON_Y)
@@ -171,7 +183,7 @@ function paintReflection(g) {
   g.restore()
 }
 
-function paintShoreline(g) {
+function paintShoreline(g: CanvasRenderingContext2D) {
   g.fillStyle = '#0a0713'
   g.beginPath()
   g.moveTo(0, IMAGE_HEIGHT)
@@ -185,7 +197,7 @@ function paintShoreline(g) {
   g.fill()
 }
 
-function paintTrees(g) {
+function paintTrees(g: CanvasRenderingContext2D) {
   for (const tree of TREES) {
     g.fillStyle = '#080610'
     g.fillRect(tree.x - 1, tree.base - tree.height * 0.2, 3, tree.height * 0.25)
@@ -206,7 +218,7 @@ function paintTrees(g) {
   }
 }
 
-function paintBirds(g) {
+function paintBirds(g: CanvasRenderingContext2D) {
   g.strokeStyle = 'rgba(16,10,26,0.85)'
   g.lineWidth = 1
   const birds = [{ x: 82, y: 46, s: 4 }, { x: 96, y: 38, s: 3 }, { x: 108, y: 50, s: 5 }]
@@ -232,14 +244,14 @@ const LAYER_PAINTERS = {
 }
 
 // Paints the dusk landscape layer by layer and reports the layers it drew.
-export function paintSourceImage(g) {
+export function paintSourceImage(g: CanvasRenderingContext2D) {
   for (const layer of SOURCE_LAYERS) LAYER_PAINTERS[layer](g)
   return SOURCE_LAYERS.slice()
 }
 
 // Film grain gives the smooth gradients enough per-pixel variation for the
 // threshold sort to bite; without it the sorted spans are already ordered.
-function applyGrain(pixels) {
+function applyGrain(pixels: Pixels) {
   for (let y = 0; y < IMAGE_HEIGHT; y++) {
     for (let x = 0; x < IMAGE_WIDTH; x++) {
       const hash = Math.sin(x * 12.9898 + y * 78.233) * 43758.5453
@@ -255,7 +267,7 @@ function applyGrain(pixels) {
 // Stand-in used only where no 2D context exists (jsdom, headless hosts). It
 // keeps the same dusk palette and horizontal structure so the sorting pipeline
 // still has real luminance spans to work on.
-function writeFallbackSource(pixels) {
+function writeFallbackSource(pixels: Pixels) {
   for (let y = 0; y < IMAGE_HEIGHT; y++) {
     const sky = y < HORIZON_Y
     const t = sky ? y / HORIZON_Y : (y - HORIZON_Y) / (IMAGE_HEIGHT - HORIZON_Y)
@@ -276,7 +288,7 @@ function writeFallbackSource(pixels) {
 
 // ------------------------------------------------------------------- corruption
 
-export function isAnchored(x, y) {
+export function isAnchored(x: number, y: number) {
   for (const region of ANCHOR_REGIONS) {
     if (x >= region.x && x < region.x + region.width &&
         y >= region.y && y < region.y + region.height) return true
@@ -285,12 +297,12 @@ export function isAnchored(x, y) {
 }
 
 // Rec. 601 luminance as a 0–255 sort key.
-export function luminanceByte(pixels, index) {
+export function luminanceByte(pixels: Pixels, index: number) {
   return (pixels[index] * 77 + pixels[index + 1] * 150 + pixels[index + 2] * 29) >> 8
 }
 
 // Stable counting sort of one span, in place, without allocating.
-function sortSpan(pixels, rowStart, start, length, descending) {
+function sortSpan(pixels: Pixels, rowStart: number, start: number, length: number, descending: boolean) {
   bucketOffsets.fill(0)
   for (let k = 0; k < length; k++) {
     const src = (rowStart + start + k) * 4
@@ -329,7 +341,7 @@ function sortSpan(pixels, rowStart, start, length, descending) {
   }
 }
 
-function isSortable(pixels, rowStart, x, y, lowKey, highKey) {
+function isSortable(pixels: Pixels, rowStart: number, x: number, y: number, lowKey: number, highKey: number) {
   if (isAnchored(x, y)) return false
   const key = luminanceByte(pixels, (rowStart + x) * 4)
   return key >= lowKey && key <= highKey
@@ -337,7 +349,7 @@ function isSortable(pixels, rowStart, x, y, lowKey, highKey) {
 
 // Sorts the threshold spans of one row and returns how many pixels moved.
 // Never exceeds MAX_SORTED_PIXELS_PER_ROW, so cost per row is bounded.
-export function sortRowSpans(pixels, y, low, high, descending = false) {
+export function sortRowSpans(pixels: Pixels, y: number, low: number, high: number, descending = false) {
   const rowStart = y * IMAGE_WIDTH
   const lowKey = Math.round(low * 255)
   const highKey = Math.round(high * 255)
@@ -363,7 +375,7 @@ export function sortRowSpans(pixels, y, low, high, descending = false) {
 }
 
 // Where the tears are this instant: bounded bands drifting at different rates.
-export function tearBands(time) {
+export function tearBands(time: number) {
   const travel = IMAGE_HEIGHT - TEAR_BAND_HEIGHT
   return TEAR_TRACKS.map(track => {
     const phase = (((time * track.speed + track.phase) % 1) + 1) % 1
@@ -372,7 +384,7 @@ export function tearBands(time) {
   })
 }
 
-function shearRow(pixels, y, offset) {
+function shearRow(pixels: Pixels, y: number, offset: number) {
   if (offset === 0) return
   const rowStart = y * IMAGE_WIDTH * 4
   for (let k = 0; k < IMAGE_WIDTH * 4; k++) rowPixels[k] = pixels[rowStart + k]
@@ -389,7 +401,7 @@ function shearRow(pixels, y, offset) {
 
 // Chromatic fringe: the red channel of a row remembers a slightly different
 // address than the other two.
-function bleedRedChannel(pixels, y, offset) {
+function bleedRedChannel(pixels: Pixels, y: number, offset: number) {
   if (offset === 0) return
   const rowStart = y * IMAGE_WIDTH * 4
   for (let x = 0; x < IMAGE_WIDTH; x++) rowPixels[x * 4] = pixels[rowStart + x * 4]
@@ -399,19 +411,19 @@ function bleedRedChannel(pixels, y, offset) {
   }
 }
 
-function copyRow(pixels, source, y) {
+function copyRow(pixels: Pixels, source: Pixels, y: number) {
   const rowStart = y * IMAGE_WIDTH * 4
   for (let k = 0; k < IMAGE_WIDTH * 4; k++) pixels[rowStart + k] = source[rowStart + k]
 }
 
 // Stuck memory: a row re-reads its neighbour, thickening a sorted streak.
-function holdRow(pixels, from, to) {
+function holdRow(pixels: Pixels, from: number, to: number) {
   const src = from * IMAGE_WIDTH * 4
   const dst = to * IMAGE_WIDTH * 4
   for (let k = 0; k < IMAGE_WIDTH * 4; k++) pixels[dst + k] = pixels[src + k]
 }
 
-function restoreAnchors(pixels, source, y) {
+function restoreAnchors(pixels: Pixels, source: Pixels, y: number) {
   for (const region of ANCHOR_REGIONS) {
     if (y < region.y || y >= region.y + region.height) continue
     const from = (y * IMAGE_WIDTH + region.x) * 4
@@ -422,7 +434,7 @@ function restoreAnchors(pixels, source, y) {
 
 // Heals last frame's tears, then carves this frame's. Work is capped at
 // MAX_CORRUPTED_ROWS rows × MAX_SORTED_PIXELS_PER_ROW pixels.
-function corruptFrame(ctx) {
+function corruptFrame(ctx: CorruptionContext) {
   const pixels = ctx._pixelData
   const source = ctx._sourcePixels
 
@@ -453,14 +465,14 @@ function corruptFrame(ctx) {
   ctx._sortedPixels = sorted
 }
 
-function present(ctx) {
-  if (ctx._imageData) ctx._ctx2d.putImageData(ctx._imageData, 0, 0)
+function present(ctx: CorruptionContext) {
+  if (ctx._imageData && ctx._ctx2d) ctx._ctx2d.putImageData(ctx._imageData, 0, 0)
   ctx._texture.needsUpdate = true
 }
 
 // -------------------------------------------------------------------- lifecycle
 
-export function setup(ctx) {
+export function setup(ctx: CorruptionContext) {
   ctx.setHelp('Memory Corruption — a dusk lake decaying in failing memory. ' +
     'Drifting bands are pixel-sorted into tears while the sun, its reflection, and the treeline stay intact.')
 
@@ -514,14 +526,15 @@ export function setup(ctx) {
   present(ctx)
 }
 
-export function update(ctx, dt) {
+export function update(ctx: CorruptionContext, dt: number) {
   ctx._time += Math.min(dt, 0.05)
   corruptFrame(ctx)
   present(ctx)
   ctx._quad.rotation.z = Math.sin(ctx._time * 0.12) * 0.006
 }
 
-export function teardown(ctx) {
+export function teardown(ctx: ArtlabContext & { [K in keyof CorruptionState]: CorruptionState[K] | null }) {
+  if (!ctx._quad || !ctx._backdrop || !ctx._texture) return
   ctx.remove(ctx._quad)
   ctx._quad.geometry.dispose()
   ctx._quad.material.dispose()

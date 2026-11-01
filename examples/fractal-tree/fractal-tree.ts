@@ -7,6 +7,22 @@
 // with the wood that holds them and per-frame work stays constant.
 
 import * as THREE from 'three'
+import type { ArtlabContext } from '../../src/runtime/contracts.ts'
+
+interface BranchTip { frame: THREE.Matrix4; radius: number }
+interface BranchGrowth { branches: THREE.Matrix4[]; tips: BranchTip[]; tipRadius: number }
+interface Limb {
+  anchor: THREE.Group; wind: THREE.Group;
+  branches: THREE.InstancedMesh<THREE.BufferGeometry, THREE.MeshStandardMaterial>;
+  canopy: THREE.InstancedMesh<THREE.BufferGeometry, THREE.MeshStandardMaterial>;
+  windAmp: number; windFreq: number; windPhase: number;
+}
+type LightPatch = THREE.Mesh<THREE.BufferGeometry, THREE.MeshBasicMaterial>
+type ForestContext = ArtlabContext & {
+  _oldGrowth?: ReturnType<typeof buildTree> & {
+    limbs: Limb[]; canopy: Limb['canopy'][]; shafts: LightPatch[]; pools: LightPatch[];
+  };
+}
 
 const TAU = Math.PI * 2
 const SEED = 20260825
@@ -42,13 +58,13 @@ const CAMERA_RADIUS = 7.6
 const CAMERA_HEIGHT = 1.5
 const CAMERA_TARGET_Y = 3.7
 
-let _objects = []                   // top-level objects handed to ctx.add
-let _limbs = []                     // [{ anchor, wind, branches, canopy, ... }]
-let _pools = []
-let _shafts = []
-let _trunkWind = null
-let _prevFog = null
-let _prevBackground = null
+let _objects: THREE.Object3D[] = []
+let _limbs: Limb[] = []
+let _pools: LightPatch[] = []
+let _shafts: LightPatch[] = []
+let _trunkWind: THREE.Group | null = null
+let _prevFog: THREE.Scene['fog'] = null
+let _prevBackground: THREE.Scene['background'] = null
 let _prevControlsEnabled = true
 let _active = false
 
@@ -58,7 +74,7 @@ let _active = false
 
 // Linear congruential generator: the same seed always grows the same tree, so
 // the composition is reproducible across reloads and test runs.
-function makeRandom(seed) {
+function makeRandom(seed: number) {
   let state = seed >>> 0
   return () => {
     state = (state * 1664525 + 1013904223) >>> 0
@@ -66,17 +82,17 @@ function makeRandom(seed) {
   }
 }
 
-function translation(x, y, z) {
+function translation(x: number, y: number, z: number) {
   return new THREE.Matrix4().makeTranslation(x, y, z)
 }
 
-function scaling(x, y, z) {
+function scaling(x: number, y: number, z: number) {
   return new THREE.Matrix4().makeScale(x, y, z)
 }
 
 // Gentle ground relief, flattened near the trunk so the roots meet solid floor.
 // Sampled in the floor plane's own coordinates (u, v).
-function floorRelief(u, v) {
+function floorRelief(u: number, v: number) {
   const radius = Math.hypot(u, v)
   const mask = Math.min(1, Math.max(0, (radius - 4) / 8))
   const relief = Math.sin(u * 0.16) * Math.cos(v * 0.13) * 0.55
@@ -87,7 +103,7 @@ function floorRelief(u, v) {
 // Ground height at a world position. Rotating the floor plane by -90° about X
 // maps plane v to -z, so anything placed on the ground must sample it that way
 // or it ends up hovering above or sunk into the relief.
-function groundHeight(x, z) {
+function groundHeight(x: number, z: number) {
   return floorRelief(x, -z)
 }
 
@@ -102,7 +118,7 @@ function groundHeight(x, z) {
  * Returns the segment instance matrices, the frame at every joint, and the
  * frame plus radius at the tip.
  */
-function growChain(startFrame, length, radius, count, bend, twist) {
+function growChain(startFrame: THREE.Matrix4, length: number, radius: number, count: number, bend: number, twist: number) {
   const segmentLength = length / count
   const matrices = []
   const joints = []
@@ -123,7 +139,7 @@ function growChain(startFrame, length, radius, count, bend, twist) {
 
 // Recursively grows one branch and its children into `out.branches` (instance
 // matrices) and `out.tips` (leaf-bearing twig frames).
-function growBranch(frame, length, radius, depth, rand, out) {
+function growBranch(frame: THREE.Matrix4, length: number, radius: number, depth: number, rand: () => number, out: BranchGrowth) {
   const bend = (rand() - 0.5) * 0.24
   const twist = (rand() - 0.5) * 0.3
   const chain = growChain(frame, length, radius, SEGMENTS_PER_BRANCH, bend, twist)
@@ -154,7 +170,7 @@ function growBranch(frame, length, radius, depth, rand, out) {
 }
 
 // Clusters flattened leaf blobs around each twig tip, in that twig's own frame.
-function scatterLeaves(tips, rand) {
+function scatterLeaves(tips: BranchTip[], rand: () => number) {
   const matrices = []
   for (const tip of tips) {
     const spread = 0.5 + tip.radius * 7
@@ -255,13 +271,13 @@ function makeShaftTexture() {
 // Scene assembly
 // ---------------------------------------------------------------------------
 
-function track(ctx, object) {
+function track<T extends THREE.Object3D>(ctx: ArtlabContext, object: T): T {
   ctx.add(object)
   _objects.push(object)
   return object
 }
 
-function buildTree(rand, woodGeometry, rootGeometry, leafGeometry) {
+function buildTree(rand: () => number, woodGeometry: THREE.BufferGeometry, rootGeometry: THREE.BufferGeometry, leafGeometry: THREE.BufferGeometry) {
   const grove = new THREE.Group()
   grove.name = 'old-growth'
 
@@ -313,7 +329,7 @@ function buildTree(rand, woodGeometry, rootGeometry, leafGeometry) {
     wind.name = `limb-wind-${i}`
     anchor.add(wind)
 
-    const out = { branches: [], tips: [], tipRadius: Infinity }
+    const out: BranchGrowth = { branches: [], tips: [], tipRadius: Infinity }
     growBranch(
       new THREE.Matrix4(),
       LIMB_LENGTH * (1.12 - height * 0.28),
@@ -424,7 +440,7 @@ function buildTree(rand, woodGeometry, rootGeometry, leafGeometry) {
   }
 }
 
-function buildFloor(litterTexture) {
+function buildFloor(litterTexture: THREE.Texture) {
   const geometry = new THREE.PlaneGeometry(FLOOR_SIZE, FLOOR_SIZE, 48, 48)
   const position = geometry.attributes.position
   for (let i = 0; i < position.count; i++) {
@@ -443,7 +459,7 @@ function buildFloor(litterTexture) {
 
 // Low ferns and shrub clumps, reusing the canopy leaf blob so the understory
 // belongs to the same foliage language as the tree above it.
-function buildUnderstory(rand, leafGeometry) {
+function buildUnderstory(rand: () => number, leafGeometry: THREE.BufferGeometry) {
   const material = new THREE.MeshStandardMaterial({
     color: 0xffffff, roughness: 0.92, metalness: 0.0, side: THREE.DoubleSide,
   })
@@ -472,7 +488,7 @@ function buildUnderstory(rand, leafGeometry) {
   return understory
 }
 
-function buildDistantTrunks(rand, woodGeometry) {
+function buildDistantTrunks(rand: () => number, woodGeometry: THREE.BufferGeometry) {
   const material = new THREE.MeshStandardMaterial({
     color: 0x3b3128, roughness: 0.96, metalness: 0.0,
   })
@@ -497,7 +513,7 @@ function buildDistantTrunks(rand, woodGeometry) {
 
 // Sun breaking through the canopy: a translucent additive cone plus the pool of
 // light it lands in. Cheaper and steadier than shadow-mapped dappling.
-function buildDappledLight(rand, shaftTexture, glowTexture) {
+function buildDappledLight(rand: () => number, shaftTexture: THREE.Texture, glowTexture: THREE.Texture) {
   // Narrow where it slips through the canopy gap, widening toward the floor.
   const shaftGeometry = new THREE.CylinderGeometry(1.6, 0.5, 1, 14, 1, true)
   shaftGeometry.translate(0, 0.5, 0)
@@ -539,7 +555,7 @@ function buildDappledLight(rand, shaftTexture, glowTexture) {
   return { shafts, pools }
 }
 
-function stageCamera(ctx, elapsed) {
+function stageCamera(ctx: ArtlabContext, elapsed: number) {
   const angle = elapsed * 0.05
   const radius = CAMERA_RADIUS + Math.sin(elapsed * 0.07) * 0.6
   ctx.camera.position.set(
@@ -554,7 +570,7 @@ function stageCamera(ctx, elapsed) {
 // Lifecycle
 // ---------------------------------------------------------------------------
 
-export function setup(ctx) {
+export function setup(ctx: ForestContext) {
   ctx.setHelp('Old Growth — the camera drifts on its own beneath the canopy')
 
   _objects = []
@@ -621,8 +637,8 @@ export function setup(ctx) {
   }
 }
 
-export function update(ctx, dt) {   // eslint-disable-line no-unused-vars
-  if (!_active) return
+export function update(ctx: ForestContext, dt: number) {   // eslint-disable-line no-unused-vars
+  if (!_active || !_trunkWind) return
   const elapsed = ctx.elapsed
 
   _trunkWind.rotation.z = Math.sin(elapsed * 0.21) * TRUNK_SWAY
@@ -645,11 +661,11 @@ export function update(ctx, dt) {   // eslint-disable-line no-unused-vars
   stageCamera(ctx, elapsed)
 }
 
-export function teardown(ctx) {
+export function teardown(ctx: ForestContext) {
   if (!_active) return
 
-  const disposed = new Set()
-  const dispose = (resource) => {
+  const disposed = new Set<{ dispose(): void }>()
+  const dispose = (resource: { dispose(): void } | null | undefined) => {
     if (resource && !disposed.has(resource) && typeof resource.dispose === 'function') {
       disposed.add(resource)
       resource.dispose()
@@ -658,10 +674,11 @@ export function teardown(ctx) {
 
   for (const object of _objects) {
     object.traverse((node) => {
+      if (!(node instanceof THREE.Mesh)) return
       dispose(node.geometry)
-      for (const material of [].concat(node.material ?? [])) {
-        dispose(material.map)
-        dispose(material.alphaMap)
+      for (const material of Array.isArray(node.material) ? node.material : [node.material]) {
+        if ('map' in material && material.map instanceof THREE.Texture) dispose(material.map)
+        if ('alphaMap' in material && material.alphaMap instanceof THREE.Texture) dispose(material.alphaMap)
         dispose(material)
       }
     })

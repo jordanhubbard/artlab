@@ -1,5 +1,16 @@
 // voronoi-shatter — click to place seeds; plane shatters into Voronoi cells with physics.
 import * as Three from 'three'
+import type { ArtlabContext } from '../../src/runtime/contracts'
+type Point = [number, number]
+interface Bounds { minX: number; maxX: number; minY: number; maxY: number }
+interface Cell { seed: Point; verts: Point[] }
+type CellMesh = Three.Mesh<Three.ExtrudeGeometry, Three.MeshStandardMaterial>
+type ShatterContext = ArtlabContext & {
+  _lights: Three.Light[]; _seeds: Point[]; _cellMeshes: CellMesh[]
+  _physics: { mesh: CellMesh; vx: number; vy: number; vz: number; rx: number; ry: number; rz: number; fallen: boolean }[]
+  _shattered: boolean; _raycaster: Three.Raycaster; _mouse: Three.Vector2; _clickPlane: Three.Plane
+  _onClick(event: MouseEvent): void
+}
 
 const PLANE_SIZE = 10
 const GRAVITY    = -12
@@ -7,13 +18,13 @@ const INITIAL_SEEDS = 8
 const MAX_SEEDS  = 40
 
 // Brute-force 2D Voronoi via clipped convex polygons
-function voronoiCells(seeds, bounds) {
+function voronoiCells(seeds: Point[], bounds: Bounds): Cell[] {
   const { minX, maxX, minY, maxY } = bounds
   const cells = []
 
   for (let i = 0; i < seeds.length; i++) {
     // Start with bounding rectangle as polygon
-    let poly = [
+    let poly: Point[] = [
       [minX, minY], [maxX, minY], [maxX, maxY], [minX, maxY],
     ]
 
@@ -35,8 +46,8 @@ function voronoiCells(seeds, bounds) {
   return cells
 }
 
-function clipPolygon(poly, px, py, nx, ny) {
-  const out = []
+function clipPolygon(poly: Point[], px: number, py: number, nx: number, ny: number): Point[] {
+  const out: Point[] = []
   for (let i = 0; i < poly.length; i++) {
     const a = poly[i]
     const b = poly[(i + 1) % poly.length]
@@ -51,7 +62,7 @@ function clipPolygon(poly, px, py, nx, ny) {
   return out
 }
 
-function cellToMesh(cell, hue) {
+function cellToMesh(cell: Cell, hue: number): CellMesh {
   const shape = new Three.Shape()
   const cx = cell.seed[0]
   const cy = cell.seed[1]
@@ -76,7 +87,7 @@ function cellToMesh(cell, hue) {
   return mesh
 }
 
-export function setup(ctx) {
+export function setup(ctx: ShatterContext) {
   ctx.setHelp('Click to drop a seed point — each new seed shatters the plane into more cells')
   ctx.camera.position.set(0, 12, 8)
   ctx.camera.lookAt(0, 0, 0)
@@ -128,7 +139,7 @@ export function setup(ctx) {
   ctx.renderer.domElement.addEventListener('click', ctx._onClick)
 }
 
-function rebuildCells(ctx) {
+function rebuildCells(ctx: ShatterContext) {
   // Remove old
   for (const m of ctx._cellMeshes) ctx.remove(m)
   ctx._cellMeshes = []
@@ -152,7 +163,7 @@ function rebuildCells(ctx) {
   }
 }
 
-function shatter(ctx) {
+function shatter(ctx: ShatterContext) {
   // Give each cell an outward velocity
   for (const p of ctx._physics) {
     const dx = p.mesh.position.x
@@ -168,7 +179,7 @@ function shatter(ctx) {
   }
 }
 
-export function update(ctx, dt) {
+export function update(ctx: ShatterContext, dt: number) {
   if (!ctx._shattered) return
   const dt_ = Math.min(dt, 0.05)
 
@@ -188,7 +199,7 @@ export function update(ctx, dt) {
   }
 }
 
-export function teardown(ctx) {
+export function teardown(ctx: ShatterContext) {
   ctx.renderer.domElement.removeEventListener('click', ctx._onClick)
   for (const m of ctx._cellMeshes) {
     ctx.remove(m)

@@ -5,6 +5,8 @@ import * as Three from 'three';
 import { STLExporter } from 'three/addons/exporters/STLExporter.js';
 import { OBJExporter } from 'three/addons/exporters/OBJExporter.js';
 import ManifoldModule from 'manifold-3d';
+import type { Manifold, ManifoldToplevel } from 'manifold-3d';
+import type { ArtlabContext } from '../../src/runtime/contracts.ts';
 
 const PARAMS = {
   armLength:    40,   // mm
@@ -14,9 +16,9 @@ const PARAMS = {
   holeInset:    10,   // mm from the outer end of each arm
 };
 
-let wasm        = null;
-let previewMesh = null;
-let ui          = null;
+let wasm: ManifoldToplevel | null = null;
+let previewMesh: Three.Mesh<Three.BufferGeometry, Three.MeshStandardMaterial> | null = null;
+let ui: HTMLDivElement | null = null;
 
 async function initManifold() {
   if (wasm) return wasm;
@@ -25,7 +27,8 @@ async function initManifold() {
   return wasm;
 }
 
-function buildBracket(p) {
+function buildBracket(p: typeof PARAMS) {
+  if (!wasm) throw new Error('Manifold must be initialized before building the bracket');
   const { Manifold } = wasm;
 
   // Two plates joined at the corner to form an L.
@@ -49,7 +52,7 @@ function buildBracket(p) {
   return final;
 }
 
-function manifoldToGeometry(man) {
+function manifoldToGeometry(man: Manifold) {
   const m = man.getMesh();
   const geo = new Three.BufferGeometry();
   // vertProperties is flat xyz (numProp defaults to 3).
@@ -59,7 +62,7 @@ function manifoldToGeometry(man) {
   return geo;
 }
 
-function download(filename, data, mime) {
+function download(filename: string, data: BlobPart, mime: string) {
   const blob = new Blob([data], { type: mime });
   const url  = URL.createObjectURL(blob);
   const a    = document.createElement('a');
@@ -71,17 +74,18 @@ function download(filename, data, mime) {
   URL.revokeObjectURL(url);
 }
 
-function exportSTL(mesh) {
+function exportSTL(mesh: Three.Mesh) {
   const bin = new STLExporter().parse(mesh, { binary: true });
-  download('bracket.stl', bin, 'application/octet-stream');
+  const bytes = new Uint8Array(bin.buffer, bin.byteOffset, bin.byteLength).slice();
+  download('bracket.stl', bytes, 'application/octet-stream');
 }
 
-function exportOBJ(mesh) {
+function exportOBJ(mesh: Three.Mesh) {
   const txt = new OBJExporter().parse(mesh);
   download('bracket.obj', txt, 'text/plain');
 }
 
-function makeUI(onSTL, onOBJ) {
+function makeUI(onSTL: () => void, onOBJ: () => void) {
   const panel = document.createElement('div');
   panel.style.cssText = [
     'position:absolute', 'top:16px', 'right:16px', 'z-index:100',
@@ -89,7 +93,7 @@ function makeUI(onSTL, onOBJ) {
     'font-family:monospace', 'font-size:13px',
   ].join(';');
 
-  const mkBtn = (label, onClick) => {
+  const mkBtn = (label: string, onClick: () => void) => {
     const b = document.createElement('button');
     b.textContent = label;
     b.style.cssText = [
@@ -110,7 +114,7 @@ function makeUI(onSTL, onOBJ) {
   return panel;
 }
 
-export async function setup(ctx) {
+export async function setup(ctx: ArtlabContext) {
   ctx.setHelp('Export STL / OBJ buttons (top-right) save the mesh for 3D printing');
   ctx.camera.position.set(70, 55, 85);
   ctx.camera.lookAt(15, 10, 15);
@@ -137,20 +141,21 @@ export async function setup(ctx) {
   const mat = new Three.MeshStandardMaterial({
     color: 0x5599ff, metalness: 0.25, roughness: 0.45,
   });
-  previewMesh = new Three.Mesh(geo, mat);
-  ctx.add(previewMesh);
+  const mesh = new Three.Mesh(geo, mat);
+  previewMesh = mesh;
+  ctx.add(mesh);
 
   ui = makeUI(
-    () => exportSTL(previewMesh),
-    () => exportOBJ(previewMesh),
+    () => exportSTL(mesh),
+    () => exportOBJ(mesh),
   );
 }
 
-export function update(ctx, dt) {
+export function update(ctx: ArtlabContext, dt: number) {
   if (previewMesh) previewMesh.rotation.y += 0.3 * dt;
 }
 
-export function teardown(ctx) {
+export function teardown(ctx: ArtlabContext) {
   if (previewMesh) ctx.remove(previewMesh);
   if (ui) ui.remove();
   previewMesh = null;

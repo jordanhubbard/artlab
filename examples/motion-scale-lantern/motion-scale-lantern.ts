@@ -1,6 +1,11 @@
 // Webcam-mapped scale lantern — hinged plates sample the frame by spherical direction.
 import * as Three from 'three'
 import { webcam } from '../../src/stdlib/video.ts'
+import type { ArtlabContext } from '../../src/runtime/contracts.ts'
+
+type ScaleMesh = Three.Mesh<Three.PlaneGeometry, Three.ShaderMaterial> & {
+  userData: { dir: Three.Vector3; index: number }
+}
 
 const SCALE_COUNT = 48
 
@@ -25,19 +30,19 @@ const FRAG = /* glsl */`
   }
 `
 
-let added = []
-let scales = []
-let inner = null
-let cam = null
-let startBtn = null
+let added: Three.Object3D[] = []
+let scales: ScaleMesh[] = []
+let inner: Three.Mesh<Three.IcosahedronGeometry, Three.ShaderMaterial> | null = null
+let cam: ReturnType<typeof webcam> | null = null
+let startBtn: HTMLButtonElement | null = null
 let frozen = false
 let motion = new Float32Array(SCALE_COUNT)
 let prevSample = new Float32Array(SCALE_COUNT)
-let sampleCanvas = null
-let sampleCtx2d = null
-let onKey = null
+let sampleCanvas: HTMLCanvasElement | null = null
+let sampleCtx2d: CanvasRenderingContext2D | null = null
+let onKey: ((event: KeyboardEvent) => void) | null = null
 
-function fibonacciPoints(n) {
+function fibonacciPoints(n: number) {
   const pts = []
   const golden = Math.PI * (3 - Math.sqrt(5))
   for (let i = 0; i < n; i++) {
@@ -49,7 +54,7 @@ function fibonacciPoints(n) {
   return pts
 }
 
-function styleButton(btn) {
+function styleButton(btn: HTMLButtonElement) {
   btn.style.cssText = [
     'position:absolute', 'bottom:50%', 'left:50%', 'transform:translate(-50%,50%)',
     'background:rgba(10,12,30,0.92)', 'border:1px solid rgba(120,180,255,0.45)',
@@ -59,8 +64,8 @@ function styleButton(btn) {
   ].join(';')
 }
 
-function awaitGesture(container) {
-  return new Promise(resolve => {
+function awaitGesture(container: HTMLElement) {
+  return new Promise<void>(resolve => {
     const btn = document.createElement('button')
     btn.textContent = 'Allow Camera'
     styleButton(btn)
@@ -70,7 +75,7 @@ function awaitGesture(container) {
   })
 }
 
-function sampleMotion(video) {
+function sampleMotion(video: HTMLVideoElement | undefined) {
   if (!video || !video.videoWidth || !sampleCtx2d) return
   sampleCtx2d.drawImage(video, 0, 0, 32, 24)
   const { data } = sampleCtx2d.getImageData(0, 0, 32, 24)
@@ -85,7 +90,7 @@ function sampleMotion(video) {
   }
 }
 
-export async function setup(ctx) {
+export async function setup(ctx: ArtlabContext) {
   ctx.setHelp('Allow Camera  •  F: freeze motion pose  •  drag to orbit')
   ctx.setBloom(0.45)
   ctx.camera.position.set(0, 0.4, 7)
@@ -100,6 +105,7 @@ export async function setup(ctx) {
   added.push(lamp)
 
   const container = ctx.renderer.domElement.parentElement
+  if (!container) throw new Error('Motion Scale Lantern requires a canvas container')
   container.style.position = 'relative'
 
   if (!navigator.mediaDevices?.getUserMedia) return
@@ -129,9 +135,9 @@ export async function setup(ctx) {
       fragmentShader: FRAG,
       side: Three.DoubleSide,
     })
-    const mesh = new Three.Mesh(geo, mat)
-    mesh.userData.dir = dir.clone()
-    mesh.userData.index = i
+    const mesh = Object.assign(new Three.Mesh(geo, mat), {
+      userData: { dir: dir.clone(), index: i },
+    })
     mesh.position.copy(dir).multiplyScalar(1.7)
     mesh.lookAt(0, 0, 0)
     mesh.rotateY(Math.PI)
@@ -151,7 +157,7 @@ export async function setup(ctx) {
   window.addEventListener('keydown', onKey)
 }
 
-export function update(ctx, dt) {
+export function update(ctx: ArtlabContext, dt: number) {
   const t = ctx.elapsed
   sampleMotion(cam?.video)
   inner?.rotateY(dt * 0.08)
@@ -167,8 +173,8 @@ export function update(ctx, dt) {
   }
 }
 
-export function teardown(ctx) {
-  window.removeEventListener('keydown', onKey)
+export function teardown(ctx: ArtlabContext) {
+  if (onKey) window.removeEventListener('keydown', onKey)
   startBtn?.remove()
   startBtn = null
   cam?.stop()

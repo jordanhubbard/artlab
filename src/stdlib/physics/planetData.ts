@@ -151,7 +151,7 @@ export const PLANET_DATA = {
 }
 
 /** Ordered for rendering (inner to outer) */
-export const PLANET_ORDER = ['mercury', 'venus', 'earth', 'mars', 'jupiter', 'saturn', 'uranus', 'neptune']
+export const PLANET_ORDER = ['mercury', 'venus', 'earth', 'mars', 'jupiter', 'saturn', 'uranus', 'neptune'] as const
 
 /** Moon data */
 export const MOON_DATA = {

@@ -1,29 +1,43 @@
 // audio-pulse — microphone-reactive central sphere + satellite ring, basic audio example.
 import * as Three from 'three';
+import type { ArtlabContext } from '../../src/runtime/contracts.ts';
+
+type PulseMesh = Three.Mesh<Three.SphereGeometry, Three.MeshStandardMaterial>;
+type PulseContext = ArtlabContext & {
+  _core: PulseMesh;
+  _sats: PulseMesh[];
+  _bassSpring: number;
+  _btn: HTMLButtonElement;
+  _audio: {
+    audioCtx: AudioContext; analyser: AnalyserNode; silentGain: GainNode;
+    stream: MediaStream | null; oscillator: OscillatorNode | null;
+    sourceType: string; fftData: Uint8Array<ArrayBuffer>; silenceFrames: number;
+  } | null;
+};
 
 const SAT_COUNT  = 8;
 const SAT_RADIUS = 8;
 const SILENCE_FLOOR = 0.08;
 
-function fftAvg(d, lo, hi) {
+function fftAvg(d: Uint8Array, lo: number, hi: number) {
   let s = 0; for (let i = lo; i <= hi; i++) s += d[i];
   return s / ((hi - lo + 1) * 255);
 }
 
-function satColor(t) {
+function satColor(t: number) {
   return (Math.floor(30 + t * 225) << 16) | (Math.floor(20 + t * 60) << 8) | Math.floor(220 - t * 180);
 }
 
 function audioContextCtor() {
-  return window.AudioContext || window.webkitAudioContext;
+  return window.AudioContext || (window as Window & { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
 }
 
-function setGain(gain, value, time = 0) {
+function setGain(gain: GainNode, value: number, time = 0) {
   if (gain.gain?.setValueAtTime) gain.gain.setValueAtTime(value, time);
   else if (gain.gain) gain.gain.value = value;
 }
 
-function connectAnalyserToSilentSink(audioCtx, analyser) {
+function connectAnalyserToSilentSink(audioCtx: AudioContext, analyser: AnalyserNode) {
   const silentGain = audioCtx.createGain();
   setGain(silentGain, 0, audioCtx.currentTime ?? 0);
   analyser.connect(silentGain);
@@ -31,7 +45,7 @@ function connectAnalyserToSilentSink(audioCtx, analyser) {
   return silentGain;
 }
 
-async function startAudioGraph(ctx, btn) {
+async function startAudioGraph(ctx: PulseContext, btn: HTMLButtonElement) {
   const AudioContext = audioContextCtor();
   if (!AudioContext) throw new Error('Web Audio is not available in this browser');
 
@@ -43,8 +57,8 @@ async function startAudioGraph(ctx, btn) {
   analyser.smoothingTimeConstant = 0.78;
   const silentGain = connectAnalyserToSilentSink(audioCtx, analyser);
 
-  let stream = null;
-  let oscillator = null;
+  let stream: MediaStream | null = null;
+  let oscillator: OscillatorNode | null = null;
   let sourceType = 'microphone';
 
   try {
@@ -77,7 +91,7 @@ async function startAudioGraph(ctx, btn) {
   btn.remove();
 }
 
-export function setup(ctx) {
+export function setup(ctx: PulseContext) {
   ctx.setHelp('Click to enable microphone input; if access is denied, a fallback pulse drives the visual.');
   ctx.camera.position.set(0, 0, 20);
   ctx.camera.lookAt(0, 0, 0);
@@ -114,8 +128,9 @@ export function setup(ctx) {
   ctx._audio = null;
 
   const container = ctx.renderer.domElement.parentElement;
+  if (!container) throw new Error('Audio Pulse requires a canvas container');
   container.style.position = 'relative';
-  let btn = container.querySelector('#start-btn');
+  let btn = container.querySelector<HTMLButtonElement>('#start-btn');
   if (!btn) {
     btn = Object.assign(document.createElement('button'), { id: 'start-btn', textContent: 'Click to enable audio' });
     Object.assign(btn.style, {
@@ -127,24 +142,25 @@ export function setup(ctx) {
     container.appendChild(btn);
   }
   ctx._btn = btn;
+  const startButton = btn;
   btn.style.display = 'block';
   btn.disabled = false;
   btn.textContent = 'Click to enable audio';
 
   btn.onclick = async () => {
-    btn.disabled = true;
-    btn.textContent = 'Starting audio...';
+    startButton.disabled = true;
+    startButton.textContent = 'Starting audio...';
     try {
-      await startAudioGraph(ctx, btn);
+      await startAudioGraph(ctx, startButton);
     } catch (err) {
       console.warn('[audio-pulse] audio start failed:', err);
-      btn.disabled = false;
-      btn.textContent = 'Retry audio';
+      startButton.disabled = false;
+      startButton.textContent = 'Retry audio';
     }
   };
 }
 
-export function update(ctx, dt) {
+export function update(ctx: PulseContext, dt: number) {
   const t = ctx.elapsed;
   let bass = 0, mid = 0;
 
@@ -183,7 +199,7 @@ export function update(ctx, dt) {
   ctx._core.material.emissiveIntensity = 0.9 + mid * 1.4;
 }
 
-export function teardown(ctx) {
+export function teardown(ctx: PulseContext) {
   ctx._btn?.remove();
   if (ctx._audio) {
     try { ctx._audio.stream?.getTracks?.().forEach(track => track.stop()) } catch (_) {}

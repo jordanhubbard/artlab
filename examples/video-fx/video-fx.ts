@@ -4,6 +4,7 @@
 
 import * as Three from 'three'
 import { webcam, captureCanvas } from '../../src/stdlib/video.ts'
+import type { ArtlabContext } from '../../src/runtime/contracts.ts'
 
 const W = 5.0, H = W * (9 / 16)
 
@@ -23,7 +24,7 @@ const VERT = /* glsl */`
   void main() { vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position,1.); }
 `
 
-function makePixelate(tex) {
+function makePixelate(tex: Three.Texture) {
   return new Three.ShaderMaterial({
     uniforms: {
       map:       { value: tex },
@@ -45,7 +46,7 @@ function makePixelate(tex) {
   })
 }
 
-function makeGlitch(tex) {
+function makeGlitch(tex: Three.Texture) {
   return new Three.ShaderMaterial({
     uniforms: {
       map:       { value: tex },
@@ -91,7 +92,7 @@ function makeGlitch(tex) {
   })
 }
 
-function makeEdge(tex) {
+function makeEdge(tex: Three.Texture) {
   return new Three.ShaderMaterial({
     uniforms: {
       map:  { value: tex },
@@ -131,15 +132,21 @@ function makeEdge(tex) {
 
 // ── State ────────────────────────────────────────────────────────────────────
 
-let _cam, _planes, _labels, _glitchMat, _pixMat, _recorder
+let _cam: ReturnType<typeof webcam> | undefined
+let _planes: Three.Mesh<Three.PlaneGeometry, Three.Material>[] | undefined
+let _labels: { el: HTMLDivElement; pos3d: Three.Vector3 }[] | undefined
+let _glitchMat: Three.ShaderMaterial | undefined
+let _pixMat: Three.ShaderMaterial | undefined
+let _recorder: ReturnType<typeof captureCanvas> | undefined
 let _recording = false, _glitchHeavy = false, _pixLevel = 0
-let _hud, _onKey
+let _hud: HTMLDivElement | undefined
+let _onKey: ((event: KeyboardEvent) => void) | undefined
 
 const PIX_LEVELS = [6, 12, 24, 48]
 
 // ── Lifecycle ─────────────────────────────────────────────────────────────────
 
-export async function setup(ctx) {
+export async function setup(ctx: ArtlabContext) {
   ctx.setHelp('R: toggle recording   •   G: heavy glitch   •   P: cycle pixelation')
   ctx.camera.position.set(0, 0, 11)
   ctx.setBloom(0.2)
@@ -147,7 +154,9 @@ export async function setup(ctx) {
   ctx.add(new Three.AmbientLight(0x112233, 1.0))
 
   // Allow Camera gesture
-  await _awaitGesture(ctx.renderer.domElement.parentElement)
+  const container = ctx.renderer.domElement.parentElement
+  if (!container) throw new Error('Video FX requires a canvas container')
+  await _awaitGesture(container)
   _cam = webcam({ width: 1280, height: 720 })
   const tex = _cam.texture
 
@@ -162,17 +171,18 @@ export async function setup(ctx) {
   // Build 4 planes with edge frames and DOM labels
   const planeGeo = new Three.PlaneGeometry(W, H)
   const frameGeo = new Three.EdgesGeometry(new Three.PlaneGeometry(W, H))
-  _planes = []
-  _labels = []
+  const planes: NonNullable<typeof _planes> = []
+  const labels: NonNullable<typeof _labels> = []
+  _planes = planes
+  _labels = labels
 
-  const container = ctx.renderer.domElement.parentElement
   container.style.position = 'relative'
 
   POSITIONS.forEach((pos, i) => {
     const mesh = new Three.Mesh(planeGeo, materials[i])
     mesh.position.copy(pos)
     ctx.add(mesh)
-    _planes.push(mesh)
+    planes.push(mesh)
 
     const frame = new Three.LineSegments(
       frameGeo,
@@ -196,17 +206,18 @@ export async function setup(ctx) {
       zIndex: '5',
     })
     container.appendChild(lbl)
-    _labels.push({ el: lbl, pos3d: new Three.Vector3(pos.x, pos.y - H / 2 - 0.22, 0) })
+    labels.push({ el: lbl, pos3d: new Three.Vector3(pos.x, pos.y - H / 2 - 0.22, 0) })
   })
 
-  _recorder = captureCanvas(ctx.renderer.domElement, { fps: 30 })
+  const recorder = captureCanvas(ctx.renderer.domElement, { fps: 30 })
+  _recorder = recorder
   _hud = _buildHud(container)
 
   _onKey = e => {
     const k = e.key.toLowerCase()
     if (k === 'r') {
-      if (!_recording) { _recorder.start(); _recording = true }
-      else { _recorder.stop(); _recording = false; setTimeout(() => _recorder.download('artlab.webm'), 200) }
+      if (!_recording) { recorder.start(); _recording = true }
+      else { recorder.stop(); _recording = false; setTimeout(() => recorder.download('artlab.webm'), 200) }
       _updateHud()
     }
     if (k === 'g') {
@@ -222,7 +233,7 @@ export async function setup(ctx) {
   window.addEventListener('keydown', _onKey)
 }
 
-export function update(ctx, dt) {
+export function update(ctx: ArtlabContext, dt: number) {
   if (_glitchMat) _glitchMat.uniforms.time.value = ctx.elapsed
 
   // Animate pixelation level
@@ -239,6 +250,7 @@ export function update(ctx, dt) {
   // Update DOM label positions from 3D coords
   if (_labels) {
     const container = ctx.renderer.domElement.parentElement
+    if (!container) return
     const cRect = container.getBoundingClientRect()
     for (const { el, pos3d } of _labels) {
       const p = pos3d.clone().project(ctx.camera)
@@ -250,10 +262,10 @@ export function update(ctx, dt) {
   }
 }
 
-export function teardown(ctx) {
+export function teardown(ctx: ArtlabContext) {
   if (_recording) _recorder?.stop()
   _cam?.stop()
-  window.removeEventListener('keydown', _onKey)
+  if (_onKey) window.removeEventListener('keydown', _onKey)
   _hud?.remove()
   for (const { el } of (_labels || [])) el.remove()
 
@@ -263,9 +275,9 @@ export function teardown(ctx) {
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
-function _awaitGesture(container) {
-  return new Promise(resolve => {
-    let btn = container.querySelector('#start-btn')
+function _awaitGesture(container: HTMLElement) {
+  return new Promise<void>(resolve => {
+    let btn = container.querySelector<HTMLButtonElement>('#start-btn')
     if (!btn) {
       btn = document.createElement('button')
       btn.id = 'start-btn'
@@ -280,11 +292,12 @@ function _awaitGesture(container) {
     }
     btn.textContent = 'Allow Camera'
     btn.style.display = 'block'
-    btn.addEventListener('click', () => { btn.style.display = 'none'; resolve() }, { once: true })
+    const button = btn
+    button.addEventListener('click', () => { button.style.display = 'none'; resolve() }, { once: true })
   })
 }
 
-function _buildHud(container) {
+function _buildHud(container: HTMLElement) {
   const el = document.createElement('div')
   Object.assign(el.style, {
     position: 'absolute', bottom: '36px', left: '24px', zIndex: '50',

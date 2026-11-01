@@ -4,18 +4,20 @@ import * as Three from 'three'
 import { STLExporter } from 'three/addons/exporters/STLExporter.js'
 import { OBJExporter } from 'three/addons/exporters/OBJExporter.js'
 import ManifoldModule from 'manifold-3d'
+import type { Manifold, ManifoldToplevel } from 'manifold-3d'
+import type { ArtlabContext } from '../../src/runtime/contracts.ts'
 
 const HEIGHT = 90
 const SLICES = 12
 const WALL = 1.6
 
-let wasm = null
-let previewMesh = null
-let added = []
-let ui = null
+let wasm: ManifoldToplevel | null = null
+let previewMesh: Three.Mesh<Three.BufferGeometry, Three.MeshStandardMaterial> | null = null
+let added: Three.Object3D[] = []
+let ui: HTMLDivElement | null = null
 let params = { seed: 1, waves: 5, barnacles: 28, windows: 7 }
 
-function rng(seed) {
+function rng(seed: number) {
   let s = (seed >>> 0) || 1
   return () => {
     s = (Math.imul(s, 1664525) + 1013904223) >>> 0
@@ -30,7 +32,7 @@ async function initManifold() {
   return wasm
 }
 
-function radiusAt(z, waves, rand) {
+function radiusAt(z: number, waves: number, rand: () => number) {
   const t = z / HEIGHT
   const belly = 15 + 13 * Math.sin(Math.PI * t)
   const ripple = 2.4 * Math.sin(waves * Math.PI * 2 * t + rand() * 2)
@@ -38,13 +40,14 @@ function radiusAt(z, waves, rand) {
   return Math.max(7.5, belly + ripple + foot)
 }
 
-function buildVessel(p) {
+function buildVessel(p: typeof params) {
+  if (!wasm) throw new Error('Manifold must be initialized before building the vessel')
   const { Manifold } = wasm
   const rand = rng(p.seed)
   const sliceH = HEIGHT / SLICES
-  const temps = []
+  const temps: Manifold[] = []
 
-  let body = null
+  let body: Manifold | null = null
   for (let i = 0; i < SLICES; i++) {
     const z0 = i * sliceH
     const r0 = radiusAt(z0, p.waves, rand)
@@ -58,12 +61,13 @@ function buildVessel(p) {
     if (!body) {
       body = shell
     } else {
-      const next = body.add(shell)
+      const next: Manifold = body.add(shell)
       temps.push(body, shell)
       body = next
     }
   }
 
+  if (!body) throw new Error('A vessel requires at least one shell slice')
   for (let w = 0; w < p.windows; w++) {
     const t = 0.22 + (w / p.windows) * 0.55
     const z = t * HEIGHT
@@ -73,7 +77,7 @@ function buildVessel(p) {
       .rotate([0, 90, 0])
       .rotate([0, 0, (ang * 180) / Math.PI])
       .translate([0, 0, z])
-    const next = body.subtract(hole)
+    const next: Manifold = body.subtract(hole)
     temps.push(body, hole)
     body = next
   }
@@ -86,7 +90,7 @@ function buildVessel(p) {
     const rad = 1.1 + rand() * 1.4
     const nod = Manifold.sphere(rad, 16)
       .translate([Math.cos(ang) * r, Math.sin(ang) * r, z])
-    const next = body.add(nod)
+    const next: Manifold = body.add(nod)
     temps.push(body, nod)
     body = next
   }
@@ -94,7 +98,7 @@ function buildVessel(p) {
   const foot = Manifold.cylinder(5, 22, 18, 40, false)
   const chamfer = Manifold.cylinder(6, 0.2, 16, 32, false).translate([0, 0, 2.4])
   const footSolid = foot.subtract(chamfer)
-  const next = body.add(footSolid)
+  const next: Manifold = body.add(footSolid)
   temps.push(body, foot, chamfer, footSolid)
   body = next
 
@@ -104,7 +108,7 @@ function buildVessel(p) {
   return upright
 }
 
-function manifoldToGeometry(man) {
+function manifoldToGeometry(man: Manifold) {
   const m = man.getMesh()
   const geo = new Three.BufferGeometry()
   geo.setAttribute('position', new Three.BufferAttribute(m.vertProperties.slice(), 3))
@@ -113,7 +117,7 @@ function manifoldToGeometry(man) {
   return geo
 }
 
-function download(filename, data, mime) {
+function download(filename: string, data: BlobPart, mime: string) {
   const blob = new Blob([data], { type: mime })
   const url = URL.createObjectURL(blob)
   const a = document.createElement('a')
@@ -125,7 +129,7 @@ function download(filename, data, mime) {
   URL.revokeObjectURL(url)
 }
 
-function makeUI(container, onSTL, onOBJ, onReseed) {
+function makeUI(container: HTMLElement, onSTL: () => void, onOBJ: () => void, onReseed: () => void) {
   const panel = document.createElement('div')
   panel.style.cssText = [
     'position:absolute', 'top:16px', 'right:16px', 'z-index:100',
@@ -133,7 +137,7 @@ function makeUI(container, onSTL, onOBJ, onReseed) {
     'font-family:monospace', 'font-size:12px',
   ].join(';')
 
-  const mkBtn = (label, onClick) => {
+  const mkBtn = (label: string, onClick: () => void) => {
     const b = document.createElement('button')
     b.textContent = label
     b.style.cssText = [
@@ -152,7 +156,7 @@ function makeUI(container, onSTL, onOBJ, onReseed) {
   return panel
 }
 
-function applyPreviewGeo(ctx, geo) {
+function applyPreviewGeo(ctx: ArtlabContext, geo: Three.BufferGeometry) {
   if (previewMesh) {
     previewMesh.geometry.dispose()
     previewMesh.geometry = geo
@@ -166,14 +170,14 @@ function applyPreviewGeo(ctx, geo) {
   added.push(previewMesh)
 }
 
-async function rebuild(ctx) {
+async function rebuild(ctx: ArtlabContext) {
   const vessel = buildVessel(params)
   const geo = manifoldToGeometry(vessel)
   vessel.delete()
   applyPreviewGeo(ctx, geo)
 }
 
-export async function setup(ctx) {
+export async function setup(ctx: ArtlabContext) {
   ctx.setHelp('Reseed grows a new specimen  •  Export STL / OBJ for printing (1 unit = 1 mm)')
   ctx.setBloom(0.25)
   ctx.camera.position.set(70, 55, 110)
@@ -204,11 +208,19 @@ export async function setup(ctx) {
   await rebuild(ctx)
 
   const container = ctx.renderer.domElement.parentElement
+  if (!container) throw new Error('Tide Eroded Vessel requires a canvas container')
   container.style.position = 'relative'
   ui = makeUI(
     container,
-    () => download('tide-eroded-vessel.stl', new STLExporter().parse(previewMesh, { binary: true }), 'application/octet-stream'),
-    () => download('tide-eroded-vessel.obj', new OBJExporter().parse(previewMesh), 'text/plain'),
+    () => {
+      if (!previewMesh) return
+      const data = new STLExporter().parse(previewMesh, { binary: true })
+      const bytes = new Uint8Array(data.buffer, data.byteOffset, data.byteLength).slice()
+      download('tide-eroded-vessel.stl', bytes, 'application/octet-stream')
+    },
+    () => {
+      if (previewMesh) download('tide-eroded-vessel.obj', new OBJExporter().parse(previewMesh), 'text/plain')
+    },
     async () => {
       params = { ...params, seed: params.seed + 1 }
       await rebuild(ctx)
@@ -216,11 +228,11 @@ export async function setup(ctx) {
   )
 }
 
-export function update(_ctx, dt) {
+export function update(_ctx: ArtlabContext, dt: number) {
   if (previewMesh) previewMesh.rotation.y += 0.18 * dt
 }
 
-export function teardown(ctx) {
+export function teardown(ctx: ArtlabContext) {
   for (const obj of added) ctx.remove(obj)
   added = []
   previewMesh = null

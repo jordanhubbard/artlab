@@ -127,8 +127,14 @@ unload coverage, rather than claiming that a type declaration makes them safe.
 
 Monaco still suppresses semantic diagnostics, and ModuleCompiler transpiles
 TypeScript rather than constructing a fully typechecked browser program. The
-strict CI gate covers the public authoring contracts and the production build
-transpiles every repository module. An editor diagnostics service using the
+strict CI gate now checks the runtime context, scene components, renderers,
+physics backends, assets, audio/video/UI libraries, compiler and preview hosts,
+CLI, and 52 of the 55 canonical demo entry graphs. The three remaining demo
+graphs are Long Winter, Signal Salvage, and Solar System. The IDE coordinator,
+an unused legacy particle helper, and most test implementations also remain
+outside the strict project. `tsconfig.transpile.json` still uses `noCheck` for
+the whole-repository syntax pass; this is an unfinished semantic migration,
+not whole-repository type safety. An editor diagnostics service using the
 shared contracts remains a separate improvement.
 
 The renderer directory's `IRenderer`/WebGPU/WebGL backend hierarchy is bypassed
@@ -136,9 +142,9 @@ by the active preview and standalone hosts, which construct Three.WebGLRenderer
 and a bloom composer directly. A future backend change needs a typed rendering
 capability contract and backend-specific material/postprocessing tests; switching
 the IDE to that hierarchy without those checks would overstate WebGPU support.
-`IPhysicsWorld` also mixes required world operations with optional no-op rigid
-body hooks. Split optional capabilities and use discriminated body descriptors
-before enabling strict checking across those legacy backends.
+`IPhysicsWorld` and its implementations now pass strict checking with typed
+body descriptors. The rigid backend remains a stub; its types do not establish
+that it runs a rigid-body solver.
 
 Next useful visual/architecture work: migrate media gesture cancellation and
 late stream acquisition into scoped lifecycle helpers, give the fluid and cloth

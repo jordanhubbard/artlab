@@ -11,6 +11,18 @@
 // writes no matter how dense the sheet is.
 
 import * as Three from 'three'
+import type { ArtlabContext } from '../../src/runtime/contracts.ts'
+
+interface FieldState {
+  _uniforms: ReturnType<typeof buildFieldMaterial>['uniforms'];
+  _raycaster: Three.Raycaster; _restPlane: Three.Plane; _ndc: Three.Vector2;
+  _hit: Three.Vector3; _sky: Three.Color; _swell: number; _rippleStart: number | null;
+  _previousFog: Three.Scene['fog']; _previousBackground: Three.Scene['background'];
+  _field: Three.Mesh<Three.PlaneGeometry, Three.ShaderMaterial>;
+  _listeners: ['pointermove' | 'pointerdown' | 'pointerleave', (event: PointerEvent) => void][];
+  _pointerTarget: HTMLCanvasElement;
+}
+type FieldContext = ArtlabContext & FieldState
 
 // ── Composition ───────────────────────────────────────────────────────────────
 
@@ -21,8 +33,8 @@ const NORMAL_EPSILON = 0.7    // finite-difference step for analytic normals
 
 // High enough to read the shape of the weather fronts, low enough that the
 // swells still overlap into a grazing horizon.
-const CAMERA_POSITION = [0, 12.5, 27]
-const VIEW_TARGET     = [0, -1, -20]
+const CAMERA_POSITION = [0, 12.5, 27] as const
+const VIEW_TARGET     = [0, -1, -20] as const
 
 // The far edge of the sheet sits ~113 units out, just past FOG_FAR, so the field
 // dissolves completely into the background instead of ending on a visible cut
@@ -67,20 +79,20 @@ const PIGMENTS = [
   new Three.Color(0x5a2a6b), // violet
 ]
 
-function clamp01(v) {
+function clamp01(v: number) {
   return v < 0 ? 0 : v > 1 ? 1 : v
 }
 
-function smoothstep01(v) {
+function smoothstep01(v: number) {
   return v * v * (3 - 2 * v)
 }
 
-function wrap01(v) {
+function wrap01(v: number) {
   return v - Math.floor(v)
 }
 
 /** Sample the pigment ramp into `target`. Mirrors `pigmentRamp()` in GLSL. */
-function rampInto(target, t) {
+function rampInto(target: Three.Color, t: number) {
   const s = wrap01(t) * PIGMENTS.length
   target.copy(PIGMENTS[0])
   for (let i = 1; i <= PIGMENTS.length; i++) {
@@ -91,12 +103,12 @@ function rampInto(target, t) {
 
 // ── Deterministic value noise, used once to bake the pigment layout ──────────
 
-function hash2(ix, iy) {
+function hash2(ix: number, iy: number) {
   const s = Math.sin(ix * 127.1 + iy * 311.7) * 43758.5453123
   return s - Math.floor(s)
 }
 
-function noise2(x, y) {
+function noise2(x: number, y: number) {
   const ix = Math.floor(x)
   const iy = Math.floor(y)
   const ux = smoothstep01(x - ix)
@@ -108,7 +120,7 @@ function noise2(x, y) {
   return (a + (b - a) * ux) * (1 - uy) + (c + (d - c) * ux) * uy
 }
 
-function pigmentNoise(x, y) {
+function pigmentNoise(x: number, y: number) {
   return noise2(x, y) * 0.55 +
          noise2(x * 2.13, y * 2.07) * 0.28 +
          noise2(x * 4.31, y * 4.17) * 0.17
@@ -116,7 +128,7 @@ function pigmentNoise(x, y) {
 
 // ── Shaders ───────────────────────────────────────────────────────────────────
 
-function glslColor(color) {
+function glslColor(color: Three.Color) {
   return `vec3(${color.r.toFixed(5)}, ${color.g.toFixed(5)}, ${color.b.toFixed(5)})`
 }
 
@@ -295,13 +307,13 @@ function buildFieldMaterial() {
     uSkyColor:     { value: SKY_DUSK.clone() },
   })
 
-  return new Three.ShaderMaterial({
+  return Object.assign(new Three.ShaderMaterial({
     uniforms,
     vertexShader:   VERTEX_SHADER,
     fragmentShader: FRAGMENT_SHADER,
     fog:  true,
     side: Three.FrontSide,
-  })
+  }), { uniforms })
 }
 
 /**
@@ -309,7 +321,7 @@ function buildFieldMaterial() {
  * Shared by setup() and update() so the very first frame is already lit and
  * fogged rather than waiting for the animation loop to catch up.
  */
-function applyAtmosphere(ctx, elapsed) {
+function applyAtmosphere(ctx: FieldContext, elapsed: number) {
   const u = ctx._uniforms
   const phase = 0.5 + 0.5 * Math.sin(elapsed * ATMOSPHERE_RATE)
 
@@ -334,7 +346,7 @@ function applyAtmosphere(ctx, elapsed) {
  * the uPointer uniform. Returns false when the pointer misses the field (above
  * the horizon) or the canvas has no layout yet.
  */
-function projectPointer(ctx, event) {
+function projectPointer(ctx: FieldContext, event: PointerEvent) {
   const element = ctx.renderer?.domElement
   if (!element) return false
 
@@ -356,7 +368,7 @@ function projectPointer(ctx, event) {
 
 // ── Lifecycle ─────────────────────────────────────────────────────────────────
 
-export function setup(ctx) {
+export function setup(ctx: FieldContext) {
   ctx.setHelp('Move the pointer to stir the pigment • click to send a chromatic front • drag to orbit')
 
   const material = buildFieldMaterial()
@@ -416,7 +428,7 @@ export function setup(ctx) {
   }
 }
 
-export function update(ctx, dt) {
+export function update(ctx: FieldContext, dt: number) {
   const u = ctx._uniforms
   if (!u) return
 
@@ -448,7 +460,7 @@ export function update(ctx, dt) {
   applyAtmosphere(ctx, elapsed)
 }
 
-export function teardown(ctx) {
+export function teardown(ctx: ArtlabContext & { [K in keyof FieldState]: FieldState[K] | null }) {
   if (ctx._listeners && ctx._pointerTarget) {
     for (const [type, handler] of ctx._listeners) {
       ctx._pointerTarget.removeEventListener(type, handler)

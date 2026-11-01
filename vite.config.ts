@@ -1,11 +1,12 @@
-import { defineConfig }                          from 'vite'
+import { defineConfig }                          from 'vitest/config'
+import type { Plugin }                           from 'vite'
 import { build as esbuild }                       from 'esbuild'
 import { copyFileSync, mkdirSync, readdirSync,
          statSync, existsSync }                   from 'fs'
 import { join }                                   from 'path'
 
 // Recursively copy src → dest, skipping dirs named __tests__.
-function copyDir(src, dest) {
+function copyDir(src: string, dest: string) {
   mkdirSync(dest, { recursive: true })
   for (const entry of readdirSync(src)) {
     if (entry === '__tests__') continue
@@ -14,8 +15,8 @@ function copyDir(src, dest) {
   }
 }
 
-function exampleAssets(directory = 'examples') {
-  const paths = []
+function exampleAssets(directory = 'examples'): string[] {
+  const paths: string[] = []
   for (const entry of readdirSync(directory, { withFileTypes: true })) {
     const path = `${directory}/${entry.name}`
     if (entry.isDirectory()) paths.push(...exampleAssets(path))
@@ -24,7 +25,7 @@ function exampleAssets(directory = 'examples') {
   return paths
 }
 
-const assetCatalogPlugin = {
+const assetCatalogPlugin: Plugin = {
   name: 'example-asset-catalog',
   configureServer(server) {
     server.middlewares.use((request, response, next) => {
@@ -40,7 +41,7 @@ const assetCatalogPlugin = {
 
 // Copy examples/ and the src modules that examples import at runtime
 // so relative paths like ../../src/physics/Physics.js resolve in production.
-const copyExamplesPlugin = {
+const copyExamplesPlugin: Plugin = {
   name: 'copy-examples',
   async closeBundle() {
     if (existsSync('examples'))     copyDir('examples',     'dist/examples')
@@ -93,7 +94,7 @@ const copyExamplesPlugin = {
 // loaded example files can resolve bare specifiers ('three', 'tone') to the
 // hashed chunk URLs that Vite emits.  Without this the browser rejects bare
 // specifiers in raw static JS files that are not processed by Vite's bundler.
-const importMapPlugin = {
+const importMapPlugin: Plugin = {
   name: 'inject-import-map',
   transformIndexHtml: {
     order: 'post',
