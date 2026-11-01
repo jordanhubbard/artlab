@@ -1,3 +1,5 @@
+import type { WebGLInfo } from 'three'
+export interface RendererStatsSource { _renderer?: { info: WebGLInfo } }
 /**
  * PerformanceMonitor — IDE panel showing real-time renderer performance stats.
  *
@@ -172,11 +174,27 @@ const PANEL_CSS = `
 // ── PerformanceMonitor ────────────────────────────────────────────────────────
 
 export class PerformanceMonitor {
+  private readonly _container: HTMLElement
+  private readonly _renderer: RendererStatsSource
+  private _samples: number[] = []
+  private _maxSamples = 60
+  private _minFps = Infinity
+  private _maxFps = 0
+  private _fpsValueEl = document.createElement('span')
+  private _fpsAvgEl = document.createElement('span')
+  private _ftCurEl = document.createElement('span')
+  private _ftMinEl = document.createElement('span')
+  private _ftMaxEl = document.createElement('span')
+  private _canvas = document.createElement('canvas')
+  private _drawCallsEl = document.createElement('div')
+  private _trianglesEl = document.createElement('div')
+  private _geometriesEl = document.createElement('div')
+  private _texturesEl = document.createElement('div')
   /**
    * @param {HTMLElement} container
    * @param {object} renderer  - IRenderer wrapping a Three.WebGLRenderer at ._renderer
    */
-  constructor(container, renderer) {
+  constructor(container: HTMLElement, renderer: RendererStatsSource) {
     this._container  = container
     this._renderer   = renderer
     this._samples    = []          // FPS history (up to _maxSamples entries)
@@ -192,7 +210,7 @@ export class PerformanceMonitor {
    * Call each frame.  dt is delta-time in seconds.
    * @param {number} dt
    */
-  update(dt) {
+  update(dt: number) {
     if (!dt || dt <= 0) return
     const fps = 1 / dt
     this._samples.push(fps)
@@ -260,7 +278,7 @@ export class PerformanceMonitor {
     body.appendChild(fpsHero)
 
     // Frame-time rows
-    const ftRow = (label) => {
+    const ftRow = (label: string) => {
       const row = document.createElement('div')
       row.className = 'perf-frametime-row'
       const lbl = document.createElement('span')
@@ -362,6 +380,7 @@ export class PerformanceMonitor {
   _drawSparkline() {
     const canvas = this._canvas
     const ctx    = canvas.getContext('2d')
+    if (!ctx) return
     const W = canvas.width
     const H = canvas.height
 
@@ -373,7 +392,7 @@ export class PerformanceMonitor {
     if (n < 2) return
 
     // Reference lines at 30 and 60 fps
-    const fpsToY = (fps) => {
+    const fpsToY = (fps: number) => {
       const clipped = Math.max(0, Math.min(fps, 120))
       return H - (clipped / 120) * H
     }
@@ -443,7 +462,7 @@ export class PerformanceMonitor {
     }
   }
 
-  _makeCell(parent, label, initial) {
+  _makeCell(parent: HTMLElement, label: string, initial: string) {
     const cell = document.createElement('div')
     cell.className = 'perf-cell'
 
@@ -461,7 +480,7 @@ export class PerformanceMonitor {
     return val   // return value element so caller can update
   }
 
-  _fmtNum(n) {
+  _fmtNum(n: number | null | undefined) {
     if (n == null) return '--'
     if (n >= 1_000_000) return (n / 1_000_000).toFixed(2) + 'M'
     if (n >= 1_000)     return (n / 1_000).toFixed(1) + 'K'

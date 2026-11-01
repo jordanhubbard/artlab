@@ -7,21 +7,23 @@
  * Other binary assets → generic file badge.
  */
 
+import type { AudioAssetReader } from '../../assets/AudioAssetLoader.ts'
+export interface AssetPackageReader extends AudioAssetReader { listFiles(): string[] }
 const IMAGE_EXTS = new Set(['png', 'jpg', 'jpeg', 'gif', 'webp', 'svg', 'bmp', 'avif'])
 const AUDIO_EXTS = new Set(['mp3', 'ogg', 'wav', 'flac', 'aac', 'm4a', 'opus'])
 const MODEL_EXTS = new Set(['glb', 'gltf', 'obj', 'fbx'])
 
-function ext(path) {
-  return path.split('.').pop().toLowerCase()
+function ext(path: string) {
+  return path.split('.').pop()?.toLowerCase() ?? ''
 }
 
-function basename(path) {
-  return path.split('/').pop()
+function basename(path: string) {
+  return path.split('/').pop() ?? path
 }
 
 /** Derive a MIME type for audio blobs so <audio> can decode them. */
-function audioMime(path) {
-  const map = { mp3: 'audio/mpeg', ogg: 'audio/ogg', wav: 'audio/wav', flac: 'audio/flac', aac: 'audio/aac', m4a: 'audio/mp4', opus: 'audio/ogg; codecs=opus' }
+function audioMime(path: string) {
+  const map: Record<string, string | undefined> = { mp3: 'audio/mpeg', ogg: 'audio/ogg', wav: 'audio/wav', flac: 'audio/flac', aac: 'audio/aac', m4a: 'audio/mp4', opus: 'audio/ogg; codecs=opus' }
   return map[ext(path)] || 'audio/octet-stream'
 }
 
@@ -138,10 +140,13 @@ const PANEL_CSS = `
 `
 
 export class AssetBrowser {
+  private readonly _container: HTMLElement
+  private _objectUrls: string[] = []
+  private _body = document.createElement('div')
   /**
    * @param {HTMLElement} container
    */
-  constructor(container) {
+  constructor(container: HTMLElement) {
     this._container = container
     this._objectUrls = []   // revoke on next load
     this._render()
@@ -156,7 +161,7 @@ export class AssetBrowser {
    * @param {import('../../packages/PackageReader.ts').PackageReader} reader
    * @returns {Promise<void>}
    */
-  async loadPackage(reader) {
+  async loadPackage(reader: AssetPackageReader) {
     // Release any previously created object URLs
     for (const url of this._objectUrls) URL.revokeObjectURL(url)
     this._objectUrls = []
@@ -236,7 +241,7 @@ export class AssetBrowser {
    * @param {string} path
    * @returns {HTMLElement}
    */
-  _buildPlaceholderCard(path) {
+  _buildPlaceholderCard(path: string) {
     const e     = ext(path)
     const isImg = IMAGE_EXTS.has(e)
     const isAud = AUDIO_EXTS.has(e)
@@ -279,8 +284,9 @@ export class AssetBrowser {
    * @param {string}      path
    * @param {Blob}        blob
    */
-  async _fillPreview(card, path, blob) {
+  async _fillPreview(card: Element, path: string, blob: Blob) {
     const preview = card.querySelector('.asset-preview')
+    if (!preview) throw new Error(`Asset preview is missing for ${path}`)
     preview.innerHTML = ''
 
     const e     = ext(path)

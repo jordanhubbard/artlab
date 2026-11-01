@@ -161,14 +161,16 @@ const SAFE_SRC_PREFIXES = [
  * @param {string} [filename] — used in diagnostic file fields
  * @returns {Array<{severity:'error'|'warn'|'info', message:string, file:string, line:number, col:number}>}
  */
-export function lint(source, filename = 'script.js', { entry = true } = {}) {
+export interface Diagnostic { severity: 'error' | 'warn' | 'info'; message: string; file: string; line: number; col: number }
+type Report = (severity: Diagnostic['severity'], lineIdx: number, col: number, message: string) => void
+export function lint(source: string, filename = 'script.ts', { entry = true } = {}): Diagnostic[] {
   // Test files are not Artlab entry points — skip all checks
-  if (filename.endsWith('.test.js') || filename.endsWith('.spec.js')) return []
+  if (/\.(test|spec)\.[jt]s$/.test(filename)) return []
 
-  const diags = []
+  const diags: Diagnostic[] = []
   const lines = source.split('\n')
 
-  function push(severity, lineIdx, col, message) {
+  function push(severity: Diagnostic['severity'], lineIdx: number, col: number, message: string) {
     diags.push({ severity, message, file: filename, line: lineIdx + 1, col: col + 1 })
   }
 
@@ -197,7 +199,7 @@ export function lint(source, filename = 'script.js', { entry = true } = {}) {
 
 // ── Validators ────────────────────────────────────────────────────────────────
 
-function _checkExports(source, push) {
+function _checkExports(source: string, push: Report) {
   const hasSetup    = /export\s+(async\s+)?function\s+setup\b/.test(source)    || /export\s+const\s+setup\s*=/.test(source)
   const hasUpdate   = /export\s+(async\s+)?function\s+update\b/.test(source)   || /export\s+const\s+update\s*=/.test(source)
   const hasTeardown = /export\s+(async\s+)?function\s+teardown\b/.test(source) || /export\s+const\s+teardown\s*=/.test(source)
@@ -211,7 +213,7 @@ function _checkExports(source, push) {
   }
 }
 
-function _checkTeardown(source, push) {
+function _checkTeardown(source: string, push: Report) {
   // Warn if addEventListener is used but no teardown is exported
   const hasListener = /addEventListener\s*\(/.test(source)
   const hasTeardown =
@@ -223,7 +225,7 @@ function _checkTeardown(source, push) {
   }
 }
 
-function _checkImports(line, i, push) {
+function _checkImports(line: string, i: number, push: Report) {
   // Match: import ... from 'specifier'  or  import('specifier')
   const staticRe = /\bfrom\s+['"]([^'"]+)['"]/g
   const dynamicRe = /\bimport\s*\(\s*['"]([^'"]+)['"]\s*\)/g
@@ -254,7 +256,7 @@ function _checkImports(line, i, push) {
   }
 }
 
-function _checkCtxCalls(line, i, push) {
+function _checkCtxCalls(line: string, i: number, push: Report) {
   // Only check ctx.name( — method-call form, not property reads
   const re = /\bctx\.([a-zA-Z][a-zA-Z0-9]*)\s*\(/g
   let m
@@ -269,7 +271,7 @@ function _checkCtxCalls(line, i, push) {
   }
 }
 
-function _checkThreeAPI(line, i, push) {
+function _checkThreeAPI(line: string, i: number, push: Report) {
   // Check: Three.Name or ctx.Three.Name
   const memberRe = /\bThree\.([A-Z][a-zA-Z0-9_]*)\b/g
   let m
@@ -298,7 +300,7 @@ function _checkThreeAPI(line, i, push) {
   }
 }
 
-function _checkToneAPI(line, i, push) {
+function _checkToneAPI(line: string, i: number, push: Report) {
   const re = /\bTone\.([A-Za-z][a-zA-Z0-9_]*)\b/g
   let m
   while ((m = re.exec(line)) !== null) {
@@ -311,7 +313,7 @@ function _checkToneAPI(line, i, push) {
 
 // ── Utilities ──────────────────────────────────────────────────────────────────
 
-function _stripBlockComments(src) {
+function _stripBlockComments(src: string) {
   // Replace /* ... */ (including multi-line) with whitespace to preserve line numbers
   return src.replace(/\/\*[\s\S]*?\*\//g, m => m.replace(/[^\n]/g, ' '))
 }
