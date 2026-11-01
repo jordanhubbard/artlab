@@ -3,13 +3,17 @@
 import * as Three from 'three'
 import { body, integrate, gravityForce, dragForce, vortexField } from '../../src/physics/Physics.ts'
 import { stage, instances, seededRandom, fixedStep, controlPanel, pointer } from '../../src/stdlib/sketch.ts'
+import type { SketchContext } from '../../src/runtime/contracts'
+import type { Body } from '../../src/physics/Physics.ts'
+type Particle = Body & { age: number; life: number }
+type State = { particles: Particle[]; mesh: Three.InstancedMesh; tick(dt: number): void; mode: number; origin: Three.Vector3 }
 
 const COUNT = 2400
 /** @typedef {ReturnType<typeof body> & { age: number, life: number }} Particle */
 /** @typedef {{ particles: Particle[], mesh: Three.InstancedMesh, tick: (dt: number) => void, mode: number, origin: Three.Vector3 }} State */
 
 /** @param {import('../../src/runtime/contracts').SketchContext<State>} ctx */
-export function setup(ctx) {
+export function setup(ctx: SketchContext<State>) {
   ctx.setHelp('Ember Engine · fountain / vortex storm · click to move source · drag to orbit')
   stage(ctx, [14, 10, 20], 0.7)
   const mesh = instances(ctx, new Three.BoxGeometry(0.045, 0.16, 0.045),
@@ -20,7 +24,7 @@ export function setup(ctx) {
   /** @type {Particle[]} */
   const particles = Array.from({ length: COUNT }, () => ({ ...body(), age: 0, life: 1 }))
   /** @param {Particle} particle */
-  function spawn(particle) {
+  function spawn(particle: Particle) {
     particle.position.copy(origin)
     const angle = random() * Math.PI * 2
     const spread = s.mode ? 2.8 : 0.9
@@ -28,7 +32,7 @@ export function setup(ctx) {
     particle.age = 0
     particle.life = 1.5 + random() * 3
   }
-  const s = ctx.state = { particles, mesh, origin, mode: 0, tick: /** @param {number} _dt */ (_dt) => {} }
+  const s: State = ctx.state = { particles, mesh, origin, mode: 0, tick: (_dt: number) => {} }
   const gravity = gravityForce(1, 4)
   s.tick = fixedStep(dt => {
     for (const particle of particles) {
@@ -64,7 +68,7 @@ export function setup(ctx) {
 }
 const dummy = new Three.Object3D(), tint = new Three.Color()
 /** @param {import('../../src/runtime/contracts').SketchContext<State>} ctx @param {number} dt */
-export function update(ctx, dt) {
+export function update(ctx: SketchContext<State>, dt: number) {
   const s = ctx.state
   s.tick(dt)
   for (let i = 0; i < COUNT; i++) {
@@ -81,4 +85,4 @@ export function update(ctx, dt) {
   if (s.mesh.instanceColor) s.mesh.instanceColor.needsUpdate = true
 }
 /** @param {import('../../src/runtime/contracts').SketchContext<State>} ctx */
-export function teardown(ctx) { return ctx.scope.dispose() }
+export function teardown(ctx: SketchContext<State>) { return ctx.scope.dispose() }

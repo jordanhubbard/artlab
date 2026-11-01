@@ -1,4 +1,6 @@
 import type { Sketch, SketchContext } from '../src/runtime/contracts'
+import { body, applyForce, integrate, resolveCollision, springForce } from '../src/physics/Physics.ts'
+import { Vector3 } from 'three'
 
 type State = { speed: number }
 const sketch: Sketch<State> = {
@@ -30,3 +32,15 @@ ctx.scope.set(ctx.camera, 'near', 'close')
 ctx.scope.add(ctx, { dispose() {} })
 // @ts-expect-error Geometry helpers retain their actual implementation arity.
 ctx.sphere(1, 32, 32)
+
+const simulated = body({ mass: 2, position: new Vector3() })
+applyForce(simulated, new Vector3(0, -1, 0))
+integrate(simulated, 1 / 60)
+resolveCollision(simulated, body())
+springForce(simulated.position, new Vector3(), 1, 2)
+// @ts-expect-error Body mass is numeric.
+body({ mass: 'heavy' })
+// @ts-expect-error Integration requires a force accumulator.
+integrate({ position: new Vector3(), velocity: new Vector3(), mass: 1 }, 0.1)
+// @ts-expect-error Forces must carry the Vector3 operations used by the solver.
+applyForce(simulated, { x: 0, y: -1, z: 0 })

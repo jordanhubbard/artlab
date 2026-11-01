@@ -2,6 +2,9 @@
 // Murmuration — simultaneous Reynolds steering, spatial bins, instanced wings.
 import * as Three from 'three'
 import { stage, instances, seededRandom, fixedStep, SpatialHash, controlPanel, skyDome } from '../../src/stdlib/sketch.ts'
+import type { SketchContext } from '../../src/runtime/contracts'
+type Bird = { position: Three.Vector3; velocity: Three.Vector3; next: Three.Vector3; phase: number }
+type State = { birds: Bird[]; wings: Three.InstancedMesh; tick(dt: number): void; time: number; cohesion: number }
 
 const COUNT = 900
 const RADIUS = 3.2
@@ -9,7 +12,7 @@ const RADIUS = 3.2
 /** @typedef {{ birds: Bird[], wings: Three.InstancedMesh, tick: (dt: number) => void, time: number, cohesion: number }} State */
 
 /** @param {import('../../src/runtime/contracts').SketchContext<State>} ctx */
-export function setup(ctx) {
+export function setup(ctx: SketchContext<State>) {
   ctx.setHelp('Murmuration · 900 birds / 1,800 instanced wings · tune cohesion · drag to orbit')
   stage(ctx, [23, 12, 30], 0.25)
   skyDome(ctx)
@@ -27,10 +30,10 @@ export function setup(ctx) {
     next: new Three.Vector3(), phase: random() * Math.PI * 2,
   }))
   /** @type {SpatialHash<Bird>} */
-  const grid = new SpatialHash(RADIUS)
+  const grid = new SpatialHash<Bird>(RADIUS)
   const separation = new Three.Vector3(), alignment = new Three.Vector3(), center = new Three.Vector3()
   const delta = new Three.Vector3(), acceleration = new Three.Vector3()
-  const s = ctx.state = { birds, wings, time: 0, cohesion: 0.65, tick: /** @param {number} _dt */ (_dt) => {} }
+  const s: State = ctx.state = { birds, wings, time: 0, cohesion: 0.65, tick: (_dt: number) => {} }
   s.tick = fixedStep(dt => {
     s.time += dt
     grid.rebuild(birds)
@@ -79,7 +82,7 @@ const centroid = new Three.Vector3()
 const dummy = new Three.Object3D(), forward = new Three.Vector3(0, 0, 1), direction = new Three.Vector3()
 const orientation = new Three.Quaternion(), flap = new Three.Quaternion(), axis = new Three.Vector3(0, 0, 1)
 /** @param {import('../../src/runtime/contracts').SketchContext<State>} ctx @param {number} dt */
-export function update(ctx, dt) {
+export function update(ctx: SketchContext<State>, dt: number) {
   const s = ctx.state
   s.tick(dt)
   for (let i = 0; i < s.birds.length; i++) {
@@ -103,4 +106,4 @@ export function update(ctx, dt) {
   ctx.controls.target.add(centroid)
 }
 /** @param {import('../../src/runtime/contracts').SketchContext<State>} ctx */
-export function teardown(ctx) { return ctx.scope.dispose() }
+export function teardown(ctx: SketchContext<State>) { return ctx.scope.dispose() }

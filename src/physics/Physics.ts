@@ -22,6 +22,20 @@
 
 import * as Three from 'three'
 
+export interface Body {
+  position: Three.Vector3
+  velocity: Three.Vector3
+  force: Three.Vector3
+  mass: number
+  charge: number
+  restitution: number
+}
+export type BodyOptions = Partial<Omit<Body, 'force'>>
+type MovingMass = Pick<Body, 'velocity' | 'mass'>
+type PositionedMass = Pick<Body, 'position' | 'mass'>
+type IntegratedBody = Pick<Body, 'position' | 'velocity' | 'force' | 'mass'>
+type CollidingBody = Pick<Body, 'position' | 'velocity' | 'mass' | 'restitution'>
+
 // ── Physical constants (SI) ────────────────────────────────────────────────────
 
 export const G_SI   = 6.674e-11   // gravitational constant  N·m²/kg²
@@ -49,7 +63,7 @@ export function body({
   mass        = 1,
   charge      = 0,
   restitution = 1,
-} = {}) {
+}: BodyOptions = {}): Body {
   return {
     position:    position.clone(),
     velocity:    velocity.clone(),
@@ -70,7 +84,7 @@ export function body({
  * @param {{ force: Three.Vector3 }} body
  * @param {Three.Vector3} force
  */
-export function applyForce(body, force) {
+export function applyForce(body: Pick<Body, 'force'>, force: Three.Vector3) {
   body.force.add(force)
 }
 
@@ -80,7 +94,7 @@ export function applyForce(body, force) {
  * @param {{ velocity: Three.Vector3, mass: number }} body
  * @param {Three.Vector3} impulse
  */
-export function applyImpulse(body, impulse) {
+export function applyImpulse(body: MovingMass, impulse: Three.Vector3) {
   body.velocity.addScaledVector(impulse, 1 / body.mass)
 }
 
@@ -89,7 +103,7 @@ export function applyImpulse(body, impulse) {
  * integrate() does this automatically; only call manually if needed mid-frame.
  * @param {{ force: Three.Vector3 }} body
  */
-export function clearForces(body) {
+export function clearForces(body: Pick<Body, 'force'>) {
   body.force.set(0, 0, 0)
 }
 
@@ -105,7 +119,7 @@ export function clearForces(body) {
  * @param {number} [g=9.80665]  — acceleration magnitude, m/s²
  * @returns {Three.Vector3}
  */
-export function gravityForce(mass, g = g_SI) {
+export function gravityForce(mass: number, g = g_SI) {
   return new Three.Vector3(0, -mass * g, 0)
 }
 
@@ -122,7 +136,7 @@ export function gravityForce(mass, g = g_SI) {
  * @param {number}        [G=G_SI]
  * @returns {Three.Vector3}
  */
-export function gravitationForce(posA, massA, posB, massB, G = G_SI) {
+export function gravitationForce(posA: Three.Vector3, massA: number, posB: Three.Vector3, massB: number, G = G_SI) {
   const r    = new Three.Vector3().subVectors(posB, posA)
   const dist = r.length()
   if (dist < 1e-10) return new Three.Vector3()
@@ -138,7 +152,7 @@ export function gravitationForce(posA, massA, posB, massB, G = G_SI) {
  * @param {number}        coefficient  k ≥ 0
  * @returns {Three.Vector3}
  */
-export function dragForce(velocity, coefficient) {
+export function dragForce(velocity: Three.Vector3, coefficient: number) {
   return velocity.clone().multiplyScalar(-coefficient)
 }
 
@@ -150,7 +164,7 @@ export function dragForce(velocity, coefficient) {
  * @param {number}        coefficient  k ≥ 0
  * @returns {Three.Vector3}
  */
-export function quadraticDragForce(velocity, coefficient) {
+export function quadraticDragForce(velocity: Three.Vector3, coefficient: number) {
   const speed = velocity.length()
   return velocity.clone().multiplyScalar(-coefficient * speed)
 }
@@ -171,7 +185,7 @@ export function quadraticDragForce(velocity, coefficient) {
  * @param {number}        [damping=0]  c — damping coefficient
  * @returns {Three.Vector3}
  */
-export function springForce(posA, posB, restLength, stiffness, velA, velB, damping = 0) {
+export function springForce(posA: Three.Vector3, posB: Three.Vector3, restLength: number, stiffness: number, velA?: Three.Vector3, velB?: Three.Vector3, damping = 0) {
   const r    = new Three.Vector3().subVectors(posB, posA)
   const dist = r.length()
   if (dist < 1e-10) return new Three.Vector3()
@@ -194,7 +208,7 @@ export function springForce(posA, posB, restLength, stiffness, velA, velB, dampi
  * @param {Three.Vector3} magneticField   B
  * @returns {Three.Vector3}
  */
-export function lorentzForce(charge, velocity, electricField, magneticField) {
+export function lorentzForce(charge: number, velocity: Three.Vector3, electricField: Three.Vector3, magneticField: Three.Vector3) {
   const vCrossB = new Three.Vector3().crossVectors(velocity, magneticField)
   return new Three.Vector3()
     .addVectors(electricField, vCrossB)
@@ -209,7 +223,7 @@ export function lorentzForce(charge, velocity, electricField, magneticField) {
  * @param {number} [g=9.80665]
  * @returns {Three.Vector3}
  */
-export function buoyancyForce(fluidDensity, volumeSubmerged, g = g_SI) {
+export function buoyancyForce(fluidDensity: number, volumeSubmerged: number, g = g_SI) {
   return new Three.Vector3(0, fluidDensity * volumeSubmerged * g, 0)
 }
 
@@ -227,7 +241,7 @@ export function buoyancyForce(fluidDensity, volumeSubmerged, g = g_SI) {
  * @param {{ position, velocity, force, mass }} body
  * @param {number} dt  seconds
  */
-export function integrate(body, dt) {
+export function integrate(body: IntegratedBody, dt: number) {
   const acc = body.force.clone().divideScalar(body.mass)
   body.velocity.addScaledVector(acc, dt)
   body.position.addScaledVector(body.velocity, dt)
@@ -244,7 +258,7 @@ export function integrate(body, dt) {
  * @param {number}        dt
  * @returns {Three.Vector3}  current force (pass as prevForce next frame)
  */
-export function integrateVerlet(body, prevForce, dt) {
+export function integrateVerlet(body: IntegratedBody, prevForce: Three.Vector3, dt: number) {
   const acc     = body.force.clone().divideScalar(body.mass)
   const prevAcc = prevForce.clone().divideScalar(body.mass)
   // x(t+dt) = x(t) + v(t)*dt + ½*a(t)*dt²
@@ -272,7 +286,7 @@ export function integrateVerlet(body, prevForce, dt) {
  * @param {number} [G=G_SI]
  * @returns {number}  speed in m/s
  */
-export function orbitalSpeed(centralMass, radius, G = G_SI) {
+export function orbitalSpeed(centralMass: number, radius: number, G = G_SI) {
   return Math.sqrt(G * centralMass / radius)
 }
 
@@ -284,7 +298,7 @@ export function orbitalSpeed(centralMass, radius, G = G_SI) {
  * @param {number} [G=G_SI]
  * @returns {number}  period in seconds
  */
-export function orbitalPeriod(semiMajorAxis, centralMass, G = G_SI) {
+export function orbitalPeriod(semiMajorAxis: number, centralMass: number, G = G_SI) {
   return 2 * Math.PI * Math.sqrt(semiMajorAxis ** 3 / (G * centralMass))
 }
 
@@ -297,7 +311,7 @@ export function orbitalPeriod(semiMajorAxis, centralMass, G = G_SI) {
  * @param {number} [G=G_SI]
  * @returns {number}
  */
-export function escapeSpeed(centralMass, radius, G = G_SI) {
+export function escapeSpeed(centralMass: number, radius: number, G = G_SI) {
   return Math.sqrt(2 * G * centralMass / radius)
 }
 
@@ -308,7 +322,7 @@ export function escapeSpeed(centralMass, radius, G = G_SI) {
  * @param {number} period  orbital period T, s
  * @returns {number}  mean anomaly in radians [0, 2π)
  */
-export function meanAnomaly(t, period) {
+export function meanAnomaly(t: number, period: number) {
   return ((2 * Math.PI * t) / period) % (2 * Math.PI)
 }
 
@@ -321,7 +335,7 @@ export function meanAnomaly(t, period) {
  * @param {number} [tol=1e-8] convergence tolerance
  * @returns {number}  eccentric anomaly E, rad
  */
-export function solveKepler(M, e, tol = 1e-8) {
+export function solveKepler(M: number, e: number, tol = 1e-8) {
   let E = M  // initial guess (good for low e)
   for (let i = 0; i < 50; i++) {
     const dE = (M - E + e * Math.sin(E)) / (1 - e * Math.cos(E))
@@ -341,7 +355,7 @@ export function solveKepler(M, e, tol = 1e-8) {
  * @param {number} meanAnomalyRad  M  (use meanAnomaly() to compute from time)
  * @returns {{ x: number, z: number }}
  */
-export function keplerPosition(semiMajorAxis, eccentricity, meanAnomalyRad) {
+export function keplerPosition(semiMajorAxis: number, eccentricity: number, meanAnomalyRad: number) {
   const E = solveKepler(meanAnomalyRad, eccentricity)
   const b = semiMajorAxis * Math.sqrt(1 - eccentricity ** 2)  // semi-minor axis
   // Perifocal coordinates: focus at origin, periapsis along +x
@@ -363,7 +377,7 @@ export function keplerPosition(semiMajorAxis, eccentricity, meanAnomalyRad) {
  * @param {number} [G=G_SI]
  * @returns {number}  speed
  */
-export function visViva(centralMass, r, semiMajorAxis, G = G_SI) {
+export function visViva(centralMass: number, r: number, semiMajorAxis: number, G = G_SI) {
   return Math.sqrt(G * centralMass * (2 / r - 1 / semiMajorAxis))
 }
 
@@ -379,7 +393,7 @@ export function visViva(centralMass, r, semiMajorAxis, G = G_SI) {
  * @param {number}        radiusB
  * @returns {number}  penetration depth ≥ 0 (0 = touching or separated)
  */
-export function sphereOverlap(posA, radiusA, posB, radiusB) {
+export function sphereOverlap(posA: Three.Vector3, radiusA: number, posB: Three.Vector3, radiusB: number) {
   return Math.max(0, radiusA + radiusB - posA.distanceTo(posB))
 }
 
@@ -392,7 +406,7 @@ export function sphereOverlap(posA, radiusA, posB, radiusB) {
  * @param {{ position, velocity, mass, restitution }} bodyB
  * @param {number} [restitution]  override; defaults to min(bodyA.restitution, bodyB.restitution)
  */
-export function resolveCollision(bodyA, bodyB, restitution) {
+export function resolveCollision(bodyA: CollidingBody, bodyB: CollidingBody, restitution?: number) {
   const e  = restitution ?? Math.min(bodyA.restitution, bodyB.restitution)
   const n  = new Three.Vector3().subVectors(bodyB.position, bodyA.position).normalize()
   const vr = new Three.Vector3().subVectors(bodyA.velocity, bodyB.velocity)
@@ -413,7 +427,7 @@ export function resolveCollision(bodyA, bodyB, restitution) {
  * @param {{ position, mass }} bodyB
  * @param {number}             radiusB
  */
-export function separateSpheres(bodyA, radiusA, bodyB, radiusB) {
+export function separateSpheres(bodyA: PositionedMass, radiusA: number, bodyB: PositionedMass, radiusB: number) {
   const depth = sphereOverlap(bodyA.position, radiusA, bodyB.position, radiusB)
   if (depth <= 0) return
   const n        = new Three.Vector3().subVectors(bodyB.position, bodyA.position).normalize()
@@ -431,7 +445,7 @@ export function separateSpheres(bodyA, radiusA, bodyB, radiusB) {
  * @param {{ velocity: Three.Vector3, mass: number }} body
  * @returns {number}
  */
-export function kineticEnergy(body) {
+export function kineticEnergy(body: MovingMass) {
   return 0.5 * body.mass * body.velocity.lengthSq()
 }
 
@@ -443,7 +457,7 @@ export function kineticEnergy(body) {
  * @param {number} [G=G_SI]
  * @returns {number}
  */
-export function gravitationalPotentialEnergy(centralMass, bodyMass, distance, G = G_SI) {
+export function gravitationalPotentialEnergy(centralMass: number, bodyMass: number, distance: number, G = G_SI) {
   return -G * centralMass * bodyMass / distance
 }
 
@@ -453,7 +467,7 @@ export function gravitationalPotentialEnergy(centralMass, bodyMass, distance, G 
  * @param {number} extension  x = current length − rest length
  * @returns {number}
  */
-export function springPotentialEnergy(stiffness, extension) {
+export function springPotentialEnergy(stiffness: number, extension: number) {
   return 0.5 * stiffness * extension * extension
 }
 
@@ -462,7 +476,7 @@ export function springPotentialEnergy(stiffness, extension) {
  * @param {{ velocity: Three.Vector3, mass: number }} body
  * @returns {Three.Vector3}
  */
-export function momentum(body) {
+export function momentum(body: MovingMass) {
   return body.velocity.clone().multiplyScalar(body.mass)
 }
 
@@ -472,7 +486,7 @@ export function momentum(body) {
  * @param {{ velocity: Three.Vector3, mass: number }} body
  * @returns {Three.Vector3}
  */
-export function angularMomentum(position, body) {
+export function angularMomentum(position: Three.Vector3, body: MovingMass) {
   return new Three.Vector3()
     .crossVectors(position, momentum(body))
 }
@@ -489,7 +503,7 @@ export function angularMomentum(position, body) {
  * @param {number}        magnitude
  * @returns {Three.Vector3}
  */
-export function uniformField(direction, magnitude) {
+export function uniformField(direction: Three.Vector3, magnitude: number) {
   return direction.clone().normalize().multiplyScalar(magnitude)
 }
 
@@ -503,7 +517,7 @@ export function uniformField(direction, magnitude) {
  * @param {number}        magnitude
  * @returns {Three.Vector3}
  */
-export function radialField(center, position, magnitude) {
+export function radialField(center: Three.Vector3, position: Three.Vector3, magnitude: number) {
   const r    = new Three.Vector3().subVectors(center, position)
   const dist = r.length()
   if (dist < 1e-10) return new Three.Vector3()
@@ -520,7 +534,7 @@ export function radialField(center, position, magnitude) {
  * @param {number}        magnitude
  * @returns {Three.Vector3}
  */
-export function vortexField(center, axis, position, magnitude) {
+export function vortexField(center: Three.Vector3, axis: Three.Vector3, position: Three.Vector3, magnitude: number) {
   const r   = new Three.Vector3().subVectors(position, center)
   const tan = new Three.Vector3().crossVectors(axis, r)
   if (tan.lengthSq() < 1e-20) return new Three.Vector3()
