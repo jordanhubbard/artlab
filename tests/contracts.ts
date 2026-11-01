@@ -5,6 +5,7 @@ import { ParticleWorld } from '../src/physics/ParticleWorld.ts'
 import { OrbitalWorld } from '../src/physics/OrbitalWorld.ts'
 import { FluidWorld } from '../src/physics/FluidWorld.ts'
 import { PhysicsComposer } from '../src/physics/PhysicsComposer.ts'
+import { hud, label, progressBar, tooltip } from '../src/stdlib/ui.ts'
 
 type State = { speed: number }
 const sketch: Sketch<State> = {
@@ -60,3 +61,14 @@ orbits.addBody('wrong', { type: 'particle' })
 emitters.addBody('wrong', { type: 'particle', rate: 'fast' })
 // @ts-expect-error Fluid gravity requires a complete vector.
 new FluidWorld({ gravity: { y: -9.8 } })
+
+hud({ position: 'top-right' }).setText('Rendering')
+label(ctx.scene, 'Origin', { offsetY: 1 }).setOpacity(0.5)
+progressBar({ width: 200 }).setValue(0.5)
+tooltip().show('Hover', 10, 20)
+// @ts-expect-error Overlay position must be a supported anchor.
+hud({ position: 'middle-left' })
+// @ts-expect-error Progress is numeric.
+progressBar().setValue('half')
+// @ts-expect-error Attached labels require a scene object.
+label(document.body, 'Invalid')

@@ -2,6 +2,9 @@
 import * as Three from 'three'
 import { box, mesh } from '../../src/stdlib/geometry.ts'
 import { label, hud, tooltip } from '../../src/stdlib/ui.ts'
+import type { ArtlabContext } from '../../src/runtime/contracts'
+type BarData = { city: string; month: number; temp: number; baseH: number; phase: number }
+type Bar = ReturnType<typeof mesh> & { userData: BarData }
 
 const CITIES = ['New York', 'Miami', 'London', 'Tokyo', 'Sydney']
 const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
@@ -20,15 +23,15 @@ const GAP_Z  = 2.2    // city row spacing (Z axis)
 const SCALE_Y = 0.15  // scene units per °C
 
 // Module-level state — reset in teardown so setup() is idempotent
-let _objects = []   // everything added via ctx.add() → removed in teardown
-let _bars    = []   // bar meshes only, used by raycaster
-let _labels  = []   // label handles → detached in teardown
-let _hud     = null
-let _tip     = null
-let _onMove  = null
+let _objects: Three.Object3D[] = []
+let _bars: Bar[] = []
+let _labels: ReturnType<typeof label>[] = []
+let _hud: ReturnType<typeof hud> | null = null
+let _tip: ReturnType<typeof tooltip> | null = null
+let _onMove: ((event: MouseEvent) => void) | null = null
 
 // Maps temperature (°C) to a Three.Color: blue (cold) → white (mild) → red (hot)
-function _tempColor(t) {
+function _tempColor(t: number) {
   const c = new Three.Color()
   if (t <= 16) {
     const f = Math.max(0, t / 16)
@@ -40,7 +43,7 @@ function _tempColor(t) {
   return c
 }
 
-export function setup(ctx) {
+export function setup(ctx: ArtlabContext) {
   ctx.setHelp('Hover a bar to see city and temperature')
 
   // Warm ambient + directional from above
@@ -78,11 +81,11 @@ export function setup(ctx) {
       const h    = Math.max(0.2, temp * SCALE_Y)
       const x    = mi * GAP_X - offsetX
 
-      const m = mesh(box(1.05, h, 1.05), {
+      const m = Object.assign(mesh(box(1.05, h, 1.05), {
         color:     _tempColor(temp),
         roughness: 0.55,
         metalness: 0.15,
-      })
+      }), { userData: { city: CITIES[ci], month: mi, temp, baseH: h, phase: (ci * MONTHS.length + mi) * 0.31 } })
       m.position.set(x, h / 2, z)
       m.userData = {
         city:  CITIES[ci],
@@ -123,18 +126,18 @@ export function setup(ctx) {
     mouse.x =  ((e.clientX - r.left) / r.width)  * 2 - 1
     mouse.y = -((e.clientY - r.top)  / r.height) * 2 + 1
     ray.setFromCamera(mouse, ctx.camera)
-    const hit = ray.intersectObjects(_bars)[0]
+    const hit = ray.intersectObjects<Bar>(_bars)[0]
     if (hit) {
       const { city, month, temp } = hit.object.userData
-      _tip.show(`${city}  ·  ${MONTHS[month]}\n${temp}°C`, e.clientX, e.clientY)
+      _tip?.show(`${city}  ·  ${MONTHS[month]}\n${temp}°C`, e.clientX, e.clientY)
     } else {
-      _tip.hide()
+      _tip?.hide()
     }
   }
   window.addEventListener('mousemove', _onMove)
 }
 
-export function update(ctx, dt) {
+export function update(ctx: ArtlabContext, dt: number) {
   const t = ctx.elapsed
   for (const bar of _bars) {
     const { phase, baseH } = bar.userData
@@ -145,12 +148,14 @@ export function update(ctx, dt) {
   }
 }
 
-export function teardown(ctx) {
-  window.removeEventListener('mousemove', _onMove)
+export function teardown(ctx: ArtlabContext) {
+  if (_onMove) window.removeEventListener('mousemove', _onMove)
 
   for (const obj of _objects) {
-    if (obj.geometry) obj.geometry.dispose()
-    if (obj.material) obj.material.dispose()
+    if (obj instanceof Three.Mesh) {
+      obj.geometry.dispose()
+      for (const material of [obj.material].flat()) material.dispose()
+    }
     ctx.remove(obj)
   }
   for (const lbl of _labels) lbl.detach()

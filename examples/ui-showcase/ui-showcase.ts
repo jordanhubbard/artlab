@@ -3,6 +3,8 @@
 // live stat readout — all positioned within the canvas container.
 
 import * as Three from 'three'
+import type { ArtlabContext } from '../../src/runtime/contracts'
+type DisplayMesh = Three.Mesh<Three.BufferGeometry, Three.MeshStandardMaterial> & { userData: { label: string; hex: string } }
 
 const OBJECTS = [
   { name: 'Sphere',   color: 0x4466ff },
@@ -13,12 +15,19 @@ const OBJECTS = [
   { name: 'Cone',     color: 0xff4499 },
 ]
 
-let _meshes, _panel, _statEl, _tooltip, _onMove, _onOut, _raycaster, _mouse
+let _meshes: DisplayMesh[] = []
+let _panel: HTMLDivElement
+let _statEl: HTMLElement | null = null
+let _tooltip: HTMLDivElement
+let _onMove: (event: MouseEvent) => void
+let _onOut: () => void
+let _raycaster: Three.Raycaster
+let _mouse: Three.Vector2
 let _speed = 0.6, _wireframe = false, _shape = 'sphere', _bloom = false
 
 // ── Build the HTML control panel ────────────────────────────────────────────
 
-function buildUI(container, ctx) {
+function buildUI(container: HTMLElement, ctx: ArtlabContext) {
   // The container is the canvas parent — position relative to it
   container.style.position = 'relative'
 
@@ -70,10 +79,11 @@ function buildUI(container, ctx) {
     </div>
   `
   container.appendChild(_panel)
-  _statEl = _panel.querySelector('#ui-stats')
+  _statEl = _panel.querySelector<HTMLElement>('#ui-stats')
 
   // Shape buttons
   const shapeBtns = _panel.querySelector('#ui-shape-btns')
+  if (!shapeBtns) throw new Error('Missing shape controls')
   const shapes = ['sphere', 'box', 'torus', 'cylinder', 'cone']
   for (const s of shapes) {
     const btn = document.createElement('button')
@@ -102,20 +112,25 @@ function buildUI(container, ctx) {
   }
 
   // Speed slider
-  _panel.querySelector('#ui-speed').addEventListener('input', e => {
-    _speed = parseFloat(e.target.value)
-    _panel.querySelector('#ui-speed-val').textContent = _speed.toFixed(1)
+  const speed = _panel.querySelector<HTMLInputElement>('#ui-speed')
+  const speedValue = _panel.querySelector('#ui-speed-val')
+  const wire = _panel.querySelector<HTMLInputElement>('#ui-wire')
+  const bloom = _panel.querySelector<HTMLInputElement>('#ui-bloom')
+  if (!speed || !speedValue || !wire || !bloom) throw new Error('Missing showcase controls')
+  speed.addEventListener('input', () => {
+    _speed = parseFloat(speed.value)
+    speedValue.textContent = _speed.toFixed(1)
   })
 
   // Wireframe toggle
-  _panel.querySelector('#ui-wire').addEventListener('change', e => {
-    _wireframe = e.target.checked
+  wire.addEventListener('change', () => {
+    _wireframe = wire.checked
     for (const m of _meshes) m.material.wireframe = _wireframe
   })
 
   // Bloom toggle
-  _panel.querySelector('#ui-bloom').addEventListener('change', e => {
-    _bloom = e.target.checked
+  bloom.addEventListener('change', () => {
+    _bloom = bloom.checked
     ctx.setBloom(_bloom ? 0.8 : 0)
   })
 
@@ -134,7 +149,7 @@ function buildUI(container, ctx) {
 
 // ── Rebuild meshes when shape changes ────────────────────────────────────────
 
-function _makeGeo(shape) {
+function _makeGeo(shape: string) {
   switch (shape) {
     case 'box':      return new Three.BoxGeometry(1, 1, 1)
     case 'torus':    return new Three.TorusGeometry(0.5, 0.2, 16, 40)
@@ -144,7 +159,7 @@ function _makeGeo(shape) {
   }
 }
 
-function _rebuildMeshes(ctx) {
+function _rebuildMeshes(ctx: ArtlabContext) {
   // Remove old meshes from scene
   for (const m of (_meshes || [])) ctx.remove(m)
   _meshes = []
@@ -156,7 +171,7 @@ function _rebuildMeshes(ctx) {
       emissive: new Three.Color(color).multiplyScalar(0.12),
       wireframe: _wireframe,
     })
-    const m = new Three.Mesh(geo, mat)
+    const m = Object.assign(new Three.Mesh(geo, mat), { userData: { label: name, hex: '#' + color.toString(16).padStart(6, '0') } })
     m.userData.label = name
     m.userData.hex = '#' + color.toString(16).padStart(6, '0')
     const angle = (i / OBJECTS.length) * Math.PI * 2
@@ -168,7 +183,7 @@ function _rebuildMeshes(ctx) {
 
 // ── Lifecycle ─────────────────────────────────────────────────────────────────
 
-export function setup(ctx) {
+export function setup(ctx: ArtlabContext) {
   ctx.setHelp('Hover a shape to see its tooltip   •   Use the on-screen controls to change shape')
   ctx.camera.position.set(0, 4, 10)
   ctx.camera.lookAt(0, 0, 0)
@@ -184,6 +199,7 @@ export function setup(ctx) {
   _rebuildMeshes(ctx)
 
   const container = ctx.renderer.domElement.parentElement
+  if (!container) throw new Error('UI Showcase requires a canvas container')
   buildUI(container, ctx)
 
   // Raycasting for tooltip
@@ -196,7 +212,7 @@ export function setup(ctx) {
     _mouse.y = -((e.clientY - rect.top)  / rect.height) * 2 + 1
 
     _raycaster.setFromCamera(_mouse, ctx.camera)
-    const hits = _raycaster.intersectObjects(_meshes)
+    const hits = _raycaster.intersectObjects<DisplayMesh>(_meshes)
     if (hits.length > 0) {
       const obj = hits[0].object
       _tooltip.textContent = `${obj.userData.label}  ${obj.userData.hex}`
@@ -215,7 +231,7 @@ export function setup(ctx) {
   ctx.renderer.domElement.addEventListener('mouseleave', _onOut)
 }
 
-export function update(ctx, dt) {
+export function update(ctx: ArtlabContext, dt: number) {
   const t = ctx.elapsed
   for (let i = 0; i < _meshes.length; i++) {
     const m = _meshes[i]
@@ -235,7 +251,7 @@ export function update(ctx, dt) {
   }
 }
 
-export function teardown(ctx) {
+export function teardown(ctx: ArtlabContext) {
   window.removeEventListener('mousemove', _onMove)
   ctx.renderer.domElement?.removeEventListener('mouseleave', _onOut)
   _panel?.remove()

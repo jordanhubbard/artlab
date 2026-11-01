@@ -32,6 +32,12 @@
 
 import { CSS2DObject } from 'three/addons/renderers/CSS2DRenderer.js'
 import * as Three from 'three'
+export type OverlayPosition = 'top-left' | 'top-right' | 'bottom-left' | 'bottom-right' | 'center'
+export interface TextStyle { color?: string; fontSize?: string; fontFamily?: string }
+export interface LabelOptions extends TextStyle { offsetY?: number; letterSpacing?: string }
+export interface HudOptions extends TextStyle { position?: OverlayPosition; padding?: string; background?: string }
+export interface ProgressOptions { width?: number; color?: string; backgroundColor?: string; position?: OverlayPosition; label?: string }
+export interface TooltipOptions extends TextStyle { background?: string; padding?: string; offsetX?: number; offsetY?: number }
 
 // ---------------------------------------------------------------------------
 // label
@@ -66,7 +72,7 @@ import * as Three from 'three'
  *   tag.setOpacity(0.5)
  *   tag.detach()
  */
-export function label(obj, text, options = {}) {
+export function label(obj: Three.Object3D, text: string, options: LabelOptions = {}) {
   const {
     color         = '#ffffff',
     fontSize      = '14px',
@@ -92,7 +98,7 @@ export function label(obj, text, options = {}) {
      * Update the displayed text.
      * @param {string} s
      */
-    setText(s) {
+    setText(s: string) {
       el.textContent = s
     },
 
@@ -100,7 +106,7 @@ export function label(obj, text, options = {}) {
      * Set the overall opacity of the label (0 = invisible, 1 = fully visible).
      * @param {number} v  Value between 0 and 1
      */
-    setOpacity(v) {
+    setOpacity(v: number) {
       el.style.opacity = String(Math.max(0, Math.min(1, v)))
     },
 
@@ -146,7 +152,7 @@ export function label(obj, text, options = {}) {
  *   // later:
  *   overlay.dispose()
  */
-export function hud(options = {}) {
+export function hud(options: HudOptions = {}) {
   const {
     position   = 'top-left',
     padding    = '8px 12px',
@@ -180,13 +186,13 @@ export function hud(options = {}) {
      * Set the panel text content (HTML-escaped).
      * @param {string} s
      */
-    setText(s) { el.textContent = s },
+    setText(s: string) { el.textContent = s },
 
     /**
      * Set the panel inner HTML directly.
      * @param {string} s
      */
-    setHTML(s) { el.innerHTML = s },
+    setHTML(s: string) { el.innerHTML = s },
 
     /** Make the panel visible (reverses hide()). */
     show() { el.style.display = '' },
@@ -231,7 +237,7 @@ export function hud(options = {}) {
  *   // on complete:
  *   loader.dispose()
  */
-export function progressBar(options = {}) {
+export function progressBar(options: ProgressOptions = {}) {
   const {
     width           = 180,
     color           = '#00ccff',
@@ -298,7 +304,7 @@ export function progressBar(options = {}) {
      * Set the fill level.
      * @param {number} v  Value between 0 and 1
      */
-    setValue(v) {
+    setValue(v: number) {
       fill.style.width = `${Math.max(0, Math.min(1, v)) * 100}%`
     },
 
@@ -306,7 +312,7 @@ export function progressBar(options = {}) {
      * Update the label text.
      * @param {string} s
      */
-    setLabel(s) {
+    setLabel(s: string) {
       labelEl.textContent = s
       labelEl.style.display = s ? '' : 'none'
     },
@@ -356,7 +362,7 @@ export function progressBar(options = {}) {
  *   })
  *   canvas.addEventListener('mouseleave', () => tip.hide())
  */
-export function tooltip(options = {}) {
+export function tooltip(options: TooltipOptions = {}) {
   const {
     color      = '#ffffff',
     background = 'rgba(0,0,0,0.75)',
@@ -398,7 +404,7 @@ export function tooltip(options = {}) {
      * @param {number} x     Viewport X in pixels (e.g. MouseEvent.clientX)
      * @param {number} y     Viewport Y in pixels (e.g. MouseEvent.clientY)
      */
-    show(text, x, y) {
+    show(text: string, x: number, y: number) {
       el.textContent = text
       el.style.display = ''
 
@@ -436,7 +442,7 @@ export function tooltip(options = {}) {
  * Return CSS position styles for a named corner / center position.
  * @private
  */
-function _positionStyles(position) {
+function _positionStyles(position: OverlayPosition): Partial<CSSStyleDeclaration> {
   switch (position) {
     case 'top-right':    return { top: '12px',    right:  '12px'   }
     case 'bottom-left':  return { bottom: '12px', left:   '12px'   }
@@ -451,7 +457,7 @@ function _positionStyles(position) {
  * Apply typography / colour styles to a label element.
  * @private
  */
-function _applyLabelStyles(el, { color, fontSize, fontFamily, letterSpacing }) {
+function _applyLabelStyles(el: HTMLElement, { color, fontSize, fontFamily, letterSpacing }: Required<TextStyle & { letterSpacing: string }>) {
   Object.assign(el.style, {
     color,
     fontSize,
