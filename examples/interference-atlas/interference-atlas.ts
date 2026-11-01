@@ -2,11 +2,13 @@
 // Phasor superposition: sum complex amplitudes BEFORE taking squared magnitude.
 import * as Three from 'three'
 import { stage, shaderPanel, controlPanel } from '../../src/stdlib/sketch.ts'
+import type { SketchContext } from '../../src/runtime/contracts'
+type State = { uniforms: Record<'time' | 'wavelength' | 'phase' | 'separation', Three.IUniform<number>> }
 
 /** Analytic two-source intensity, useful for comparing constructive/destructive interference.
  * @param {number} distanceA @param {number} distanceB @param {number} wavelength @param {number} phase
  */
-export function intensity(distanceA, distanceB, wavelength, phase) {
+export function intensity(distanceA: number, distanceB: number, wavelength: number, phase: number) {
   return (1 + Math.cos(2 * Math.PI * (distanceA - distanceB) / wavelength - phase)) / 2
 }
 
@@ -41,7 +43,7 @@ const fragment = `
 `
 /** @typedef {{ uniforms: { time: { value: number }, wavelength: { value: number }, phase: { value: number }, separation: { value: number } } }} State */
 /** @param {import('../../src/runtime/contracts').SketchContext<State>} ctx */
-export function setup(ctx) {
+export function setup(ctx: SketchContext<State>) {
   ctx.setHelp('Interference Atlas · complex amplitudes → intensity · change phase to move the nodal lines')
   stage(ctx, [0, 0, 10], 0.15)
   ctx.controls.enabled = false
@@ -55,6 +57,6 @@ export function setup(ctx) {
   })
 }
 /** @param {import('../../src/runtime/contracts').SketchContext<State>} ctx @param {number} dt */
-export function update(ctx, dt) { ctx.state.uniforms.time.value += Math.min(dt, 0.05) }
+export function update(ctx: SketchContext<State>, dt: number) { ctx.state.uniforms.time.value += Math.min(dt, 0.05) }
 /** @param {import('../../src/runtime/contracts').SketchContext<State>} ctx */
-export function teardown(ctx) { return ctx.scope.dispose() }
+export function teardown(ctx: SketchContext<State>) { return ctx.scope.dispose() }

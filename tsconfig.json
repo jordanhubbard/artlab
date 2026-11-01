@@ -10,6 +10,19 @@
     "skipLibCheck": true,
     "types": ["node", "vitest/globals"]
   },
-  "include": ["src/runtime/contracts.d.ts", "src/runtime/SceneContext.ts", "tests/contracts.ts", "src/stdlib/math.ts", "src/stdlib/geometry.ts", "src/stdlib/lights.ts", "src/stdlib/sketch.ts", "src/stdlib/scene/**/*.ts", "examples/hello-cube/hello-cube.ts", "examples/tutorial-01-geometry/tutorial-01-geometry.ts"],
+  "include": [
+    "src/runtime/contracts.d.ts", "src/runtime/SceneContext.ts", "tests/contracts.ts",
+    "src/stdlib/math.ts", "src/stdlib/geometry.ts", "src/stdlib/lights.ts",
+    "src/stdlib/sketch.ts", "src/stdlib/scene/**/*.ts",
+    "examples/hello-cube/hello-cube.ts",
+    "examples/tutorial-01-geometry/tutorial-01-geometry.ts",
+    "examples/tutorial-02-lights/tutorial-02-lights.ts",
+    "examples/tutorial-03-animation/tutorial-03-animation.ts",
+    "examples/tutorial-04-color/tutorial-04-color.ts",
+    "examples/tutorial-05-interaction/tutorial-05-interaction.ts",
+    "examples/interference-atlas/interference-atlas.ts",
+    "examples/volume-observatory/volume-observatory.ts",
+    "examples/wave-sculpture/wave-sculpture.ts"
+  ],
   "exclude": ["**/*.test.ts"]
 }

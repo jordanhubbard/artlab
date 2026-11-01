@@ -1,11 +1,15 @@
 // Tutorial 03 — Animation patterns: sine oscillation, linear sawtooth, and easeInOut, live.
 import * as Three from 'three';
+import type { ArtlabContext } from '../../src/runtime/contracts';
+type AnimationContext = ArtlabContext & {
+  _objs: { mesh: Three.Mesh<Three.BufferGeometry, Three.MeshStandardMaterial>; lel: HTMLDivElement; x: number }[];
+};
 
-function easeInOut(t) {
+function easeInOut(t: number) {
   return t < 0.5 ? 2 * t * t : -1 + (4 - 2 * t) * t;
 }
 
-function makeLabelEl(text, color) {
+function makeLabelEl(text: string, color: string) {
   const el = document.createElement('div');
   el.style.cssText = [
     'position:absolute', 'z-index:98', 'pointer-events:none',
@@ -16,14 +20,14 @@ function makeLabelEl(text, color) {
   return el;
 }
 
-function placeLabel(el, mesh, camera, domEl) {
+function placeLabel(el: HTMLElement, mesh: Three.Object3D, camera: Three.Camera, domEl: HTMLElement) {
   const w = domEl.clientWidth, h = domEl.clientHeight;
   const p = mesh.position.clone().project(camera);
   el.style.left = ((p.x * 0.5 + 0.5) * w - 25) + 'px';
   el.style.top  = ((-p.y * 0.5 + 0.5) * h + 35) + 'px';
 }
 
-export function setup(ctx) {
+export function setup(ctx: AnimationContext) {
   ctx.camera.position.set(0, 2.5, 9);
   ctx.camera.lookAt(0, 0, 0);
 
@@ -53,12 +57,12 @@ export function setup(ctx) {
     m.position.set(d.x, 0, 0);
     ctx.add(m);
     const lel = makeLabelEl(d.label, '#' + d.color.toString(16).padStart(6, '0'));
-    container.appendChild(lel);
+    container?.appendChild(lel);
     ctx._objs.push({ mesh: m, lel, x: d.x });
   }
 }
 
-export function update(ctx, dt) {
+export function update(ctx: AnimationContext, dt: number) {
   const t = ctx.elapsed;
 
   const sv = Math.sin(t);
@@ -77,6 +81,6 @@ export function update(ctx, dt) {
     placeLabel(lel, mesh, ctx.camera, ctx.renderer.domElement);
 }
 
-export function teardown(ctx) {
+export function teardown(ctx: AnimationContext) {
   for (const { lel } of ctx._objs) lel.remove();
 }

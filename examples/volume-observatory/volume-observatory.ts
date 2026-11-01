@@ -1,11 +1,14 @@
 // @ts-check
 // Emission-absorption volume integration, NOT distance-to-surface raymarching.
 import { stage, shaderPanel, controlPanel } from '../../src/stdlib/sketch.ts'
+import type { SketchContext } from '../../src/runtime/contracts'
+import type { IUniform } from 'three'
+type State = { uniforms: Record<'time' | 'density' | 'cut' | 'yaw', IUniform<number>> }
 
 /** Beer-Lambert opacity for one integration interval.
  * @param {number} density @param {number} distance
  */
-export function opacity(density, distance) { return 1 - Math.exp(-density * distance) }
+export function opacity(density: number, distance: number) { return 1 - Math.exp(-density * distance) }
 
 const fragment = `
   varying vec2 vUv;
@@ -54,7 +57,7 @@ const fragment = `
 `
 /** @typedef {{ uniforms: { time: { value: number }, density: { value: number }, cut: { value: number }, yaw: { value: number } } }} State */
 /** @param {import('../../src/runtime/contracts').SketchContext<State>} ctx */
-export function setup(ctx) {
+export function setup(ctx: SketchContext<State>) {
   ctx.setHelp('Volume Observatory · 96 depth samples per pixel · slice the scalar field · compare absorption')
   stage(ctx, [0, 0, 10], 0)
   ctx.controls.enabled = false
@@ -68,6 +71,6 @@ export function setup(ctx) {
   })
 }
 /** @param {import('../../src/runtime/contracts').SketchContext<State>} ctx @param {number} dt */
-export function update(ctx, dt) { ctx.state.uniforms.time.value += Math.min(dt, 0.05) }
+export function update(ctx: SketchContext<State>, dt: number) { ctx.state.uniforms.time.value += Math.min(dt, 0.05) }
 /** @param {import('../../src/runtime/contracts').SketchContext<State>} ctx */
-export function teardown(ctx) { return ctx.scope.dispose() }
+export function teardown(ctx: SketchContext<State>) { return ctx.scope.dispose() }

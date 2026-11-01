@@ -2,19 +2,30 @@
 // Tidal Loom — one instanced draw, 4,096 brass fins, analytic wave normals.
 import * as Three from 'three'
 import { stage, instances, pointer, controlPanel } from '../../src/stdlib/sketch.ts'
+import type { SketchContext } from '../../src/runtime/contracts'
+type State = {
+  tiles: Three.InstancedMesh
+  dummy: Three.Object3D
+  tint: Three.Color
+  frequency: number
+  speed: number
+  time: number
+  ripple: Three.Vector2
+  struckAt: number
+}
 
 const N = 64
 const SPACING = 0.23
 
 /** @param {number} x @param {number} z @param {number} time @param {number} frequency */
-export function waveHeight(x, z, time, frequency) {
+export function waveHeight(x: number, z: number, time: number, frequency: number) {
   return Math.sin(x * frequency + time) * Math.cos(z * frequency * 0.7 - time * 0.6) * 0.9
     + Math.sin(Math.hypot(x, z) * 1.6 - time * 1.7) * 0.35
 }
 
 /** @typedef {{ tiles: Three.InstancedMesh, dummy: Three.Object3D, tint: Three.Color, frequency: number, speed: number, time: number, ripple: Three.Vector2, struckAt: number }} State */
 /** @param {import('../../src/runtime/contracts').SketchContext<State>} ctx */
-export function setup(ctx) {
+export function setup(ctx: SketchContext<State>) {
   ctx.setHelp('Tidal Loom · 4,096 instanced fins · click to send a ripple · drag to orbit')
   stage(ctx, [12, 11, 15], 0.32)
   const tiles = instances(ctx, new Three.BoxGeometry(0.20, 0.08, 0.20),
@@ -42,7 +53,7 @@ export function setup(ctx) {
 }
 
 /** @param {import('../../src/runtime/contracts').SketchContext<State>} ctx @param {number} dt */
-export function update(ctx, dt) {
+export function update(ctx: SketchContext<State>, dt: number) {
   const s = ctx.state
   s.time += Math.min(dt, 0.05) * s.speed
   const age = s.time - s.struckAt
@@ -67,4 +78,4 @@ export function update(ctx, dt) {
 }
 
 /** @param {import('../../src/runtime/contracts').SketchContext<State>} ctx */
-export function teardown(ctx) { return ctx.scope.dispose() }
+export function teardown(ctx: SketchContext<State>) { return ctx.scope.dispose() }

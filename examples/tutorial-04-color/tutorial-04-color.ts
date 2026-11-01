@@ -1,5 +1,10 @@
 // Tutorial 04 — Color & Material: a 4x4 grid of spheres showing HSL and PBR parameters.
 import * as Three from 'three';
+import type { ArtlabContext } from '../../src/runtime/contracts';
+type ColorSphere = Three.Mesh<Three.SphereGeometry, Three.MeshStandardMaterial> & {
+  userData: { row: number; col: number };
+};
+type ColorContext = ArtlabContext & { _spheres: ColorSphere[] };
 
 const COLS = 4, ROWS = 4, SPACING = 2.2;
 
@@ -17,7 +22,7 @@ const PBR_COMBOS = [
   { metalness: 1.0, roughness: 0.05, label: 'smooth/metal' },
 ];
 
-function rowColor(row, col) {
+function rowColor(row: number, col: number) {
   const c = new Three.Color();
   const t = col / (COLS - 1);
   if (row === 0) c.setHSL(t, 0.7, 0.55);
@@ -27,7 +32,7 @@ function rowColor(row, col) {
   return c;
 }
 
-export function setup(ctx) {
+export function setup(ctx: ColorContext) {
   const { Three: T } = ctx;
 
   ctx.camera.position.set(0, 4.5, 14);
@@ -49,7 +54,7 @@ export function setup(ctx) {
       const col = rowColor(r, c);
       const t = c / (COLS - 1);
 
-      const matOpts = { color: col, roughness: 0.4, metalness: 0.1 };
+      const matOpts: Three.MeshStandardMaterialParameters = { color: col, roughness: 0.4, metalness: 0.1 };
 
       if (r === 2) {
         matOpts.emissive = col.clone();
@@ -61,7 +66,7 @@ export function setup(ctx) {
       }
 
       const mat = new Three.MeshStandardMaterial(matOpts);
-      const mesh = new Three.Mesh(geo, mat);
+      const mesh = Object.assign(new Three.Mesh(geo, mat), { userData: { row: r, col: c } });
       const x = (c - (COLS - 1) / 2) * SPACING;
       const y = ((ROWS - 1) / 2 - r) * SPACING;
       mesh.position.set(x, y, 0);
@@ -74,7 +79,7 @@ export function setup(ctx) {
 
 }
 
-export function update(ctx, dt) {
+export function update(ctx: ColorContext, dt: number) {
   const t = ctx.elapsed;
   for (const m of ctx._spheres) {
     const r = m.userData.row;
@@ -91,4 +96,4 @@ export function update(ctx, dt) {
   }
 }
 
-export function teardown(_ctx) {}
+export function teardown(_ctx: ColorContext) {}

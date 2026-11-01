@@ -1,12 +1,27 @@
 // Tutorial 05 — Interaction: raycasting, hover, click, and keyboard events on a 5x5 cube grid.
 import * as Three from 'three';
+import type { ArtlabContext } from '../../src/runtime/contracts';
+type Cube = Three.Mesh<Three.BoxGeometry, Three.MeshStandardMaterial> & {
+  userData: { baseX: number; baseZ: number; fly: number };
+};
+type InteractionContext = ArtlabContext & {
+  _cubes: Cube[];
+  _raycaster: Three.Raycaster;
+  _mouse: Three.Vector2;
+  _hovered: Cube | null;
+  _gridHelper: Three.GridHelper | null;
+  _showGrid: boolean;
+  _onMouseMove(event: MouseEvent): void;
+  _onClick(event: MouseEvent): void;
+  _onKey(event: KeyboardEvent): void;
+};
 
 const GRID = 5, SPACING = 1.8;
 const COL_BASE   = 0x2244aa;
 const COL_HOVER  = 0xffdd44;
 const COL_CLICK  = 0xff4422;
 
-export function setup(ctx) {
+export function setup(ctx: InteractionContext) {
   const { Three: T, scene } = ctx;
 
   ctx.setHelp('Hover a cube to highlight   •   Click to launch it   •   R: reset   •   G: toggle grid');
@@ -30,9 +45,9 @@ export function setup(ctx) {
         color: COL_BASE, roughness: 0.4, metalness: 0.2,
         emissive: new Three.Color(0x112244),
       });
-      const mesh = new Three.Mesh(geo, mat);
       const x = (c - (GRID - 1) / 2) * SPACING;
       const z = (r - (GRID - 1) / 2) * SPACING;
+      const mesh = Object.assign(new Three.Mesh(geo, mat), { userData: { baseX: x, baseZ: z, fly: 0 } });
       mesh.position.set(x, 0, z);
       mesh.userData.baseX = x;
       mesh.userData.baseZ = z;
@@ -60,8 +75,8 @@ export function setup(ctx) {
     const rect = el.getBoundingClientRect();
     const mx =  ((e.clientX - rect.left) / rect.width)  * 2 - 1;
     const my = -((e.clientY - rect.top)  / rect.height) * 2 + 1;
-    ctx._raycaster.setFromCamera({ x: mx, y: my }, ctx.camera);
-    const hits = ctx._raycaster.intersectObjects(ctx._cubes);
+    ctx._raycaster.setFromCamera(new Three.Vector2(mx, my), ctx.camera);
+    const hits = ctx._raycaster.intersectObjects<Cube>(ctx._cubes);
     if (hits.length > 0) {
       const cube = hits[0].object;
       cube.userData.fly = 1.0;
@@ -95,11 +110,11 @@ export function setup(ctx) {
   window.addEventListener('keydown',   ctx._onKey);
 }
 
-export function update(ctx, dt) {
+export function update(ctx: InteractionContext, dt: number) {
   const t = ctx.elapsed;
 
   ctx._raycaster.setFromCamera(ctx._mouse, ctx.camera);
-  const hits = ctx._raycaster.intersectObjects(ctx._cubes);
+  const hits = ctx._raycaster.intersectObjects<Cube>(ctx._cubes);
   const nowHovered = hits.length > 0 ? hits[0].object : null;
 
   if (ctx._hovered && ctx._hovered !== nowHovered && ctx._hovered.userData.fly <= 0) {
@@ -133,7 +148,7 @@ export function update(ctx, dt) {
   }
 }
 
-export function teardown(ctx) {
+export function teardown(ctx: InteractionContext) {
   window.removeEventListener('mousemove', ctx._onMouseMove);
   window.removeEventListener('click',     ctx._onClick);
   window.removeEventListener('keydown',   ctx._onKey);

@@ -1,5 +1,13 @@
 // Tutorial 02 — Lighting: five modes cycle every 4 seconds.
 import * as Three from 'three';
+import type { ArtlabContext } from '../../src/runtime/contracts';
+type LightingContext = ArtlabContext & {
+  _lights: Three.Light[];
+  _sphere: Three.Mesh<Three.SphereGeometry, Three.MeshStandardMaterial>;
+  _pointRef?: Three.PointLight;
+  _modeIdx: number;
+  _lastSwitch: number;
+};
 
 const CYCLE_DURATION = 4.0;
 
@@ -11,7 +19,7 @@ const MODES = [
   { name: 'Hemisphere' },
 ];
 
-function clearLights(ctx) {
+function clearLights(ctx: LightingContext) {
   for (const l of (ctx._lights || [])) {
     ctx.scene.remove(l);
     l.dispose && l.dispose();
@@ -19,9 +27,9 @@ function clearLights(ctx) {
   ctx._lights = [];
 }
 
-function applyMode(ctx, idx) {
+function applyMode(ctx: LightingContext, idx: number) {
   clearLights(ctx);
-  const add = (l) => { ctx._lights.push(l); ctx.add(l); };
+  const add = (l: Three.Light) => { ctx._lights.push(l); ctx.add(l); };
 
   if (idx === 0) {
     add(new Three.AmbientLight(0x888888, 1.0));
@@ -50,7 +58,7 @@ function applyMode(ctx, idx) {
   }
 }
 
-export function setup(ctx) {
+export function setup(ctx: LightingContext) {
   ctx.camera.position.set(0, 1, 5);
   ctx.camera.lookAt(0, 0, 0);
 
@@ -66,7 +74,7 @@ export function setup(ctx) {
   applyMode(ctx, 0);
 }
 
-export function update(ctx, dt) {
+export function update(ctx: LightingContext, dt: number) {
   const t = ctx.elapsed;
 
   if (t - ctx._lastSwitch >= CYCLE_DURATION) {
@@ -80,6 +88,6 @@ export function update(ctx, dt) {
   }
 }
 
-export function teardown(ctx) {
+export function teardown(ctx: LightingContext) {
   clearLights(ctx);
 }
