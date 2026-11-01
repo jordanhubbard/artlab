@@ -1,6 +1,9 @@
 // @vitest-environment jsdom
-import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { setup, update, teardown } from './reaction-diffusion.ts'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
+import type { DemoContext } from '../../tests/context.ts'
+import { initializeAsync, makeSpiedContext, mockCanvas2D } from '../../tests/context.ts'
+import { setup, teardown, update } from './reaction-diffusion.ts'
+type Demo = typeof import('./reaction-diffusion.ts')
 
 vi.mock('three', async () => await vi.importActual('three'))
 
@@ -11,60 +14,47 @@ const fake2DCtx = {
   putImageData: vi.fn(),
 }
 
-HTMLCanvasElement.prototype.getContext = vi.fn((type) => {
-  if (type === '2d') return fake2DCtx
-  return null
+mockCanvas2D(() => {
+  return fake2DCtx
 })
 
-function makeCtx(overrides = {}) {
-  return {
-    scene: { background: null },
-    camera: { position: { set: vi.fn() }, lookAt: vi.fn() },
-    add: vi.fn(),
-    remove: vi.fn(),
-    setBloom: vi.fn(),
-    setHelp:  vi.fn(),
-    elapsed: 0,
-    ...overrides,
-  }
-}
-
 describe('reaction-diffusion', () => {
-  let ctx
+  let ctx: DemoContext<Demo>
+  let base: ReturnType<typeof makeSpiedContext>
 
   beforeEach(() => {
     vi.clearAllMocks()
-    ctx = makeCtx()
+    base = makeSpiedContext()
   })
 
   it('setup runs without throwing', async () => {
-    await expect(setup(ctx)).resolves.toBeUndefined()
+    await expect(initializeAsync(setup, base).then(ready => { ctx = ready })).resolves.toBeUndefined()
   })
 
   it('setup adds sphere and ambient light, enables bloom', async () => {
-    await setup(ctx)
+    ctx = await initializeAsync(setup, base)
     expect(ctx.add).toHaveBeenCalledTimes(2)
     expect(ctx.setBloom).toHaveBeenCalledWith(1.5)
   })
 
   it('setup creates a canvas texture via 2D context', async () => {
-    await setup(ctx)
+    ctx = await initializeAsync(setup, base)
     expect(fake2DCtx.createImageData).toHaveBeenCalledWith(256, 256)
   })
 
   it('update runs without throwing', async () => {
-    await setup(ctx)
+    ctx = await initializeAsync(setup, base)
     expect(() => update(ctx, 0.016)).not.toThrow()
   })
 
   it('update writes pixel data and marks texture dirty', async () => {
-    await setup(ctx)
+    ctx = await initializeAsync(setup, base)
     update(ctx, 0.016)
     expect(fake2DCtx.putImageData).toHaveBeenCalled()
   })
 
   it('update runs multiple frames without throwing', async () => {
-    await setup(ctx)
+    ctx = await initializeAsync(setup, base)
     expect(() => {
       update(ctx, 0.016)
       ctx.elapsed = 0.016
@@ -75,16 +65,16 @@ describe('reaction-diffusion', () => {
   })
 
   it('teardown removes exactly as many objects as setup added', async () => {
-    await setup(ctx)
+    ctx = await initializeAsync(setup, base)
     const addCount = ctx.add.mock.calls.length
     teardown(ctx)
     expect(ctx.remove).toHaveBeenCalledTimes(addCount)
   })
 
   it('teardown restores scene background', async () => {
-    const original = { isColor: true, r: 0, g: 0, b: 0 }
-    ctx.scene.background = original
-    await setup(ctx)
+    const original = new base.Three.Color(0)
+    base.scene.background = original
+    ctx = await initializeAsync(setup, base)
     teardown(ctx)
     expect(ctx.scene.background).toBe(original)
   })

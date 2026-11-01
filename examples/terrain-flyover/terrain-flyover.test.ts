@@ -1,26 +1,10 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { setup, update, teardown } from './terrain-flyover.ts'
-
-function makeCtx(overrides = {}) {
-  return {
-    scene: { fog: null },
-    camera: {
-      position: { set: vi.fn() },
-      lookAt: vi.fn(),
-    },
-    renderer: { shadowMap: {} },
-    controls: { target: { set: vi.fn() } },
-    add: vi.fn(),
-    remove: vi.fn(),
-    setBloom: vi.fn(),
-    setHelp:  vi.fn(),
-    elapsed: 0,
-    ...overrides,
-  }
-}
+// @vitest-environment jsdom
+import { beforeEach, describe, expect, it } from 'vitest'
+import { makeSpiedContext as makeCtx } from '../../tests/context.ts'
+import { setup, teardown, update } from './terrain-flyover.ts'
 
 describe('terrain-flyover', () => {
-  let ctx
+  let ctx: ReturnType<typeof makeCtx>
 
   beforeEach(() => {
     ctx = makeCtx()
@@ -48,6 +32,7 @@ describe('terrain-flyover', () => {
   it('setup creates terrain mesh with vertex colors', async () => {
     await setup(ctx)
     const terrainMesh = ctx.add.mock.calls[0][0]
+    if (!(terrainMesh instanceof ctx.Three.Mesh)) throw new Error('Terrain did not initialize a mesh')
     expect(terrainMesh.geometry.attributes.color).toBeDefined()
     expect(terrainMesh.geometry.attributes.color.count).toBeGreaterThan(0)
   })

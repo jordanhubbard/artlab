@@ -1,6 +1,9 @@
 // @vitest-environment jsdom
-import { describe, it, expect, vi, beforeEach } from 'vitest'
 import * as Three from 'three'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
+import type { DemoContext } from '../../tests/context.ts'
+import { initialize, makeSpiedContext, required } from '../../tests/context.ts'
+type Demo = typeof import('./color-fields.ts')
 
 vi.mock('three', async () => await vi.importActual('three'))
 
@@ -8,90 +11,40 @@ vi.mock('three', async () => await vi.importActual('three'))
 
 const CANVAS_RECT = { left: 0, top: 0, right: 800, bottom: 600, width: 800, height: 600, x: 0, y: 0 }
 
-function makeMockCtx(overrides = {}) {
-  const scene = {
-    add: vi.fn(),
-    remove: vi.fn(),
-    children: [],
-    fog: null,
-    background: new Three.Color(0x000005),
-  }
-  const camera = new Three.PerspectiveCamera(60, CANVAS_RECT.width / CANVAS_RECT.height, 0.1, 4000)
-  const controls = {
-    update: vi.fn(),
-    enableDamping: true,
-    target: new Three.Vector3(),
-  }
-
-  const canvas = document.createElement('canvas')
-  canvas.getBoundingClientRect = () => ({ ...CANVAS_RECT, toJSON: () => CANVAS_RECT })
-  vi.spyOn(canvas, 'addEventListener')
-  vi.spyOn(canvas, 'removeEventListener')
-
-  const renderer = {
-    domElement: canvas,
-    setSize: vi.fn(),
-    render: vi.fn(),
-    shadowMap: { enabled: false },
-    toneMapping: 0,
-  }
-
-  const ctx = {
-    Three,
-    scene,
-    camera,
-    renderer,
-    controls,
-    labelRenderer: {
-      render: vi.fn(),
-      setSize: vi.fn(),
-      domElement: document.createElement('div'),
-    },
-    add: vi.fn((obj) => { scene.children.push(obj); return obj }),
-    remove: vi.fn(),
-    setBloom: vi.fn(),
-    setHelp:  vi.fn(),
-    elapsed: 0,
-    ...overrides,
-  }
-  return ctx
-}
-
 /** Invoke a listener the example registered on the canvas, as the browser would. */
-function firePointer(ctx, type, clientX, clientY) {
-  const entry = ctx.renderer.domElement.addEventListener.mock.calls.find(([t]) => t === type)
-  expect(entry, `no listener registered for "${type}"`).toBeTruthy()
-  entry[1]({ type, clientX, clientY, pointerType: 'mouse', isPrimary: true })
+function firePointer(ctx: DemoContext<Demo>, type: string, clientX: number, clientY: number) {
+  ctx.renderer.domElement.dispatchEvent(new MouseEvent(type, { clientX, clientY }))
 }
 
 /** Advance the simulation without any input. */
-function runFrames(ctx, update, count, dt = 0.016) {
+function runFrames(ctx: DemoContext<Demo>, update: Demo["update"], count: number, dt = 0.016) {
   for (let i = 0; i < count; i++) {
     ctx.elapsed += dt
     update(ctx, dt)
   }
 }
 
-function uniforms(ctx) {
+function uniforms(ctx: DemoContext<Demo>) {
   return ctx._field.material.uniforms
 }
 
 // ── Tests ─────────────────────────────────────────────────────────────────────
 
 describe('color-fields — chromatic weather', () => {
-  let ctx
-  let setup, update, teardown
+  let ctx: DemoContext<Demo>
+  let base: ReturnType<typeof makeSpiedContext>
+  let setup: Demo["setup"], update: Demo["update"], teardown: Demo["teardown"]
 
   beforeEach(async () => {
     vi.clearAllMocks()
-    ctx = makeMockCtx()
+    base = makeSpiedContext()
     ;({ setup, update, teardown } = await import('./color-fields.ts'))
   })
 
   it('setup() announces its controls before touching the scene', () => {
-    expect(() => setup(ctx)).not.toThrow()
+    expect(() => (ctx = initialize(setup, base))).not.toThrow()
     expect(ctx.setHelp).toHaveBeenCalledTimes(1)
-    const help = ctx.setHelp.mock.calls[0][0]
+    const help = required(ctx.setHelp.mock.calls[0][0])
     expect(typeof help).toBe('string')
     expect(help.length).toBeGreaterThan(10)
     expect(help.toLowerCase()).toMatch(/pointer|mouse|drag|click/)
@@ -100,8 +53,8 @@ describe('color-fields — chromatic weather', () => {
   })
 
   it('builds one continuous field mesh, not a grid of tiles', () => {
-    setup(ctx)
-    expect(ctx._tiles).toBeUndefined()
+    ctx = initialize(setup, base)
+    expect('_tiles' in ctx).toBe(false)
     expect(ctx.add).toHaveBeenCalledTimes(1)
     expect(ctx._field).toBeInstanceOf(Three.Mesh)
     expect(ctx.add).toHaveBeenCalledWith(ctx._field)
@@ -109,17 +62,17 @@ describe('color-fields — chromatic weather', () => {
   })
 
   it('field geometry is a high-resolution indexed surface', () => {
-    setup(ctx)
+    ctx = initialize(setup, base)
     const geo = ctx._field.geometry
     expect(geo).toBeInstanceOf(Three.BufferGeometry)
     expect(geo.index).not.toBeNull()
     // One continuous sheet: tens of thousands of vertices in a single draw.
     expect(geo.getAttribute('position').count).toBeGreaterThan(10000)
-    expect(geo.index.count / 3).toBeGreaterThan(20000)
+    expect(required(geo.index).count / 3).toBeGreaterThan(20000)
   })
 
   it('bakes pigment-like vertex colors that vary across the field', () => {
-    setup(ctx)
+    ctx = initialize(setup, base)
     const geo = ctx._field.geometry
     const color = geo.getAttribute('color')
     expect(color).toBeDefined()
@@ -145,7 +98,7 @@ describe('color-fields — chromatic weather', () => {
   })
 
   it('drives displacement and color from shader uniforms', () => {
-    setup(ctx)
+    ctx = initialize(setup, base)
     const mat = ctx._field.material
     expect(mat).toBeInstanceOf(Three.ShaderMaterial)
     expect(mat.fog).toBe(true)
@@ -162,9 +115,9 @@ describe('color-fields — chromatic weather', () => {
   })
 
   it('installs its own atmosphere and restores the scene on teardown', () => {
-    const originalFog = ctx.scene.fog
-    const originalBackground = ctx.scene.background
-    setup(ctx)
+    const originalFog = base.scene.fog
+    const originalBackground = base.scene.background
+    ctx = initialize(setup, base)
     expect(ctx.scene.fog).toBeInstanceOf(Three.Fog)
     expect(ctx.scene.background).toBeInstanceOf(Three.Color)
     expect(ctx.scene.background).not.toBe(originalBackground)
@@ -175,21 +128,21 @@ describe('color-fields — chromatic weather', () => {
   })
 
   it('update() moves time, light, and fog without input', () => {
-    setup(ctx)
+    ctx = initialize(setup, base)
     const u = uniforms(ctx)
     const light0 = u.uLightDir.value.clone()
-    const fog0 = ctx.scene.fog.color.clone()
+    const fog0 = required(ctx.scene.fog).color.clone()
 
     runFrames(ctx, update, 400)
 
     expect(u.uTime.value).toBeCloseTo(ctx.elapsed, 5)
     expect(u.uLightDir.value.distanceTo(light0)).toBeGreaterThan(0.02)
     expect(u.uLightDir.value.length()).toBeCloseTo(1, 5)
-    expect(fog0.getHex()).not.toBe(ctx.scene.fog.color.getHex())
+    expect(fog0.getHex()).not.toBe(required(ctx.scene.fog).color.getHex())
   })
 
   it('pointer motion stirs the field and settles back to rest', () => {
-    setup(ctx)
+    ctx = initialize(setup, base)
     const u = uniforms(ctx)
     expect(u.uSwell.value).toBe(0)
 
@@ -206,7 +159,7 @@ describe('color-fields — chromatic weather', () => {
   })
 
   it('a click launches a chromatic front that expands and fades', () => {
-    setup(ctx)
+    ctx = initialize(setup, base)
     const u = uniforms(ctx)
     expect(u.uRipple.value).toBe(0)
 
@@ -225,10 +178,12 @@ describe('color-fields — chromatic weather', () => {
   })
 
   it('update() does no per-frame geometry work', () => {
-    setup(ctx)
+    ctx = initialize(setup, base)
     const geo = ctx._field.geometry
     const positions = geo.getAttribute('position')
+    if (!(positions instanceof Three.BufferAttribute)) throw new Error('Expected plain position buffer')
     const colors = geo.getAttribute('color')
+    if (!(colors instanceof Three.BufferAttribute)) throw new Error('Expected plain color buffer')
     const positionVersion = positions.version
     const colorVersion = colors.version
 
@@ -244,13 +199,13 @@ describe('color-fields — chromatic weather', () => {
   })
 
   it('teardown() releases the mesh, its resources, and every listener', () => {
-    setup(ctx)
+    ctx = initialize(setup, base)
     const field = ctx._field
     const canvas = ctx.renderer.domElement
     const geoDispose = vi.spyOn(field.geometry, 'dispose')
     const matDispose = vi.spyOn(field.material, 'dispose')
 
-    const added = canvas.addEventListener.mock.calls.map(([type, handler]) => ({ type, handler }))
+    const added = vi.mocked(canvas.addEventListener).mock.calls.map(([type, handler]) => ({ type, handler }))
     expect(added.length).toBeGreaterThan(0)
     expect(added.map(a => a.type)).toContain('pointermove')
     expect(added.map(a => a.type)).toContain('pointerdown')
@@ -261,7 +216,7 @@ describe('color-fields — chromatic weather', () => {
     expect(geoDispose).toHaveBeenCalled()
     expect(matDispose).toHaveBeenCalled()
 
-    const removed = canvas.removeEventListener.mock.calls.map(([type, handler]) => ({ type, handler }))
+    const removed = vi.mocked(canvas.removeEventListener).mock.calls.map(([type, handler]) => ({ type, handler }))
     expect(removed.length).toBe(added.length)
     for (const { type, handler } of added) {
       expect(removed.some(r => r.type === type && r.handler === handler)).toBe(true)
@@ -269,7 +224,7 @@ describe('color-fields — chromatic weather', () => {
   })
 
   it('teardown() is safe to call twice', () => {
-    setup(ctx)
+    ctx = initialize(setup, base)
     teardown(ctx)
     expect(() => teardown(ctx)).not.toThrow()
   })

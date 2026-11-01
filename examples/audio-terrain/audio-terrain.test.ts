@@ -1,6 +1,8 @@
 // @vitest-environment jsdom
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
-import * as Three from 'three'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import type { DemoContext } from '../../tests/context.ts'
+import { containerOf, initializeAsync, makeSpiedContext, required } from '../../tests/context.ts'
+type Demo = typeof import('./audio-terrain.ts')
 
 vi.mock('three', async () => await vi.importActual('three'))
 
@@ -15,95 +17,46 @@ vi.mock('../../src/stdlib/media.ts', () => ({
   },
 }))
 
-vi.mock('../../src/stdlib/physics/particles.ts', () => ({
-  createParticleWorld: () => ({
-    addBody:      vi.fn(),
-    removeBody:   vi.fn(),
-    getParticles: vi.fn(() => []),
-    step:         vi.fn(),
-  }),
-  emitter: (world, scene) => {
-    const geometry = { setAttribute: vi.fn(), setDrawRange: vi.fn() }
-    const material = {}
-    const points   = { geometry, material, position: { x: 0, y: 0, z: 0 } }
-    scene.add(points)
-    return {
-      emitterId: 'emitter_0',
-      points,
-      update:  vi.fn(),
-      dispose: vi.fn(() => scene.remove(points)),
-    }
-  },
-  forceField: vi.fn(),
-}))
-
-function makeMockCtx(overrides = {}) {
-  const container = document.createElement('div')
-  document.body.appendChild(container)
-  const canvas = document.createElement('canvas')
-  canvas.getBoundingClientRect = () => ({ left: 0, top: 0, width: 800, height: 600 })
-  container.appendChild(canvas)
-
-  const scene  = { add: vi.fn(), remove: vi.fn(), children: [] }
-  const camera = {
-    position: new Three.Vector3(0, 2, 6),
-    lookAt:   vi.fn(),
-    fov: 60, aspect: 1,
-    updateProjectionMatrix: vi.fn(),
-    projectionMatrix:   new Three.Matrix4(),
-    matrixWorldInverse: new Three.Matrix4(),
-  }
-  return {
-    Three, scene, camera,
-    renderer: { domElement: canvas, shadowMap: { enabled: false }, setSize: vi.fn(), render: vi.fn() },
-    controls: { update: vi.fn(), target: new Three.Vector3(), enabled: true },
-    add:      vi.fn(obj => { scene.children.push(obj); return obj }),
-    remove:   vi.fn(),
-    setBloom: vi.fn(),
-    setHelp:  vi.fn(),
-    elapsed:  0,
-    ...overrides,
-  }
-}
-
 describe('audio-terrain', () => {
-  let ctx, mod
+  let ctx: DemoContext<Demo>
+  let base: ReturnType<typeof makeSpiedContext>
+  let mod: Demo
 
   beforeEach(async () => {
     document.body.innerHTML = ''
     vi.clearAllMocks()
-    ctx = makeMockCtx()
+    base = makeSpiedContext()
     mod = await import('./audio-terrain.ts')
   })
 
   afterEach(async () => {
-    try { await mod.teardown(ctx) } catch (_) {}
+    try { await mod.teardown() } catch (_) {}
   })
 
   it('setup() does not throw', async () => {
-    await expect(mod.setup(ctx)).resolves.not.toThrow()
+    await expect(initializeAsync(mod.setup, base).then(ready => { ctx = ready })).resolves.not.toThrow()
   })
 
   it('setup() calls ctx.setBloom', async () => {
-    await mod.setup(ctx)
+    ctx = await initializeAsync(mod.setup, base)
     expect(ctx.setBloom).toHaveBeenCalledWith(0.9)
   })
 
   it('setup() adds terrain + 2 lights via ctx.add', async () => {
-    await mod.setup(ctx)
+    ctx = await initializeAsync(mod.setup, base)
     // AmbientLight + HemisphereLight + terrain mesh = 3 minimum
     expect(ctx.add.mock.calls.length).toBeGreaterThanOrEqual(3)
   })
 
   it('setup() adds an "Enable Microphone" button to the container', async () => {
-    await mod.setup(ctx)
-    const btn = ctx.renderer.domElement.parentElement.querySelector('button')
+    ctx = await initializeAsync(mod.setup, base)
+    const btn = required(containerOf(ctx).querySelector('button'))
     expect(btn).not.toBeNull()
     expect(btn.textContent).toContain('Microphone')
   })
 
   it('update() runs multiple frames without throwing', async () => {
-    await mod.setup(ctx)
+    ctx = await initializeAsync(mod.setup, base)
     expect(() => {
       mod.update(ctx, 0.016)
       ctx.elapsed = 0.016
@@ -114,7 +67,7 @@ describe('audio-terrain', () => {
   })
 
   it('update() moves camera each frame (orbit)', async () => {
-    await mod.setup(ctx)
+    ctx = await initializeAsync(mod.setup, base)
     ctx.elapsed = 1.0
     mod.update(ctx, 0.016)
     // Camera X should be cos(0.09) * 28
@@ -122,47 +75,47 @@ describe('audio-terrain', () => {
   })
 
   it('clicking mic button calls microphone start()', async () => {
-    await mod.setup(ctx)
-    const btn = ctx.renderer.domElement.parentElement.querySelector('button')
+    ctx = await initializeAsync(mod.setup, base)
+    const btn = required(containerOf(ctx).querySelector('button'))
     btn.click()
     await new Promise(resolve => setTimeout(resolve, 0))
     expect(mic.start).toHaveBeenCalled()
   })
 
   it('teardown() does not throw', async () => {
-    await mod.setup(ctx)
-    await expect(mod.teardown(ctx)).resolves.not.toThrow()
+    ctx = await initializeAsync(mod.setup, base)
+    await expect(mod.teardown()).resolves.not.toThrow()
   })
 
   it('teardown() removes terrain + lights via ctx.remove', async () => {
-    await mod.setup(ctx)
-    await mod.teardown(ctx)
+    ctx = await initializeAsync(mod.setup, base)
+    await mod.teardown()
     // terrain + ambLight + hemiLight = 3 minimum
     expect(ctx.remove.mock.calls.length).toBeGreaterThanOrEqual(3)
   })
 
   it('teardown() removes the mic button from DOM', async () => {
-    await mod.setup(ctx)
-    expect(ctx.renderer.domElement.parentElement.querySelector('button')).not.toBeNull()
-    await mod.teardown(ctx)
-    expect(ctx.renderer.domElement.parentElement.querySelector('button')).toBeNull()
+    ctx = await initializeAsync(mod.setup, base)
+    expect(containerOf(ctx).querySelector('button')).not.toBeNull()
+    await mod.teardown()
+    expect(containerOf(ctx).querySelector('button')).toBeNull()
   })
 
   it('teardown() calls microphone disposal when mic was enabled', async () => {
-    await mod.setup(ctx)
+    ctx = await initializeAsync(mod.setup, base)
     // Simulate mic button click to set _audioOn = true
-    const btn = ctx.renderer.domElement.parentElement.querySelector('button')
+    const btn = required(containerOf(ctx).querySelector('button'))
     btn.click()
     await new Promise(resolve => setTimeout(resolve, 0))
-    await mod.teardown(ctx)
+    await mod.teardown()
     expect(mic.dispose).toHaveBeenCalled()
   })
 
   it('teardown() followed by setup() does not throw (state reset)', async () => {
-    await mod.setup(ctx)
-    await mod.teardown(ctx)
-    const ctx2 = makeMockCtx()
+    ctx = await initializeAsync(mod.setup, base)
+    await mod.teardown()
+    const ctx2 = makeSpiedContext()
     await expect(mod.setup(ctx2)).resolves.not.toThrow()
-    await mod.teardown(ctx2)
+    await mod.teardown()
   })
 })

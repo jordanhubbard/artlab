@@ -1,12 +1,11 @@
 // @vitest-environment jsdom
-import { test, expect, afterEach } from 'vitest'
-import { makeContext } from '../../tests/context.ts'
-import { setup, update, teardown } from './flocking-boids.ts'
+import { afterEach, expect, test } from 'vitest'
+import { initialize, makeContext } from '../../tests/context.ts'
+import { setup, teardown, update } from './flocking-boids.ts'
 afterEach(() => document.body.replaceChildren())
 
 test('fixed simulation ticks give the same flock at different display rates', () => {
-  const a = makeContext(), b = makeContext()
-  setup(a); setup(b)
+  const a = initialize(setup, makeContext()), b = initialize(setup, makeContext())
   for (let i = 0; i < 60; i++) update(a, 1 / 60)
   for (let i = 0; i < 30; i++) update(b, 1 / 30)
   expect(a.state.birds.map(p => p.position.toArray())).toEqual(b.state.birds.map(p => p.position.toArray()))

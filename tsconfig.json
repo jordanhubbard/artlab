@@ -23,11 +23,13 @@
     "examples/**/*.ts",
     "e2e/**/*.ts",
     "bin/**/*.ts",
-    "*.config.ts",
-    "tests/contracts.ts",
-    "tests/context.ts"
+    "tests/**/*.ts",
+    "*.config.ts"
   ],
   "exclude": [
-    "**/*.test.ts"
+    "dist",
+    "node_modules",
+    "playwright-report",
+    "test-results"
   ]
 }

@@ -1,83 +1,18 @@
 // @vitest-environment jsdom
-import { describe, it, expect, vi, beforeEach } from 'vitest'
 import * as Three from 'three'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
+import type { DemoContext } from '../../tests/context.ts'
+import { initialize, makeSpiedContext } from '../../tests/context.ts'
+type Demo = typeof import('./orbital-dance.ts')
 
 vi.mock('three', async () => await vi.importActual('three'))
 
 // ── Mock ctx ──────────────────────────────────────────────────────────────────
 
-function makeMockCtx(overrides = {}) {
-  const scene = {
-    add: vi.fn(),
-    remove: vi.fn(),
-    children: [],
-  }
-  const camera = {
-    position: new Three.Vector3(0, 0, 50),
-    lookAt: vi.fn(),
-    aspect: 1,
-    near: 0.1,
-    far: 200000,
-    updateProjectionMatrix: vi.fn(),
-    fov: 60,
-  }
-  const controls = {
-    update: vi.fn(),
-    enableDamping: true,
-    enabled: true,
-    target: new Three.Vector3(),
-  }
-  const renderer = {
-    domElement: document.createElement('canvas'),
-    setSize: vi.fn(),
-    render: vi.fn(),
-    shadowMap: { enabled: false, type: 0 },
-    toneMapping: 0,
-  }
-
-  function sphere(radius = 1, detail = 32) {
-    return new Three.SphereGeometry(radius, detail, detail)
-  }
-  function mesh(geometry, options = {}) {
-    const { color = 0xffffff, roughness = 0.7, metalness = 0.0 } = options
-    return new Three.Mesh(geometry, new Three.MeshStandardMaterial({ color, roughness, metalness }))
-  }
-  function ambient(color = 0x404040, intensity = 1) {
-    return new Three.AmbientLight(color, intensity)
-  }
-  function point(color = 0xffffff, intensity = 1, distance = 0, decay = 2) {
-    return new Three.PointLight(color, intensity, distance, decay)
-  }
-
-  const ctx = {
-    Three,
-    scene,
-    camera,
-    renderer,
-    controls,
-    labelRenderer: {
-      render: vi.fn(),
-      setSize: vi.fn(),
-      domElement: document.createElement('div'),
-    },
-    add: vi.fn((obj) => { scene.children.push(obj); return obj }),
-    remove: vi.fn(),
-    setBloom: vi.fn(),
-    setHelp:  vi.fn(),
-    elapsed: 0,
-    sphere,
-    mesh,
-    ambient,
-    point,
-    ...overrides,
-  }
-  return ctx
-}
-
-function runFrames(mod, ctx, times) {
+function runFrames(mod: Demo, ctx: DemoContext<Demo>, times: number[]) {
   for (const t of times) {
     ctx.elapsed = t
-    mod.update(ctx, 1 / 60)
+    mod.update(ctx)
   }
 }
 
@@ -86,31 +21,34 @@ const BODY_COUNT = 5
 // ── Tests ─────────────────────────────────────────────────────────────────────
 
 describe('orbital-dance — Luminous Choreography', () => {
-  let ctx, mod
+  let ctx: DemoContext<Demo>
+  let base: ReturnType<typeof makeSpiedContext>
+  let mod: Demo
 
   beforeEach(async () => {
     vi.clearAllMocks()
-    ctx = makeMockCtx()
+    base = makeSpiedContext()
     mod = await import('./orbital-dance.ts')
   })
 
   it('setup() completes without throwing and populates the scene', () => {
-    expect(() => mod.setup(ctx)).not.toThrow()
+    expect(() => (ctx = initialize(mod.setup, base))).not.toThrow()
     expect(ctx.add).toHaveBeenCalled()
   })
 
   it('setup() calls ctx.setHelp before adding anything to the scene', () => {
-    mod.setup(ctx)
+    ctx = initialize(mod.setup, base)
     expect(ctx.setHelp).toHaveBeenCalledTimes(1)
     const [help] = ctx.setHelp.mock.calls[0]
     expect(typeof help).toBe('string')
+    if (typeof help !== 'string') throw new Error('Help text was not set')
     expect(help.length).toBeGreaterThan(10)
     expect(ctx.setHelp.mock.invocationCallOrder[0])
       .toBeLessThan(ctx.add.mock.invocationCallOrder[0])
   })
 
   it('setup() creates five occluding celestial bodies large enough to eclipse', () => {
-    mod.setup(ctx)
+    ctx = initialize(mod.setup, base)
     expect(Array.isArray(ctx._bodies)).toBe(true)
     expect(ctx._bodies.length).toBe(BODY_COUNT)
     for (const b of ctx._bodies) {
@@ -122,7 +60,7 @@ describe('orbital-dance — Luminous Choreography', () => {
   })
 
   it('setup() gives every body a continuous line trail and a luminous ribbon', () => {
-    mod.setup(ctx)
+    ctx = initialize(mod.setup, base)
     for (const b of ctx._bodies) {
       expect(b.line).toBeInstanceOf(Three.Line)
       expect(b.ribbon).toBeInstanceOf(Three.Mesh)
@@ -138,7 +76,7 @@ describe('orbital-dance — Luminous Choreography', () => {
   })
 
   it('trail buffers are fixed size and reused across frames', () => {
-    mod.setup(ctx)
+    ctx = initialize(mod.setup, base)
     const added = ctx.add.mock.calls.length
     const body = ctx._bodies[0]
     const lineArray   = body.line.geometry.getAttribute('position').array
@@ -152,7 +90,7 @@ describe('orbital-dance — Luminous Choreography', () => {
   })
 
   it('setup() creates translucent orbital veils on intersecting planes', () => {
-    mod.setup(ctx)
+    ctx = initialize(mod.setup, base)
     expect(ctx._bodies.length).toBe(BODY_COUNT)
 
     const tilts = new Set()
@@ -167,7 +105,7 @@ describe('orbital-dance — Luminous Choreography', () => {
   })
 
   it('setup() stages a lit backdrop instead of an empty black void', () => {
-    mod.setup(ctx)
+    ctx = initialize(mod.setup, base)
     expect(ctx._backdrop).toBeInstanceOf(Three.Mesh)
     expect(ctx._starfield).toBeInstanceOf(Three.Points)
     expect(ctx._starfield.geometry.getAttribute('position').count).toBeGreaterThan(200)
@@ -176,7 +114,7 @@ describe('orbital-dance — Luminous Choreography', () => {
   })
 
   it('first frame is already composed: bodies spread out with populated trails', () => {
-    mod.setup(ctx)
+    ctx = initialize(mod.setup, base)
 
     const radii = ctx._bodies.map(b => Math.hypot(b.mesh.position.x, b.mesh.position.z))
     expect(new Set(radii.map(r => r.toFixed(3))).size).toBe(BODY_COUNT)
@@ -195,7 +133,7 @@ describe('orbital-dance — Luminous Choreography', () => {
   })
 
   it('update() tracks eclipse occlusion per body', () => {
-    mod.setup(ctx)
+    ctx = initialize(mod.setup, base)
     runFrames(mod, ctx, [0, 0.5, 1.0])
 
     expect(ctx._eclipse.length).toBe(BODY_COUNT)
@@ -207,18 +145,18 @@ describe('orbital-dance — Luminous Choreography', () => {
   })
 
   it('update() moves bodies along their orbits without throwing', () => {
-    mod.setup(ctx)
+    ctx = initialize(mod.setup, base)
     const before = ctx._bodies[0].mesh.position.clone()
     expect(() => runFrames(mod, ctx, [0, 0.016, 0.032, 4, 9])).not.toThrow()
     expect(ctx._bodies[0].mesh.position.distanceTo(before)).toBeGreaterThan(0.01)
   })
 
   it('camera moves cinematically: orbiting, rising, and changing distance', () => {
-    mod.setup(ctx)
+    ctx = initialize(mod.setup, base)
 
     const samples = [0, 5, 11, 19].map(t => {
       ctx.elapsed = t
-      mod.update(ctx, 1 / 60)
+      mod.update(ctx)
       return ctx.camera.position.clone()
     })
 
@@ -233,11 +171,12 @@ describe('orbital-dance — Luminous Choreography', () => {
   })
 
   it('teardown() disposes every geometry and material it created', () => {
-    mod.setup(ctx)
-    const resources = new Set()
+    ctx = initialize(mod.setup, base)
+    const resources = new Set<Three.BufferGeometry | Three.Material>()
     for (const [root] of ctx.add.mock.calls) root.traverse(object => {
-      if (object.geometry) resources.add(object.geometry)
-      if (object.material) resources.add(object.material)
+      if (!(object instanceof Three.Mesh || object instanceof Three.Line || object instanceof Three.Points)) return
+      resources.add(object.geometry)
+      for (const material of Array.isArray(object.material) ? object.material : [object.material]) resources.add(material)
     })
     expect(resources.size).toBeGreaterThan(10)
     const spies = [...resources].map(d => vi.spyOn(d, 'dispose'))
@@ -246,7 +185,7 @@ describe('orbital-dance — Luminous Choreography', () => {
   })
 
   it('teardown() removes every object it added to the scene', () => {
-    mod.setup(ctx)
+    ctx = initialize(mod.setup, base)
     const objects = ctx.add.mock.calls.map(([object]) => object)
     expect(objects.length).toBeGreaterThan(0)
 
@@ -255,10 +194,10 @@ describe('orbital-dance — Luminous Choreography', () => {
   })
 
   it('teardown() restores the controls and renderer state it changed', () => {
-    ctx.controls.enabled = false
-    ctx.renderer.shadowMap.enabled = false
+    base.controls.enabled = false
+    base.renderer.shadowMap.enabled = false
 
-    mod.setup(ctx)
+    ctx = initialize(mod.setup, base)
     mod.teardown(ctx)
 
     expect(ctx.controls.enabled).toBe(false)
@@ -266,7 +205,7 @@ describe('orbital-dance — Luminous Choreography', () => {
   })
 
   it('teardown() is safe to call twice', () => {
-    mod.setup(ctx)
+    ctx = initialize(mod.setup, base)
     mod.teardown(ctx)
     expect(() => mod.teardown(ctx)).not.toThrow()
   })

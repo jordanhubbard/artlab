@@ -1,46 +1,31 @@
 // @vitest-environment jsdom
-import { describe, it, expect, vi, beforeEach } from 'vitest'
 import * as Three from 'three'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
+import type { DemoContext } from '../../tests/context.ts'
+import { initialize, makeSpiedContext } from '../../tests/context.ts'
+type Demo = typeof import('./n-body-gravity.ts')
 
 vi.mock('three', async () => await vi.importActual('three'))
 
-function makeMockCtx(overrides = {}) {
-  const scene = { add: vi.fn(), remove: vi.fn(), children: [] }
-  const camera = {
-    position: new Three.Vector3(0, 0, 50),
-    lookAt: vi.fn(), aspect: 1, fov: 60,
-    updateProjectionMatrix: vi.fn(),
-  }
-  return {
-    Three, scene, camera,
-    renderer: { domElement: document.createElement('canvas'), shadowMap: { enabled: false }, setSize: vi.fn() },
-    controls: { update: vi.fn(), target: new Three.Vector3(), enabled: true },
-    add: vi.fn(obj => { scene.children.push(obj); return obj }),
-    remove: vi.fn(),
-    setBloom: vi.fn(),
-    setHelp:  vi.fn(),
-    elapsed: 0,
-    ...overrides,
-  }
-}
-
 describe('n-body-gravity', () => {
-  let ctx, setup, update, teardown
+  let ctx: DemoContext<Demo>
+  let base: ReturnType<typeof makeSpiedContext>
+  let setup: Demo["setup"], update: Demo["update"], teardown: Demo["teardown"]
 
   beforeEach(async () => {
     vi.clearAllMocks()
-    ctx = makeMockCtx()
+    base = makeSpiedContext()
     ;({ setup, update, teardown } = await import('./n-body-gravity.ts'))
   })
 
   it('setup() completes without throwing', () => {
-    expect(() => setup(ctx)).not.toThrow()
+    expect(() => (ctx = initialize(setup, base))).not.toThrow()
     expect(ctx.add).toHaveBeenCalled()
     expect(ctx.setBloom).toHaveBeenCalled()
   })
 
   it('setup() creates ~30 initial bodies with trails', () => {
-    setup(ctx)
+    ctx = initialize(setup, base)
     expect(Array.isArray(ctx._bodies)).toBe(true)
     expect(ctx._bodies.length).toBe(30)
     for (const b of ctx._bodies) {
@@ -52,7 +37,7 @@ describe('n-body-gravity', () => {
   })
 
   it('update() runs multiple frames without throwing', () => {
-    setup(ctx)
+    ctx = initialize(setup, base)
     for (let i = 0; i < 10; i++) {
       ctx.elapsed = i * 0.016
       expect(() => update(ctx, 0.016)).not.toThrow()
@@ -60,7 +45,7 @@ describe('n-body-gravity', () => {
   })
 
   it('body positions change after update', () => {
-    setup(ctx)
+    ctx = initialize(setup, base)
     const before = ctx._bodies[0].phys.position.clone()
     update(ctx, 0.016)
     update(ctx, 0.016)
@@ -68,7 +53,7 @@ describe('n-body-gravity', () => {
   })
 
   it('bodies have physics mass and velocity', () => {
-    setup(ctx)
+    ctx = initialize(setup, base)
     for (const b of ctx._bodies) {
       expect(b.phys.mass).toBeGreaterThan(0)
       expect(b.phys.velocity).toBeInstanceOf(Three.Vector3)
@@ -76,7 +61,7 @@ describe('n-body-gravity', () => {
   })
 
   it('teardown() removes all bodies and cleans up', () => {
-    setup(ctx)
+    ctx = initialize(setup, base)
     teardown(ctx)
     expect(ctx.remove).toHaveBeenCalled()
     // Should have removed bodies + trails + click plane

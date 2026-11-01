@@ -1,6 +1,9 @@
 // @vitest-environment jsdom
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import * as Three from 'three'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import type { DemoContext } from '../../tests/context.ts'
+import { autoClickButtons, initializeAsync, makeSpiedContext, required } from '../../tests/context.ts'
+type Demo = typeof import('./video-kaleidoscope.ts')
 
 // ── Browser API stubs ────────────────────────────────────────────────────────
 
@@ -22,65 +25,19 @@ Object.defineProperty(window.HTMLVideoElement.prototype, 'play', {
 // Intercept addEventListener on button elements — when 'click' is registered
 // (with { once: true }), invoke the callback synchronously so the gesture
 // Promise resolves before setup() continues.
-const _origAddEL = HTMLButtonElement.prototype.addEventListener
-HTMLButtonElement.prototype.addEventListener = function (type, cb, opts) {
-  _origAddEL.call(this, type, cb, opts)
-  if (type === 'click') {
-    // Fire immediately so _awaitGesture resolves without a real click
-    cb(new MouseEvent('click'))
-  }
-}
+autoClickButtons()
 
 // ── Mock ctx ─────────────────────────────────────────────────────────────────
-
-function makeMockCtx() {
-  const container = document.createElement('div')
-  const canvas    = document.createElement('canvas')
-  canvas.getBoundingClientRect = () => ({ left: 0, top: 0, width: 800, height: 600 })
-  container.appendChild(canvas)
-
-  const scene = { add: vi.fn(), remove: vi.fn(), children: [] }
-
-  return {
-    Three,
-    scene,
-    camera: {
-      position: new Three.Vector3(0, 0, 9),
-      fov: 60,
-      aspect: 16 / 9,
-      updateProjectionMatrix: vi.fn(),
-      lookAt: vi.fn(),
-    },
-    renderer: {
-      domElement: canvas,
-      shadowMap: { enabled: false },
-      setSize: vi.fn(),
-    },
-    controls: {
-      update: vi.fn(),
-      target: new Three.Vector3(),
-      enableDamping: true,
-    },
-    labelRenderer: {
-      render: vi.fn(),
-      setSize: vi.fn(),
-      domElement: document.createElement('div'),
-    },
-    add:      vi.fn(obj => { scene.children.push(obj); return obj }),
-    remove:   vi.fn(),
-    setBloom: vi.fn(),
-    setHelp:  vi.fn(),
-    elapsed:  0,
-  }
-}
 
 // ── Tests ─────────────────────────────────────────────────────────────────────
 
 describe('video-kaleidoscope', () => {
-  let ctx, mod
+  let ctx: DemoContext<Demo>
+  let base: ReturnType<typeof makeSpiedContext>
+  let mod: Demo
 
   beforeEach(async () => {
-    ctx = makeMockCtx()
+    base = makeSpiedContext()
     // Import fresh module each time (vitest isolates modules per test file,
     // but module-level state persists across tests in the same file without
     // vi.resetModules — we rely on teardown() clearing state instead).
@@ -93,35 +50,35 @@ describe('video-kaleidoscope', () => {
   })
 
   it('setup() completes and adds at least one mesh to scene', async () => {
-    await mod.setup(ctx)
+    ctx = await initializeAsync(mod.setup, base)
     expect(ctx.add).toHaveBeenCalled()
     const meshes = ctx.scene.children.filter(o => o instanceof Three.Mesh)
     expect(meshes.length).toBeGreaterThanOrEqual(1)
   })
 
   it('update() sets shader time uniform each frame', async () => {
-    await mod.setup(ctx)
+    ctx = await initializeAsync(mod.setup, base)
 
     ctx.elapsed = 1.5
-    mod.update(ctx, 0.016)
+    mod.update(ctx)
 
-    const mesh = ctx.scene.children.find(o => o instanceof Three.Mesh)
+    const mesh = required(ctx.scene.children.find(o => o instanceof Three.Mesh))
     expect(mesh).toBeDefined()
     // time uniform should be ctx.elapsed (minus any rotation offset, which starts at 0)
     expect(mesh.material.uniforms.time.value).toBeCloseTo(1.5)
   })
 
   it('teardown() does not throw', async () => {
-    await mod.setup(ctx)
+    ctx = await initializeAsync(mod.setup, base)
     expect(() => mod.teardown(ctx)).not.toThrow()
   })
 
   it('K key handler cycles through all segment counts', async () => {
-    await mod.setup(ctx)
+    ctx = await initializeAsync(mod.setup, base)
 
     const SEGMENTS = mod.__SEGMENTS  // [3, 4, 6, 8, 12]
 
-    const mesh = ctx.scene.children.find(o => o instanceof Three.Mesh)
+    const mesh = required(ctx.scene.children.find(o => o instanceof Three.Mesh))
     expect(mesh).toBeDefined()
 
     // Cycle through every segment once, collecting the uniform value

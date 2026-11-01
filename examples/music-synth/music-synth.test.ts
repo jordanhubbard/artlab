@@ -1,6 +1,8 @@
 // @vitest-environment jsdom
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
-import * as Three from 'three'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import type { DemoContext } from '../../tests/context.ts'
+import { containerOf, initialize, makeSpiedContext, required } from '../../tests/context.ts'
+type Demo = typeof import('./music-synth.ts')
 
 vi.mock('three', async () => await vi.importActual('three'))
 
@@ -13,7 +15,7 @@ vi.mock('tone', () => ({
     start: vi.fn(),
     stop: vi.fn(),
     pause: vi.fn(),
-    state: 'stopped',
+    get state() { return 'stopped' },
     bpm: { value: 120 },
   },
   Synth: vi.fn(function () {
@@ -67,50 +69,15 @@ vi.mock('../../src/stdlib/audio.ts', () => ({
   delay:       vi.fn(() => ({ connect: vi.fn().mockReturnThis(), dispose: vi.fn() })),
 }))
 
-function makeMockCtx(overrides = {}) {
-  const container = document.createElement('div')
-  document.body.appendChild(container)
-  const canvas = document.createElement('canvas')
-  canvas.getBoundingClientRect = () => ({ left:0, top:0, width:800, height:600 })
-  container.appendChild(canvas)
-  const scene = { add: vi.fn(), remove: vi.fn(), children: [] }
-  const camera = {
-    position: new Three.Vector3(0,2,6), lookAt: vi.fn(),
-    fov: 60, aspect: 1, updateProjectionMatrix: vi.fn(),
-    projectionMatrix: new Three.Matrix4(), matrixWorldInverse: new Three.Matrix4(),
-  }
-  return {
-    Three, scene, camera,
-    renderer: { domElement: canvas, shadowMap:{enabled:false}, setSize: vi.fn(), render: vi.fn() },
-    controls: { update: vi.fn(), target: new Three.Vector3(), enabled: true, enableDamping: true },
-    labelRenderer: { render: vi.fn(), setSize: vi.fn(), domElement: document.createElement('div') },
-    add: vi.fn(obj => { scene.children.push(obj); return obj }),
-    remove: vi.fn(),
-    setBloom: vi.fn(),
-    setHelp:  vi.fn(),
-    elapsed: 0,
-    sphere: (r=1,s=32) => new Three.SphereGeometry(r,s,s),
-    box: (w=1,h=1,d=1) => new Three.BoxGeometry(w,h,d),
-    cylinder: (rt=1,rb=1,h=1,s=32) => new Three.CylinderGeometry(rt,rb,h,s),
-    torus: (r=1,t=0.4,rs=8,ts=32) => new Three.TorusGeometry(r,t,rs,ts),
-    plane: (w=1,h=1) => new Three.PlaneGeometry(w,h),
-    cone: (r=1,h=1,s=32) => new Three.ConeGeometry(r,h,s),
-    mesh: (geo,opts={}) => new Three.Mesh(geo, new Three.MeshStandardMaterial(opts)),
-    ambient: (c=0x404040,i=1) => new Three.AmbientLight(c,i),
-    point: (c=0xffffff,i=1,d=0,dc=2) => new Three.PointLight(c,i,d,dc),
-    directional: (c=0xffffff,i=1) => new Three.DirectionalLight(c,i),
-    ...overrides,
-  }
-}
-
 describe('music-synth', () => {
-  let ctx
-  let mod
+  let ctx: DemoContext<Demo>
+  let base: ReturnType<typeof makeSpiedContext>
+  let mod: Demo
 
   beforeEach(async () => {
     document.body.innerHTML = ''
     vi.clearAllMocks()
-    ctx = makeMockCtx()
+    base = makeSpiedContext()
     mod = await import('./music-synth.ts')
   })
 
@@ -119,38 +86,38 @@ describe('music-synth', () => {
   })
 
   it('setup() does not throw', () => {
-    expect(() => mod.setup(ctx)).not.toThrow()
+    expect(() => (ctx = initialize(mod.setup, base))).not.toThrow()
   })
 
   it('setup() calls ctx.setBloom', () => {
-    mod.setup(ctx)
+    ctx = initialize(mod.setup, base)
     expect(ctx.setBloom).toHaveBeenCalledWith(0.6)
   })
 
   it('setup() adds ring meshes and a particle system', () => {
-    mod.setup(ctx)
+    ctx = initialize(mod.setup, base)
     // 1 ambient + 1 point + 4 rings + 1 particles + 1 beatFlash = 8 minimum
     expect(ctx.add.mock.calls.length).toBeGreaterThanOrEqual(8)
   })
 
   it('setup() adds a "Start Music" button to the container', () => {
-    mod.setup(ctx)
-    const container = ctx.renderer.domElement.parentElement
-    const btn = container.querySelector('button')
+    ctx = initialize(mod.setup, base)
+    const container = containerOf(ctx)
+    const btn = required(container.querySelector('button'))
     expect(btn).not.toBeNull()
     expect(btn.textContent).toContain('Start Music')
   })
 
   it('setup() appends a chord label div to the container', () => {
-    mod.setup(ctx)
-    const container = ctx.renderer.domElement.parentElement
+    ctx = initialize(mod.setup, base)
+    const container = containerOf(ctx)
     // chord label is position:absolute, pointerEvents:none
     const divs = container.querySelectorAll('div')
     expect(divs.length).toBeGreaterThan(0)
   })
 
   it('update() runs 3 frames (pre-start) without throwing', () => {
-    mod.setup(ctx)
+    ctx = initialize(mod.setup, base)
     expect(() => {
       mod.update(ctx, 0.016)
       ctx.elapsed = 0.016
@@ -161,10 +128,10 @@ describe('music-synth', () => {
   })
 
   it('update() sets chord label text to prompt before start', () => {
-    mod.setup(ctx)
+    ctx = initialize(mod.setup, base)
     ctx.elapsed = 0.5
     mod.update(ctx, 0.016)
-    const container = ctx.renderer.domElement.parentElement
+    const container = containerOf(ctx)
     // Find the chord label (only non-button non-canvas div appended to container)
     const divs = [...container.querySelectorAll('div')]
     const label = divs.find(d => d.textContent.includes('click'))
@@ -173,9 +140,9 @@ describe('music-synth', () => {
 
   it('clicking Start Music button resolves Tone.start and builds synths', async () => {
     const Tone = await import('tone')
-    mod.setup(ctx)
-    const container = ctx.renderer.domElement.parentElement
-    const btn = container.querySelector('button')
+    ctx = initialize(mod.setup, base)
+    const container = containerOf(ctx)
+    const btn = required(container.querySelector('button'))
     btn.click()
     // flush promises
     await new Promise(resolve => setTimeout(resolve, 0))
@@ -187,9 +154,9 @@ describe('music-synth', () => {
   })
 
   it('setHelp names the click that actually starts audio', () => {
-    mod.setup(ctx)
+    ctx = initialize(mod.setup, base)
     expect(ctx.setHelp).toHaveBeenCalledTimes(1)
-    const help = ctx.setHelp.mock.calls[0][0].toLowerCase()
+    const help = required(ctx.setHelp.mock.calls[0][0]).toLowerCase()
     // Space alone cannot start a suspended AudioContext story: the help must
     // point at the gesture that does.
     expect(help).toMatch(/start music/)
@@ -197,7 +164,7 @@ describe('music-synth', () => {
 
   it('Space starts audio when the sequencer has not been started yet', async () => {
     const Tone = await import('tone')
-    mod.setup(ctx)
+    ctx = initialize(mod.setup, base)
 
     window.dispatchEvent(new KeyboardEvent('keydown', { key: ' ' }))
     await new Promise(resolve => setTimeout(resolve, 0))
@@ -209,40 +176,40 @@ describe('music-synth', () => {
 
   it('Space does not build a second set of voices once started', async () => {
     const Tone = await import('tone')
-    mod.setup(ctx)
+    ctx = initialize(mod.setup, base)
 
-    const container = ctx.renderer.domElement.parentElement
-    container.querySelector('button').click()
+    const container = containerOf(ctx)
+    required(container.querySelector('button')).click()
     await new Promise(resolve => setTimeout(resolve, 0))
-    const synthCalls = Tone.Synth.mock.calls.length
+    const synthCalls = vi.mocked(Tone.Synth).mock.calls.length
 
-    Tone.Transport.state = 'started'
+    const state = vi.spyOn(Tone.Transport, 'state', 'get').mockReturnValue('started')
     window.dispatchEvent(new KeyboardEvent('keydown', { key: ' ' }))
     await new Promise(resolve => setTimeout(resolve, 0))
 
-    expect(Tone.Synth.mock.calls.length).toBe(synthCalls)
+    expect(vi.mocked(Tone.Synth).mock.calls.length).toBe(synthCalls)
     expect(Tone.Transport.pause).toHaveBeenCalled()
-    Tone.Transport.state = 'stopped'
+    state.mockRestore()
   })
 
   it('starting hides the button so it cannot double-trigger', async () => {
-    mod.setup(ctx)
-    const container = ctx.renderer.domElement.parentElement
+    ctx = initialize(mod.setup, base)
+    const container = containerOf(ctx)
 
     window.dispatchEvent(new KeyboardEvent('keydown', { key: ' ' }))
     await new Promise(resolve => setTimeout(resolve, 0))
 
-    expect(container.querySelector('button').style.display).toBe('none')
+    expect(required(container.querySelector('button')).style.display).toBe('none')
   })
 
   it('teardown() does not throw', async () => {
-    mod.setup(ctx)
+    ctx = initialize(mod.setup, base)
     await expect(mod.teardown(ctx)).resolves.not.toThrow()
   })
 
   it('teardown() removes the start button from DOM', async () => {
-    mod.setup(ctx)
-    const container = ctx.renderer.domElement.parentElement
+    ctx = initialize(mod.setup, base)
+    const container = containerOf(ctx)
     expect(container.querySelector('button')).not.toBeNull()
     await mod.teardown(ctx)
     expect(container.querySelector('button')).toBeNull()
@@ -250,7 +217,7 @@ describe('music-synth', () => {
 
   it('teardown() calls Tone.Transport.stop', async () => {
     const Tone = await import('tone')
-    mod.setup(ctx)
+    ctx = initialize(mod.setup, base)
     await mod.teardown(ctx)
     expect(Tone.Transport.stop).toHaveBeenCalled()
   })

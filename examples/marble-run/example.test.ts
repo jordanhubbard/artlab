@@ -1,49 +1,39 @@
 // @vitest-environment jsdom
-import { describe, it, expect, vi, beforeEach } from 'vitest'
 import * as Three from 'three'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
+import type { DemoContext } from '../../tests/context.ts'
+import { initialize, makeSpiedContext } from '../../tests/context.ts'
+type Demo = typeof import('./marble-run.ts')
 
 vi.mock('three', async () => await vi.importActual('three'))
 
-function makeMockCtx() {
-  const scene = { add: vi.fn(), remove: vi.fn(), children: [], fog: null }
-  return {
-    Three, scene,
-    camera: { position: new Three.Vector3(0, 0, 50), lookAt: vi.fn(), aspect: 1, fov: 60, updateProjectionMatrix: vi.fn() },
-    renderer: { domElement: document.createElement('canvas'), shadowMap: { enabled: false }, setSize: vi.fn() },
-    controls: { update: vi.fn(), target: new Three.Vector3(), enabled: true },
-    add: vi.fn(obj => { scene.children.push(obj); return obj }),
-    remove: vi.fn(),
-    setBloom: vi.fn(),
-    setHelp:  vi.fn(),
-    elapsed: 0,
-  }
-}
-
 describe('marble-run', () => {
-  let ctx, setup, update, teardown
+  let ctx: DemoContext<Demo>
+  let base: ReturnType<typeof makeSpiedContext>
+  let setup: Demo["setup"], update: Demo["update"], teardown: Demo["teardown"]
 
   beforeEach(async () => {
     vi.clearAllMocks()
-    ctx = makeMockCtx()
+    base = makeSpiedContext()
     ;({ setup, update, teardown } = await import('./marble-run.ts'))
   })
 
   it('setup() creates ramps and bowl', () => {
-    setup(ctx)
+    ctx = initialize(setup, base)
     expect(ctx._rampMeshes.length).toBe(6)
     expect(ctx._bowl).toBeInstanceOf(Three.Mesh)
     expect(ctx._marbles).toHaveLength(0)
   })
 
   it('update() spawns marbles over time', () => {
-    setup(ctx)
+    ctx = initialize(setup, base)
     // Simulate enough time to spawn
     for (let i = 0; i < 100; i++) update(ctx, 0.02)
     expect(ctx._marbles.length).toBeGreaterThan(0)
   })
 
   it('marbles have physics (fall with gravity)', () => {
-    setup(ctx)
+    ctx = initialize(setup, base)
     // Force spawn
     ctx._spawnTimer = 10
     update(ctx, 0.016)
@@ -54,14 +44,14 @@ describe('marble-run', () => {
   })
 
   it('marbles have metallic shiny material', () => {
-    setup(ctx)
+    ctx = initialize(setup, base)
     ctx._spawnTimer = 10
     update(ctx, 0.016)
     expect(ctx._marbles[0].mesh.material.metalness).toBeGreaterThan(0.5)
   })
 
   it('teardown() cleans up everything', () => {
-    setup(ctx)
+    ctx = initialize(setup, base)
     ctx._spawnTimer = 10
     update(ctx, 0.016)
     teardown(ctx)

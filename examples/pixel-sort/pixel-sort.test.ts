@@ -1,12 +1,15 @@
 // @vitest-environment jsdom
-import { describe, it, expect, vi, beforeEach } from 'vitest'
 import * as Three from 'three'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
+import type { DemoContext } from '../../tests/context.ts'
+import { canvas2D, initialize, makeSpiedContext, mockCanvas2D, required } from '../../tests/context.ts'
+type Demo = typeof import('./pixel-sort.ts')
 
 vi.mock('three', async () => await vi.importActual('three'))
 
 // A dusk-like source buffer: vertical light falloff plus horizontal ripple so
 // that threshold spans exist and sorting visibly reorders pixels.
-function syntheticSource(width, height) {
+function syntheticSource(width: number, height: number) {
   const data = new Uint8ClampedArray(width * height * 4)
   for (let y = 0; y < height; y++) {
     for (let x = 0; x < width; x++) {
@@ -40,34 +43,9 @@ const fake2DCtx = {
   putImageData: vi.fn(),
 }
 
-const origGetContext = HTMLCanvasElement.prototype.getContext
-HTMLCanvasElement.prototype.getContext = function (type, ...args) {
-  if (type === '2d') return fake2DCtx
-  return origGetContext.call(this, type, ...args)
-}
+mockCanvas2D(() => canvas2D(fake2DCtx))
 
-function makeMockCtx(overrides = {}) {
-  const canvas = document.createElement('canvas')
-  canvas.getBoundingClientRect = () => ({ left: 0, top: 0, width: 800, height: 600 })
-  const scene = { add: vi.fn(), remove: vi.fn(), children: [] }
-  const camera = {
-    position: new Three.Vector3(0, 0, 6), lookAt: vi.fn(),
-    fov: 60, aspect: 1, updateProjectionMatrix: vi.fn(),
-  }
-  return {
-    Three, scene, camera,
-    renderer: { domElement: canvas, shadowMap: { enabled: false }, setSize: vi.fn(), render: vi.fn() },
-    controls: { update: vi.fn(), target: new Three.Vector3(), enabled: true },
-    add: vi.fn(obj => { scene.children.push(obj); return obj }),
-    remove: vi.fn(),
-    setBloom: vi.fn(),
-    setHelp: vi.fn(),
-    elapsed: 0,
-    ...overrides,
-  }
-}
-
-function countChangedPixels(current, source) {
+function countChangedPixels(current: Uint8ClampedArray, source: Uint8ClampedArray) {
   let changed = 0
   for (let i = 0; i < source.length; i += 4) {
     if (current[i] !== source[i] || current[i + 1] !== source[i + 1] || current[i + 2] !== source[i + 2]) {
@@ -78,16 +56,18 @@ function countChangedPixels(current, source) {
 }
 
 describe('pixel-sort — Memory Corruption', () => {
-  let ctx, mod
+  let ctx: DemoContext<Demo>
+  let base: ReturnType<typeof makeSpiedContext>
+  let mod: Demo
 
   beforeEach(async () => {
     vi.clearAllMocks()
-    ctx = makeMockCtx()
+    base = makeSpiedContext()
     mod = await import('./pixel-sort.ts')
   })
 
   it('setup() calls ctx.setHelp before it touches the scene', () => {
-    mod.setup(ctx)
+    ctx = initialize(mod.setup, base)
     expect(ctx.setHelp).toHaveBeenCalledTimes(1)
     const helpOrder = ctx.setHelp.mock.invocationCallOrder[0]
     const addOrder = ctx.add.mock.invocationCallOrder[0]
@@ -95,7 +75,7 @@ describe('pixel-sort — Memory Corruption', () => {
   })
 
   it('paints the source image from named semantic layers', () => {
-    const painted = mod.paintSourceImage(fake2DCtx)
+    const painted = mod.paintSourceImage(canvas2D(fake2DCtx))
     expect(mod.SOURCE_LAYERS).toEqual(
       expect.arrayContaining(['sky', 'sun', 'ridges', 'water', 'reflection', 'shoreline', 'trees']),
     )
@@ -116,14 +96,14 @@ describe('pixel-sort — Memory Corruption', () => {
       expect(region.x + region.width).toBeLessThanOrEqual(mod.IMAGE_WIDTH)
       expect(region.y + region.height).toBeLessThanOrEqual(mod.IMAGE_HEIGHT)
     }
-    const sun = mod.ANCHOR_REGIONS.find(r => r.name === 'sun')
+    const sun = required(mod.ANCHOR_REGIONS.find(r => r.name === 'sun'))
     expect(sun).toBeDefined()
     expect(mod.isAnchored(sun.x + 1, sun.y + 1)).toBe(true)
     expect(mod.isAnchored(0, 0)).toBe(false)
   })
 
   it('setup() builds a canvas-textured display quad over the pixel buffer', () => {
-    mod.setup(ctx)
+    ctx = initialize(mod.setup, base)
     expect(ctx._canvas2d).toBeInstanceOf(HTMLCanvasElement)
     expect(ctx._canvas2d.width).toBe(mod.IMAGE_WIDTH)
     expect(ctx._canvas2d.height).toBe(mod.IMAGE_HEIGHT)
@@ -136,7 +116,7 @@ describe('pixel-sort — Memory Corruption', () => {
   })
 
   it('first frame already shows tears without any update', () => {
-    mod.setup(ctx)
+    ctx = initialize(mod.setup, base)
     expect(fake2DCtx.putImageData).toHaveBeenCalled()
     expect(countChangedPixels(ctx._pixelData, ctx._sourcePixels)).toBeGreaterThan(200)
   })
@@ -177,7 +157,7 @@ describe('pixel-sort — Memory Corruption', () => {
   })
 
   it('update() keeps per-frame sorting work bounded', () => {
-    mod.setup(ctx)
+    ctx = initialize(mod.setup, base)
     const versionBefore = ctx._texture.version
     for (let i = 0; i < 24; i++) {
       ctx.elapsed = i * 0.016
@@ -191,7 +171,7 @@ describe('pixel-sort — Memory Corruption', () => {
   })
 
   it('keeps the image recognizable while corruption travels', () => {
-    mod.setup(ctx)
+    ctx = initialize(mod.setup, base)
     const total = mod.IMAGE_WIDTH * mod.IMAGE_HEIGHT
     for (let i = 0; i < 60; i++) {
       ctx.elapsed = i * 0.033
@@ -203,7 +183,7 @@ describe('pixel-sort — Memory Corruption', () => {
   })
 
   it('never corrupts focal anchor regions', () => {
-    mod.setup(ctx)
+    ctx = initialize(mod.setup, base)
     for (let i = 0; i < 60; i++) {
       ctx.elapsed = i * 0.033
       mod.update(ctx, 0.033)
@@ -221,7 +201,7 @@ describe('pixel-sort — Memory Corruption', () => {
   })
 
   it('teardown() removes the quad and disposes GPU resources', () => {
-    mod.setup(ctx)
+    ctx = initialize(mod.setup, base)
     const quad = ctx._quad
     const geoSpy = vi.spyOn(quad.geometry, 'dispose')
     const matSpy = vi.spyOn(quad.material, 'dispose')

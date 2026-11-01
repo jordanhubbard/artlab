@@ -1,6 +1,8 @@
 // @vitest-environment jsdom
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
-import * as Three from 'three'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import type { DemoContext } from '../../tests/context.ts'
+import { containerOf, initializeAsync, makeSpiedContext, mockCanvas2D } from '../../tests/context.ts'
+type Demo = typeof import('./solar-system.ts')
 
 vi.mock('three', async () => await vi.importActual('three'))
 
@@ -19,29 +21,9 @@ vi.mock('tone', () => ({
   Sequence: vi.fn(function () { return { start: vi.fn(), stop: vi.fn(), dispose: vi.fn() } }),
 }))
 
-// ── CSS2DRenderer mock ────────────────────────────────────────────────────────
-// CSS2DObject must extend Three.Object3D so three.js Group.add() accepts it.
-
-vi.mock('three/addons/renderers/CSS2DRenderer.js', async () => {
-  const { Object3D, Vector3 } = await vi.importActual('three')
-  class CSS2DObject extends Object3D {
-    constructor(element) {
-      super()
-      this.element = element
-      this.isCSS2DObject = true
-    }
-  }
-  class CSS2DRenderer {
-    constructor() { this.domElement = document.createElement('div') }
-    setSize() {}
-    render() {}
-  }
-  return { CSS2DObject, CSS2DRenderer }
-})
-
 // Vite resolves the package's image URLs during tests, which makes jsdom probe
 // a 2D canvas while decoding them. A lightweight context keeps that path quiet.
-HTMLCanvasElement.prototype.getContext = vi.fn(() => ({
+mockCanvas2D(() => ({
   clearRect: vi.fn(),
   drawImage: vi.fn(),
   getImageData: vi.fn(() => ({ data: new Uint8ClampedArray() })),
@@ -70,83 +52,30 @@ vi.stubGlobal('webkitAudioContext', vi.fn(function () { return mockAudioCtx }))
 
 // ── Mock ctx ──────────────────────────────────────────────────────────────────
 
-function makeMockCtx(overrides = {}) {
-  const scene = {
-    add: vi.fn(),
-    remove: vi.fn(),
-    children: [],
-  }
-  const camera = {
-    position: new Three.Vector3(0, 0, 50),
-    lookAt: vi.fn(),
-    aspect: 1,
-    updateProjectionMatrix: vi.fn(),
-    fov: 60,
-  }
-  const controls = {
-    update: vi.fn(),
-    enableDamping: true,
-    enabled: true,
-    minDistance: 0,
-    maxDistance: Infinity,
-    target: new Three.Vector3(),
-  }
-  // Canvas must be in a container so parentElement is non-null
-  // (solar-system uses domElement.parentElement for the start button)
-  const container = document.createElement('div')
-  const canvas = document.createElement('canvas')
-  container.appendChild(canvas)
-  const renderer = {
-    domElement: canvas,
-    setSize: vi.fn(),
-    render: vi.fn(),
-    shadowMap: { enabled: false },
-    toneMapping: 0,
-  }
-
-  const ctx = {
-    Three,
-    scene,
-    camera,
-    renderer,
-    controls,
-    labelRenderer: {
-      render: vi.fn(),
-      setSize: vi.fn(),
-      domElement: document.createElement('div'),
-    },
-    add: vi.fn((obj) => { scene.children.push(obj); return obj }),
-    remove: vi.fn(),
-    setBloom: vi.fn(),
-    setHelp:  vi.fn(),
-    elapsed: 0,
-    ...overrides,
-  }
-  return ctx
-}
-
 // ── Tests ─────────────────────────────────────────────────────────────────────
 
 describe('solar-system', () => {
-  let ctx
-  let setup, update, teardown, TEXTURES
+  let ctx: DemoContext<Demo>
+  let base: ReturnType<typeof makeSpiedContext>
+  let setup: Demo["setup"], update: Demo["update"], teardown: Demo["teardown"]
+  let TEXTURES: Demo["TEXTURES"]
 
   beforeEach(async () => {
-    ctx = makeMockCtx()
+    base = makeSpiedContext()
     ;({ setup, update, teardown, TEXTURES } = await import('./solar-system.ts'))
   })
 
   afterEach(() => {
-    ctx.renderer.domElement.parentElement.querySelector('#start-btn')?.remove()
+    containerOf(ctx).querySelector('#start-btn')?.remove()
   })
 
   it('setup() completes without throwing', async () => {
-    await expect(setup(ctx)).resolves.toBeUndefined()
+    await expect(initializeAsync(setup, base).then(ready => { ctx = ready })).resolves.toBeUndefined()
     expect(ctx.add).toHaveBeenCalled()
   })
 
   it('setup() registers planet groups for all 8 planets', async () => {
-    await setup(ctx)
+    ctx = await initializeAsync(setup, base)
     const PLANET_ORDER = ['mercury', 'venus', 'earth', 'mars', 'jupiter', 'saturn', 'uranus', 'neptune']
     expect(ctx._planets).toBeDefined()
     for (const name of PLANET_ORDER) {
@@ -174,7 +103,7 @@ describe('solar-system', () => {
   })
 
   it('update() runs 3 frames without throwing', async () => {
-    await setup(ctx)
+    ctx = await initializeAsync(setup, base)
     const frames = [0, 0.016, 0.032]
     for (const elapsed of frames) {
       ctx.elapsed = elapsed
@@ -183,12 +112,12 @@ describe('solar-system', () => {
   })
 
   it('teardown() runs without throwing', async () => {
-    await setup(ctx)
+    ctx = await initializeAsync(setup, base)
     expect(() => teardown(ctx)).not.toThrow()
   })
 
   it('teardown() clears the planet labels out of the CSS2D overlay', async () => {
-    await setup(ctx)
+    ctx = await initializeAsync(setup, base)
     const overlay = ctx.labelRenderer.domElement
     // The real CSS2DRenderer parents each label div into its overlay on render,
     // which is where they would otherwise survive a switch to another example.

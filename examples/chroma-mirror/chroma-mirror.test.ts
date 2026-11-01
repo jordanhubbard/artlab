@@ -1,6 +1,9 @@
 // @vitest-environment jsdom
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import * as THREE from 'three'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import type { DemoContext } from '../../tests/context.ts'
+import { autoClickButtons, containerOf, initializeAsync, makeSpiedContext, required } from '../../tests/context.ts'
+type Demo = typeof import('./chroma-mirror.ts')
 
 // ── Browser API stubs ─────────────────────────────────────────────────────────
 
@@ -19,51 +22,22 @@ Object.defineProperty(window.HTMLVideoElement.prototype, 'play', {
 })
 
 // Auto-click the gesture button so _awaitGesture() resolves immediately in tests.
-const _origAddEL = HTMLButtonElement.prototype.addEventListener
-HTMLButtonElement.prototype.addEventListener = function (type, cb, opts) {
-  _origAddEL.call(this, type, cb, opts)
-  if (type === 'click') cb(new MouseEvent('click'))
-}
+autoClickButtons()
 
 // ── Mock ctx ──────────────────────────────────────────────────────────────────
-
-function makeMockCtx() {
-  const container = document.createElement('div')
-  const canvas    = document.createElement('canvas')
-  container.appendChild(canvas)
-
-  const scene = { add: vi.fn(), remove: vi.fn(), children: [] }
-
-  return {
-    THREE,
-    scene,
-    camera: {
-      position: new THREE.Vector3(0, 0, 8),
-      fov: 60,
-      aspect: 16 / 9,
-      updateProjectionMatrix: vi.fn(),
-      lookAt: vi.fn(),
-    },
-    renderer: { domElement: canvas, shadowMap: { enabled: false } },
-    controls: { target: new THREE.Vector3() },
-    add:      vi.fn(obj => { scene.children.push(obj); return obj }),
-    remove:   vi.fn(),
-    setBloom: vi.fn(),
-    setHelp:  vi.fn(),
-    elapsed:  0,
-  }
-}
 
 // ── Tests ─────────────────────────────────────────────────────────────────────
 
 describe('chroma-mirror', () => {
-  let ctx, mod
+  let ctx: DemoContext<Demo>
+  let base: ReturnType<typeof makeSpiedContext>
+  let mod: Demo
 
   beforeEach(async () => {
     vi.clearAllMocks()
     // Re-apply the resolved value after clearAllMocks resets mock implementations.
-    navigator.mediaDevices.getUserMedia.mockResolvedValue(mockStream)
-    ctx = makeMockCtx()
+    vi.stubGlobal('navigator', { mediaDevices: { getUserMedia: vi.fn().mockResolvedValue(mockStream) } })
+    base = makeSpiedContext()
     mod = await import('./chroma-mirror.ts')
   })
 
@@ -72,22 +46,22 @@ describe('chroma-mirror', () => {
   })
 
   it('setup() adds background shapes, lights, and calls setBloom', async () => {
-    await mod.setup(ctx)
+    ctx = await initializeAsync(mod.setup, base)
     expect(ctx.setBloom).toHaveBeenCalledWith(0.5)
     // 2 lights + 18 shapes + 1 video plane = 21
     expect(ctx.add.mock.calls.length).toBe(21)
   })
 
   it('setup() places a Mesh video plane in the scene', async () => {
-    await mod.setup(ctx)
+    ctx = await initializeAsync(mod.setup, base)
     const meshes = ctx.scene.children.filter(o => o instanceof THREE.Mesh)
     // 18 background shapes + 1 video plane
     expect(meshes.length).toBe(19)
   })
 
   it('update() rotates background shapes each frame', async () => {
-    await mod.setup(ctx)
-    const mesh = ctx.scene.children.find(o => o instanceof THREE.Mesh)
+    ctx = await initializeAsync(mod.setup, base)
+    const mesh = required(ctx.scene.children.find(o => o instanceof THREE.Mesh))
     const rotBefore = { x: mesh.rotation.x, y: mesh.rotation.y }
     mod.update(ctx, 0.5)
     // spinY for i=0: ((0%5)-2)*0.3 = -0.6, so delta = -0.6 * 0.5 = -0.3
@@ -96,14 +70,14 @@ describe('chroma-mirror', () => {
   })
 
   it('teardown() calls ctx.remove for every object added with ctx.add', async () => {
-    await mod.setup(ctx)
+    ctx = await initializeAsync(mod.setup, base)
     const addCount = ctx.add.mock.calls.length
     mod.teardown(ctx)
     expect(ctx.remove.mock.calls.length).toBe(addCount)
   })
 
   it('teardown() stops the webcam stream', async () => {
-    await mod.setup(ctx)
+    ctx = await initializeAsync(mod.setup, base)
     // Drain microtasks so the internal getUserMedia.then() handler runs
     // and _stream is populated before teardown checks it.
     await Promise.resolve()
@@ -114,11 +88,11 @@ describe('chroma-mirror', () => {
   it('setup() shows fallback note and skips video plane when mediaDevices is absent', async () => {
     vi.stubGlobal('navigator', { mediaDevices: undefined })
 
-    const fallbackCtx = makeMockCtx()
+    const fallbackCtx = makeSpiedContext()
     await mod.setup(fallbackCtx)
 
-    const container = fallbackCtx.renderer.domElement.parentElement
-    const note = container.querySelector('div')
+    const container = containerOf(fallbackCtx)
+    const note = required(container.querySelector('div'))
     expect(note).not.toBeNull()
     expect(note.textContent).toContain('unavailable')
 

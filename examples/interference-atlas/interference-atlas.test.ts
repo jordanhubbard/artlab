@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
-import { test, expect } from 'vitest'
-import { makeContext } from '../../tests/context.ts'
-import { intensity, setup, update, teardown } from './interference-atlas.ts'
+import { expect, test } from 'vitest'
+import { containerOf, initialize, makeContext } from '../../tests/context.ts'
+import { intensity, setup, teardown, update } from './interference-atlas.ts'
 
 test('equal path lengths interfere constructively; half-cycle phase cancels', () => {
   expect(intensity(3, 3, 1, 0)).toBeCloseTo(1)
@@ -9,14 +9,13 @@ test('equal path lengths interfere constructively; half-cycle phase cancels', ()
   expect(intensity(3, 3.5, 1, 0)).toBeCloseTo(0)
 })
 test('phase controls update the material and are removed on teardown', () => {
-  const ctx = makeContext()
-  setup(ctx); update(ctx, 1 / 60)
-  const phase = ctx.renderer.domElement.parentElement.querySelectorAll('input')[1]
+  const ctx = initialize(setup, makeContext()); update(ctx, 1 / 60)
+  const phase = containerOf(ctx).querySelectorAll('input')[1]
   phase.value = '3.14'; phase.dispatchEvent(new Event('input'))
   expect(ctx.state.uniforms.phase.value).toBe(3.14)
   teardown(ctx); ctx.dispose()
-  expect(ctx.renderer.domElement.parentElement.querySelector('section')).toBeNull()
-  ctx.renderer.domElement.parentElement.remove()
+  expect(containerOf(ctx).querySelector('section')).toBeNull()
+  containerOf(ctx).remove()
 })
 
 test('asymmetric phases agree with the squared magnitude of the complex sum', () => {

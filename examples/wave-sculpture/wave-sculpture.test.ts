@@ -1,12 +1,11 @@
 // @vitest-environment jsdom
-import { test, expect, afterEach } from 'vitest'
-import { makeContext } from '../../tests/context.ts'
-import { setup, update, teardown, waveHeight } from './wave-sculpture.ts'
+import { afterEach, expect, test } from 'vitest'
+import { initialize, makeContext } from '../../tests/context.ts'
+import { setup, teardown, update, waveHeight } from './wave-sculpture.ts'
 afterEach(() => document.body.replaceChildren())
 
 test('the loom is populated on the first frame and reacts to its controls', () => {
-  const ctx = makeContext()
-  setup(ctx)
+  const ctx = initialize(setup, makeContext())
   const before = ctx.state.tiles.instanceMatrix.array.slice()
   expect(ctx.state.tiles.count).toBe(4096)
   expect([...before].every(Number.isFinite)).toBe(true)

@@ -1,49 +1,38 @@
 // @vitest-environment jsdom
-import { describe, it, expect, vi, beforeEach } from 'vitest'
 import * as Three from 'three'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
+import type { DemoContext } from '../../tests/context.ts'
+import { initialize, makeSpiedContext, required } from '../../tests/context.ts'
 import { FlowParticles } from './FlowParticles.ts'
+type Demo = typeof import('./flow-field.ts')
 
-const points = ctx => ctx.add.mock.calls.find(([obj]) => obj.isPoints)[0]
+function points(ctx: DemoContext<Demo>): Three.Points<Three.BufferGeometry, Three.PointsMaterial> {
+  const object = required(ctx.add.mock.calls.find(([obj]) => obj instanceof Three.Points))[0]
+  if (!(object instanceof Three.Points) || !(object.material instanceof Three.PointsMaterial)) throw new Error('Expected particle points')
+  return Object.assign(object, { material: object.material })
+}
 
 vi.mock('three', async () => await vi.importActual('three'))
 
-function makeMockCtx(overrides = {}) {
-  const scene = { add: vi.fn(), remove: vi.fn(), children: [] }
-  const camera = {
-    position: new Three.Vector3(0, 0, 50),
-    lookAt: vi.fn(), aspect: 1, fov: 60,
-    updateProjectionMatrix: vi.fn(),
-  }
-  return {
-    Three, scene, camera,
-    renderer: { domElement: document.createElement('canvas'), shadowMap: { enabled: false }, setSize: vi.fn() },
-    controls: { update: vi.fn(), target: new Three.Vector3(), enabled: true },
-    add: vi.fn(obj => { scene.children.push(obj); return obj }),
-    remove: vi.fn(),
-    setBloom: vi.fn(),
-    setHelp:  vi.fn(),
-    elapsed: 0,
-    ...overrides,
-  }
-}
-
 describe('flow-field', () => {
-  let ctx, setup, update, teardown
+  let ctx: DemoContext<Demo>
+  let base: ReturnType<typeof makeSpiedContext>
+  let setup: Demo["setup"], update: Demo["update"], teardown: Demo["teardown"]
 
   beforeEach(async () => {
     vi.clearAllMocks()
-    ctx = makeMockCtx()
+    base = makeSpiedContext()
     ;({ setup, update, teardown } = await import('./flow-field.ts'))
   })
 
   it('setup() completes without throwing', () => {
-    expect(() => setup(ctx)).not.toThrow()
+    expect(() => (ctx = initialize(setup, base))).not.toThrow()
     expect(ctx.add).toHaveBeenCalled()
     expect(ctx.setBloom).toHaveBeenCalled()
   })
 
   it('setup() creates Points with position and color attributes', () => {
-    setup(ctx)
+    ctx = initialize(setup, base)
     expect(points(ctx)).toBeInstanceOf(Three.Points)
     const geo = points(ctx).geometry
     expect(geo.attributes.position).toBeDefined()
@@ -53,12 +42,12 @@ describe('flow-field', () => {
   })
 
   it('setup() uses additive blending', () => {
-    setup(ctx)
+    ctx = initialize(setup, base)
     expect(points(ctx).material.blending).toBe(Three.AdditiveBlending)
   })
 
   it('update() runs multiple frames without throwing', () => {
-    setup(ctx)
+    ctx = initialize(setup, base)
     for (let i = 0; i < 20; i++) {
       ctx.elapsed = i * 0.016
       expect(() => update(ctx, 0.016)).not.toThrow()
@@ -66,7 +55,7 @@ describe('flow-field', () => {
   })
 
   it('particle positions change after update', () => {
-    setup(ctx)
+    ctx = initialize(setup, base)
     const posBefore = points(ctx).geometry.attributes.position.array[0]
     update(ctx, 0.016)
     update(ctx, 0.016)
@@ -83,7 +72,7 @@ describe('flow-field', () => {
   })
 
   it('teardown() removes points and disposes', () => {
-    setup(ctx)
+    ctx = initialize(setup, base)
     const geoDispose = vi.spyOn(points(ctx).geometry, 'dispose')
     const matDispose = vi.spyOn(points(ctx).material, 'dispose')
     teardown(ctx)

@@ -1,28 +1,12 @@
 // @vitest-environment jsdom
-import { describe, it, expect, vi, beforeEach } from 'vitest'
-import * as THREE from 'three'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { makeSpiedContext as makeCtx } from '../../tests/context.ts'
 
 vi.mock('three', async () => await vi.importActual('three'))
 
-function makeCtx(overrides = {}) {
-  return {
-    camera: {
-      position: new THREE.Vector3(),
-      lookAt: vi.fn(),
-    },
-    renderer: { shadowMap: { enabled: false } },
-    controls: { target: { set: vi.fn() } },
-    add: vi.fn(),
-    remove: vi.fn(),
-    setBloom: vi.fn(),
-    setHelp:  vi.fn(),
-    elapsed: 0,
-    ...overrides,
-  }
-}
-
 describe('strange-attractor', () => {
-  let ctx, mod
+  let ctx: ReturnType<typeof makeCtx>
+  let mod: typeof import('./strange-attractor.ts')
 
   beforeEach(async () => {
     ctx = makeCtx()

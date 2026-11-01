@@ -1,48 +1,29 @@
 // @vitest-environment jsdom
-import { describe, it, expect, vi, beforeEach } from 'vitest'
-import * as Three from 'three'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
+import type { DemoContext } from '../../tests/context.ts'
+import { initialize, makeSpiedContext } from '../../tests/context.ts'
+type Demo = typeof import('./domino-chain.ts')
 
 vi.mock('three', async () => await vi.importActual('three'))
 
-function makeMockCtx(overrides = {}) {
-  const canvas = document.createElement('canvas')
-  canvas.getBoundingClientRect = () => ({ left: 0, top: 0, width: 800, height: 600 })
-
-  const scene = { add: vi.fn(), remove: vi.fn(), children: [] }
-  const camera = {
-    position: new Three.Vector3(0, 0, 50),
-    lookAt: vi.fn(), aspect: 1, fov: 60,
-    updateProjectionMatrix: vi.fn(),
-  }
-  return {
-    Three, scene, camera,
-    renderer: { domElement: canvas, shadowMap: { enabled: false }, setSize: vi.fn() },
-    controls: { update: vi.fn(), target: new Three.Vector3(), enabled: true },
-    add: vi.fn(obj => { scene.children.push(obj); return obj }),
-    remove: vi.fn(),
-    setBloom: vi.fn(),
-    setHelp:  vi.fn(),
-    elapsed: 0,
-    ...overrides,
-  }
-}
-
 describe('domino-chain', () => {
-  let ctx, setup, update, teardown
+  let ctx: DemoContext<Demo>
+  let base: ReturnType<typeof makeSpiedContext>
+  let setup: Demo["setup"], update: Demo["update"], teardown: Demo["teardown"]
 
   beforeEach(async () => {
     vi.clearAllMocks()
-    ctx = makeMockCtx()
+    base = makeSpiedContext()
     ;({ setup, update, teardown } = await import('./domino-chain.ts'))
   })
 
   it('setup() completes without throwing', () => {
-    expect(() => setup(ctx)).not.toThrow()
+    expect(() => (ctx = initialize(setup, base))).not.toThrow()
     expect(ctx.add).toHaveBeenCalled()
   })
 
   it('setup() creates 20 dominoes with physics state', () => {
-    setup(ctx)
+    ctx = initialize(setup, base)
     expect(Array.isArray(ctx._dominoes)).toBe(true)
     expect(ctx._dominoes.length).toBe(20)
     for (const d of ctx._dominoes) {
@@ -54,7 +35,7 @@ describe('domino-chain', () => {
   })
 
   it('update() runs without throwing before and after topple', () => {
-    setup(ctx)
+    ctx = initialize(setup, base)
     expect(() => update(ctx, 0.016)).not.toThrow()
     // Trigger topple via click
     ctx.renderer.domElement.dispatchEvent(new Event('click'))
@@ -63,7 +44,7 @@ describe('domino-chain', () => {
   })
 
   it('teardown() removes event listener and objects', () => {
-    setup(ctx)
+    ctx = initialize(setup, base)
     const removeSpy = vi.spyOn(ctx.renderer.domElement, 'removeEventListener')
     teardown(ctx)
     expect(removeSpy).toHaveBeenCalledWith('click', ctx._onClick)
