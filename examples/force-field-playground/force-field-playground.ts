@@ -2,6 +2,12 @@
 import * as THREE from 'three'
 import { createParticleWorld, emitter, forceField } from '../../src/stdlib/physics/particles.ts'
 import { label, hud } from '../../src/stdlib/ui.ts'
+import type { ArtlabContext } from '../../src/runtime/contracts'
+type ForceMarker = {
+  mesh: THREE.Mesh<THREE.SphereGeometry, THREE.MeshStandardMaterial>
+  type: 'attractor' | 'repulsor'
+  labelHandle: ReturnType<typeof label>
+}
 
 const MAX_FIELDS    = 8
 const FIELD_RADIUS  = 6
@@ -9,14 +15,19 @@ const FIELD_STR     = 18
 const MAX_PARTICLES = 3000
 const MAX_SPEED     = 14
 
-let pworld, particleEmitter, colorAttr, colorBuf
-let groundPlane, ambientLight, ptLight
-let infoHud
-let fields      = []
+let pworld: ReturnType<typeof createParticleWorld>
+let particleEmitter: ReturnType<typeof emitter>
+let colorAttr: THREE.BufferAttribute
+let colorBuf: Float32Array
+let groundPlane: THREE.Mesh<THREE.PlaneGeometry, THREE.MeshBasicMaterial>
+let ambientLight: THREE.AmbientLight
+let ptLight: THREE.PointLight
+let infoHud: ReturnType<typeof hud>
+let fields: ForceMarker[] = []
 let fieldToggle = 0
-let _onClick
+let _onClick: (event: MouseEvent) => void
 
-export function setup(ctx) {
+export function setup(ctx: ArtlabContext) {
   fields      = []
   fieldToggle = 0
 
@@ -64,7 +75,7 @@ export function setup(ctx) {
     const rect = ctx.renderer.domElement.getBoundingClientRect()
     const mx   =  ((e.clientX - rect.left) / rect.width)  * 2 - 1
     const my   = -((e.clientY - rect.top)  / rect.height) * 2 + 1
-    raycaster.setFromCamera({ x: mx, y: my }, ctx.camera)
+    raycaster.setFromCamera(new THREE.Vector2(mx, my), ctx.camera)
     const hits = raycaster.intersectObject(groundPlane)
     if (!hits.length) return
 
@@ -74,10 +85,12 @@ export function setup(ctx) {
     // Evict oldest field when at capacity
     if (fields.length >= MAX_FIELDS) {
       const old = fields.shift()
-      old.labelHandle.detach()
-      ctx.remove(old.mesh)
-      old.mesh.geometry.dispose()
-      old.mesh.material.dispose()
+      if (old) {
+        old.labelHandle.detach()
+        ctx.remove(old.mesh)
+        old.mesh.geometry.dispose()
+        old.mesh.material.dispose()
+      }
     }
 
     const clr  = type === 'attractor' ? 0x33aaff : 0xff5522
@@ -104,7 +117,7 @@ export function setup(ctx) {
   window.addEventListener('click', _onClick)
 }
 
-export function update(ctx, dt) {
+export function update(ctx: ArtlabContext, dt: number) {
   // Apply each field's force before stepping — forceField modifies velocities,
   // which are then consumed by the next world.step() inside particleEmitter.update()
   for (const f of fields) {
@@ -143,7 +156,7 @@ export function update(ctx, dt) {
   }
 }
 
-export function teardown(ctx) {
+export function teardown(ctx: ArtlabContext) {
   window.removeEventListener('click', _onClick)
 
   for (const f of fields) {

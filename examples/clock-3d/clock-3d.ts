@@ -2,18 +2,19 @@
 import * as THREE from 'three'
 import { controlPanel } from '../../src/stdlib/sketch.ts'
 import { sphere, cylinder, torus, mesh } from '../../src/stdlib/geometry.ts'
+import type { ArtlabContext } from '../../src/runtime/contracts'
 
 const R    = 3.0   // clock face radius
 const TUBE = 0.14  // bezel tube radius
 
-let clockGroup
-let hourHandGroup, minuteHandGroup, secondHandGroup
-let ambientLight, keyLight
-let analog, kinetic, rings
+let clockGroup: THREE.Group
+let hourHandGroup: THREE.Group, minuteHandGroup: THREE.Group, secondHandGroup: THREE.Group
+let ambientLight: THREE.AmbientLight, keyLight: THREE.PointLight
+let analog: THREE.Group, kinetic: THREE.Group, rings: THREE.Group[]
 
 // Creates a hand group pivoted at the clock centre (y=0).
 // Body extends toward +y (tip); tail extends toward -y (counterweight).
-function makeHand(length, tailLen, radius, color, roughness, metalness, z) {
+function makeHand(length: number, tailLen: number, radius: number, color: THREE.ColorRepresentation, roughness: number, metalness: number, z: number) {
   const matOpts = { color, roughness, metalness }
 
   const body = mesh(cylinder(radius, radius, length, 16), matOpts)
@@ -29,7 +30,7 @@ function makeHand(length, tailLen, radius, color, roughness, metalness, z) {
   return grp
 }
 
-export function setup(ctx) {
+export function setup(ctx: ArtlabContext) {
   ctx.setHelp('Chronometer · compare pivoted hands and rotating marker rings · Style: 0 analog / 1 kinetic')
   ctx.camera.position.set(0, 0, 12)
   ctx.camera.lookAt(0, 0, 0)
@@ -135,7 +136,7 @@ export function setup(ctx) {
   ctx.add(clockGroup)
 }
 
-export function update(ctx, dt) {
+export function update(ctx: ArtlabContext, dt: number) {
   const now = new Date()
   const h   = now.getHours() % 12
   const m   = now.getMinutes()
@@ -155,6 +156,6 @@ export function update(ctx, dt) {
   rings[2].rotation.z = secondHandGroup.rotation.z
 }
 
-export function teardown(ctx) {
+export function teardown(ctx: ArtlabContext) {
   return ctx.scope.dispose()
 }

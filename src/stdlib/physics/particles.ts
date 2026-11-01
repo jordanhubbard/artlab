@@ -26,6 +26,11 @@
 
 import { ParticleWorld } from '../../physics/ParticleWorld.ts'
 import * as Three from 'three'
+import type { Vector } from '../../physics/IPhysicsWorld.ts'
+export interface EmitterOptions {
+  rate?: number; speed?: number; spread?: number; lifetime?: number
+  color?: Three.ColorRepresentation; size?: number; gravity?: number; maxParticles?: number
+}
 
 export { ParticleWorld }
 
@@ -33,7 +38,7 @@ export { ParticleWorld }
 // Counter for unique IDs
 // ---------------------------------------------------------------------------
 let _nextId = 0
-function _uid(prefix) { return `${prefix}_${_nextId++}` }
+function _uid(prefix: string) { return `${prefix}_${_nextId++}` }
 
 // ---------------------------------------------------------------------------
 // createParticleWorld
@@ -88,7 +93,7 @@ export function createParticleWorld() {
  *   // in render loop:
  *   sparks.update(elapsed, dt)
  */
-export function emitter(world, scene, options = {}) {
+export function emitter(world: ParticleWorld, scene: Three.Object3D, options: EmitterOptions = {}) {
   const {
     rate         = 20,
     speed        = 5,
@@ -148,7 +153,7 @@ export function emitter(world, scene, options = {}) {
      * @param {number} elapsed  Total elapsed seconds (passed to world.step)
      * @param {number} dt       Delta time in seconds since last frame
      */
-    update(elapsed, dt) {
+    update(elapsed: number, dt: number) {
       world.step(elapsed, dt)
 
       const particles = world.getParticles(id)
@@ -201,7 +206,7 @@ export function emitter(world, scene, options = {}) {
  *   // In render loop:
  *   forceField(pworld, sparks.emitterId, { x:0, y:1, z:0 }, 2, { x:0, y:3, z:0 })
  */
-export function forceField(world, emitterId, center, radius, force) {
+export function forceField(world: ParticleWorld, emitterId: string, center: Vector, radius: number, force: Vector) {
   const particles = world.getParticles(emitterId)
   const r2 = radius * radius
 

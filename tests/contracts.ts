@@ -7,6 +7,7 @@ import { FluidWorld } from '../src/physics/FluidWorld.ts'
 import { PhysicsComposer } from '../src/physics/PhysicsComposer.ts'
 import { hud, label, progressBar, tooltip } from '../src/stdlib/ui.ts'
 import type { AudioEventSink } from '../src/audio/FFTPipeline.ts'
+import { emitter, forceField } from '../src/stdlib/physics/particles.ts'
 
 type State = { speed: number }
 const sketch: Sketch<State> = {
@@ -81,3 +82,11 @@ audioEvents.emit('audio:fft', { bass: 0.2, mid: 0.3, high: 0.1, data: new Float3
 audioEvents.emit('audio:beat', { band: 'treble', strength: 0.8 })
 // @ts-expect-error FFT data is a floating point decibel buffer.
 audioEvents.emit('audio:fft', { bass: 0.2, mid: 0.3, high: 0.1, data: [1, 2] })
+
+const particleHandle = emitter(emitters, ctx.scene, { color: '#ff8800', maxParticles: 100 })
+particleHandle.update(1, 1 / 60)
+forceField(emitters, particleHandle.emitterId, { x: 0, y: 0, z: 0 }, 2, { x: 1, y: 0, z: 0 })
+// @ts-expect-error Force fields require all three force components.
+forceField(emitters, particleHandle.emitterId, new Vector3(), 2, { x: 1 })
+// @ts-expect-error Emitters require numeric lifetimes.
+emitter(emitters, ctx.scene, { lifetime: 'forever' })
