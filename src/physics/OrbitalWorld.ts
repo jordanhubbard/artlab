@@ -10,6 +10,7 @@ import { keplerPosition, degToRad } from '../utils/MathUtils.ts'
 export class OrbitalWorld extends IPhysicsWorld<OrbitalBodyDesc> {
   private _bodies = new Map<string, { desc: OrbitalBodyDesc; position: Vector }>()
   private readonly _TWO_PI = Math.PI * 2
+  get bodies(): ReadonlyMap<string, { desc: OrbitalBodyDesc; position: Vector }> { return this._bodies }
   constructor() {
     super()
     this._bodies = new Map()   // id → { desc, position: {x,y,z} }

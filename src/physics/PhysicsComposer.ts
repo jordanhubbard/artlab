@@ -5,6 +5,7 @@ import type { IPhysicsWorld } from './IPhysicsWorld.ts'
  */
 export class PhysicsComposer {
   private _worlds: IPhysicsWorld[] = []
+  get worlds(): readonly IPhysicsWorld[] { return this._worlds }
   constructor() {
     this._worlds = []
   }

@@ -2,13 +2,20 @@ import * as Three from 'three'
 import { OrbitalWorld } from './OrbitalWorld.ts'
 import { RigidWorld } from './RigidWorld.ts'
 import { ParticleWorld } from './ParticleWorld.ts'
+import type { PhysicsComposer } from './PhysicsComposer.ts'
+import type { RigidBodyDesc } from './IPhysicsWorld.ts'
+type DebugObject = Three.Mesh<Three.BufferGeometry, Three.Material> | Three.Points<Three.BufferGeometry, Three.PointsMaterial>
 
 const _MAT_ORBITAL  = new Three.MeshBasicMaterial({ color: 0x00ff00, wireframe: true })
 const _MAT_RIGID    = new Three.MeshBasicMaterial({ color: 0xffff00, wireframe: true })
 const _MAT_PARTICLE = new Three.PointsMaterial({ color: 0x00ffff, size: 0.15 })
 
 export class DebugRenderer {
-  constructor(scene) {
+  private readonly _scene: Three.Scene
+  private readonly _group: Three.Group
+  private _enabled = false
+  private _bodyMeshes = new Map<string, DebugObject>()
+  constructor(scene: Three.Scene) {
     this._scene = scene
     this._group = new Three.Group()
     this._group.name = '__physics_debug__'
@@ -23,12 +30,12 @@ export class DebugRenderer {
 
   // Update debug overlays from a PhysicsComposer.
   // Call each frame after composer.step().
-  update(composer) {
+  update(composer: PhysicsComposer) {
     if (!this._enabled) return
 
-    const liveIds = new Set()
+    const liveIds = new Set<string>()
 
-    for (const world of composer._worlds) {
+    for (const world of composer.worlds) {
       if (world instanceof OrbitalWorld) {
         this._updateOrbitalWorld(world, liveIds)
       } else if (world instanceof RigidWorld) {
@@ -48,8 +55,8 @@ export class DebugRenderer {
     }
   }
 
-  _updateOrbitalWorld(world, liveIds) {
-    for (const [id, body] of world._bodies) {
+  _updateOrbitalWorld(world: OrbitalWorld, liveIds: Set<string>) {
+    for (const [id, body] of world.bodies) {
       liveIds.add(id)
       let mesh = this._bodyMeshes.get(id)
       if (!mesh) {
@@ -63,8 +70,8 @@ export class DebugRenderer {
     }
   }
 
-  _updateRigidWorld(world, liveIds) {
-    for (const [id, body] of world._bodies) {
+  _updateRigidWorld(world: RigidWorld, liveIds: Set<string>) {
+    for (const [id, body] of world.bodies) {
       liveIds.add(id)
       let mesh = this._bodyMeshes.get(id)
       if (!mesh) {
@@ -79,7 +86,7 @@ export class DebugRenderer {
     }
   }
 
-  _createRigidMesh(desc) {
+  _createRigidMesh(desc: RigidBodyDesc) {
     const shape = desc.shape ?? { type: 'box' }
     let geo
     if (shape.type === 'sphere') {
@@ -99,8 +106,8 @@ export class DebugRenderer {
     return new Three.Mesh(geo, _MAT_RIGID)
   }
 
-  _updateParticleWorld(world, liveIds) {
-    for (const [id, emitter] of world._emitters) {
+  _updateParticleWorld(world: ParticleWorld, liveIds: Set<string>) {
+    for (const [id, emitter] of world.emitters) {
       liveIds.add(id)
       let points = this._bodyMeshes.get(id)
 

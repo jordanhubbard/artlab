@@ -10,7 +10,9 @@ export interface OrbitalBodyDesc {
 }
 export interface RigidBodyDesc {
   type: 'rigid'; bodyType: 'dynamic' | 'static' | 'kinematic'
-  shape: { type: 'sphere'; radius: number } | { type: 'box'; hx: number; hy: number; hz: number } | { type: 'capsule'; halfHeight: number; radius: number }
+  shape: { type: 'sphere'; radius?: number }
+    | { type: 'box'; halfExtents?: Vector; hx?: number; hy?: number; hz?: number }
+    | { type: 'capsule'; height?: number; halfHeight?: number; radius?: number }
   mass?: number; restitution?: number; friction?: number
   initialPosition?: Vector; initialRotation?: Vector & { w: number }
 }

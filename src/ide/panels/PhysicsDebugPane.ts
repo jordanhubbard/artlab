@@ -13,6 +13,14 @@
  */
 
 import { DebugRenderer } from '../../physics/DebugRenderer.ts'
+import { OrbitalWorld } from '../../physics/OrbitalWorld.ts'
+import { RigidWorld } from '../../physics/RigidWorld.ts'
+import { ParticleWorld } from '../../physics/ParticleWorld.ts'
+import type { PhysicsComposer } from '../../physics/PhysicsComposer.ts'
+import type { IPhysicsWorld, PhysicsBodyDesc, Vector } from '../../physics/IPhysicsWorld.ts'
+import type { Scene } from 'three'
+interface InspectorBody { position?: Vector; velocity?: Vector; mass?: number; desc?: PhysicsBodyDesc; particles?: readonly unknown[] }
+interface BodyEntry { id: string; type: string; body: InspectorBody }
 
 // ── Styles ───────────────────────────────────────────────────────────────────
 
@@ -190,10 +198,22 @@ const PANEL_CSS = `
 // ── PhysicsDebugPane ──────────────────────────────────────────────────────────
 
 export class PhysicsDebugPane {
+  private readonly _container: HTMLElement
+  private _composer: PhysicsComposer | null = null
+  private _debugRenderer: DebugRenderer | null = null
+  private _selectedId: string | null = null
+  private _bodyEntries: BodyEntry[] = []
+  private _overlayCheckbox = document.createElement('input')
+  private _statBodies = document.createElement('div')
+  private _statOrbital = document.createElement('div')
+  private _statRigid = document.createElement('div')
+  private _statParticle = document.createElement('div')
+  private _listEl = document.createElement('div')
+  private _detailEl = document.createElement('div')
   /**
    * @param {HTMLElement} container
    */
-  constructor(container) {
+  constructor(container: HTMLElement) {
     this._container    = container
     this._composer     = null
     this._debugRenderer = null
@@ -209,7 +229,7 @@ export class PhysicsDebugPane {
    * @param {import('../../physics/PhysicsComposer.ts').PhysicsComposer|null} composer
    * @param {import('three').Scene} scene
    */
-  attach(composer, scene) {
+  attach(composer: PhysicsComposer | null, scene: Scene) {
     this._composer = composer
     if (this._debugRenderer) this._debugRenderer.dispose()
     this._debugRenderer = composer ? new DebugRenderer(scene) : null
@@ -321,10 +341,10 @@ export class PhysicsDebugPane {
       return
     }
 
-    for (const world of this._composer._worlds) {
+    for (const world of this._composer.worlds) {
       const type = this._worldType(world)
       const col  = this._dotClass(type)
-      const map  = type === 'particle' ? world._emitters : world._bodies
+      const map = this._worldBodies(world)
       if (!map) continue
       for (const [id, body] of map) {
         this._bodyEntries.push({ id, type, body })
@@ -344,7 +364,7 @@ export class PhysicsDebugPane {
     }
   }
 
-  _buildBodyRow({ id, type, body }) {
+  _buildBodyRow({ id, type, body }: BodyEntry) {
     const row = document.createElement('div')
     row.className = 'phys-body-item' + (id === this._selectedId ? ' active' : '')
     row.dataset.bodyId = id
@@ -377,7 +397,7 @@ export class PhysicsDebugPane {
   }
 
   _updateActiveRow() {
-    for (const el of this._listEl.querySelectorAll('.phys-body-item')) {
+    for (const el of this._listEl.querySelectorAll<HTMLElement>('.phys-body-item')) {
       el.classList.toggle('active', el.dataset.bodyId === String(this._selectedId))
     }
   }
@@ -394,9 +414,9 @@ export class PhysicsDebugPane {
     // Update positions in the existing rows
     if (!this._composer) return
     let i = 0
-    for (const world of this._composer._worlds) {
+    for (const world of this._composer.worlds) {
       const type = this._worldType(world)
-      const map  = type === 'particle' ? world._emitters : world._bodies
+      const map = this._worldBodies(world)
       if (!map) continue
       for (const [id, body] of map) {
         const row = this._listEl.querySelector(`[data-body-id="${CSS.escape(String(id))}"]`)
@@ -422,11 +442,12 @@ export class PhysicsDebugPane {
     }
 
     let orbital = 0, rigid = 0, particle = 0
-    for (const world of this._composer._worlds) {
+    for (const world of this._composer.worlds) {
       const type = this._worldType(world)
-      if (type === 'orbital')  orbital  += world._bodies?.size ?? 0
-      if (type === 'rigid')    rigid    += world._bodies?.size ?? 0
-      if (type === 'particle') particle += world._emitters?.size ?? 0
+      const count = this._worldBodies(world).size
+      if (type === 'orbital') orbital += count
+      if (type === 'rigid') rigid += count
+      if (type === 'particle') particle += count
     }
     const total = orbital + rigid + particle
     this._statBodies.textContent   = String(total)
@@ -440,7 +461,7 @@ export class PhysicsDebugPane {
   /**
    * @param {{id, type, body}|null} entry
    */
-  _renderDetail(entry) {
+  _renderDetail(entry: BodyEntry | null) {
     this._detailEl.innerHTML = ''
 
     const title = document.createElement('div')
@@ -466,7 +487,7 @@ export class PhysicsDebugPane {
     if (body.position) rows.push(['Position', this._fmtVecFull(body.position)])
     if (body.velocity) rows.push(['Velocity',  this._fmtVecFull(body.velocity)])
     if (body.mass != null) rows.push(['Mass', String(body.mass)])
-    if (body.desc?.shape) rows.push(['Shape', body.desc.shape.type ?? 'box'])
+    if (body.desc && 'shape' in body.desc) rows.push(['Shape', body.desc.shape.type ?? 'box'])
 
     // Particle emitter: show live count instead of a position
     if (type === 'particle' && body.particles != null) {
@@ -490,7 +511,7 @@ export class PhysicsDebugPane {
 
   // ── Helpers ──────────────────────────────────────────────────────────────────
 
-  _makeStatCell(parent, label, initial) {
+  _makeStatCell(parent: HTMLElement, label: string, initial: string) {
     const cell = document.createElement('div')
     cell.className = 'phys-stat'
 
@@ -508,7 +529,13 @@ export class PhysicsDebugPane {
     return val   // return the value element so callers can update it
   }
 
-  _worldType(world) {
+  private _worldBodies(world: IPhysicsWorld): ReadonlyMap<string, InspectorBody> {
+    if (world instanceof OrbitalWorld || world instanceof RigidWorld) return world.bodies
+    if (world instanceof ParticleWorld) return world.emitters
+    return new Map()
+  }
+
+  _worldType(world: IPhysicsWorld) {
     const ctor = world.constructor?.name ?? ''
     if (ctor.includes('Orbital'))  return 'orbital'
     if (ctor.includes('Rigid'))    return 'rigid'
@@ -516,20 +543,20 @@ export class PhysicsDebugPane {
     return 'unknown'
   }
 
-  _dotClass(type) {
+  _dotClass(type: string) {
     if (type === 'orbital')  return 'dot-orbital'
     if (type === 'rigid')    return 'dot-rigid'
     if (type === 'particle') return 'dot-particle'
     return 'dot-orbital'
   }
 
-  _fmtVec({ x, y, z }) {
-    const fmt = v => v.toFixed(1)
+  _fmtVec({ x, y, z }: Vector) {
+    const fmt = (v: number) => v.toFixed(1)
     return `(${fmt(x)}, ${fmt(y)}, ${fmt(z)})`
   }
 
-  _fmtVecFull({ x, y, z }) {
-    const fmt = v => v.toFixed(3)
+  _fmtVecFull({ x, y, z }: Vector) {
+    const fmt = (v: number) => v.toFixed(3)
     return `${fmt(x)}, ${fmt(y)}, ${fmt(z)}`
   }
 }

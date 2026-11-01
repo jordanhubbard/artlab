@@ -16,6 +16,7 @@ export class RigidWorld extends IPhysicsWorld<RigidBodyDesc> {
   private _collisionCallbacks: CollisionCallback[] = []
   private _rapier: typeof import('@dimforge/rapier3d-compat') | null = null
   private _world: World | null = null
+  get bodies(): ReadonlyMap<string, Transform & { desc: RigidBodyDesc }> { return this._bodies }
   constructor() {
     super()
     this._bodies = new Map()

@@ -8,6 +8,7 @@ interface EmitterState { desc: ParticleEmitterDesc; particles: SimulatedParticle
  */
 export class ParticleWorld extends IPhysicsWorld<ParticleEmitterDesc> {
   private _emitters = new Map<string, EmitterState>()
+  get emitters(): ReadonlyMap<string, EmitterState> { return this._emitters }
   constructor() {
     super()
     this._emitters = new Map()   // id → EmitterState
