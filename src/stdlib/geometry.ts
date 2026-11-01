@@ -51,7 +51,18 @@ export function cone(r = 1, h = 2, segs = 32) {
 // ---------------------------------------------------------------------------
 
 const _loader = new Three.TextureLoader()
-function _tex(v) { return typeof v === 'string' ? _loader.load(v) : v }
+function _tex(v: Three.Texture | string | null) { return typeof v === 'string' ? _loader.load(v) : v }
+
+export type MeshOptions = Omit<Three.MeshStandardMaterialParameters,
+  'side' | 'map' | 'emissiveMap' | 'alphaMap' | 'normalMap' | 'roughnessMap' | 'metalnessMap'> & {
+  side?: Three.Side | 'front' | 'back' | 'double'
+  map?: Three.Texture | string | null
+  emissiveMap?: Three.Texture | string | null
+  alphaMap?: Three.Texture | string | null
+  normalMap?: Three.Texture | string | null
+  roughnessMap?: Three.Texture | string | null
+  metalnessMap?: Three.Texture | string | null
+}
 
 const _SIDE = { front: Three.FrontSide, back: Three.BackSide, double: Three.DoubleSide }
 
@@ -75,7 +86,7 @@ const _SIDE = { front: Three.FrontSide, back: Three.BackSide, double: Three.Doub
  * }} MeshOptions
  */
 /** @param {Three.BufferGeometry} geometry @param {MeshOptions} [options] */
-export function mesh(geometry, options = {}) {
+export function mesh<G extends Three.BufferGeometry>(geometry: G, options: MeshOptions = {}) {
   const {
     color = 0xffffff, roughness = 0.7, metalness = 0.0, wireframe = false,
     transparent, opacity, side, depthWrite, blending,
@@ -84,7 +95,7 @@ export function mesh(geometry, options = {}) {
     ...rest
   } = options
 
-  const matOpts = { color, roughness, metalness, wireframe, ...rest }
+  const matOpts: Three.MeshStandardMaterialParameters = { color, roughness, metalness, wireframe, ...rest }
 
   if (transparent !== undefined)      matOpts.transparent      = transparent
   if (opacity     !== undefined)      matOpts.opacity          = opacity
@@ -112,7 +123,7 @@ export function mesh(geometry, options = {}) {
  * Create a mesh from geometry and immediately add it to scene.
  * Returns the mesh for further manipulation.
  */
-export function add(scene, geometry, options = {}) {
+export function add<G extends Three.BufferGeometry>(scene: Three.Object3D, geometry: G, options: MeshOptions = {}) {
   const m = mesh(geometry, options)
   scene.add(m)
   return m

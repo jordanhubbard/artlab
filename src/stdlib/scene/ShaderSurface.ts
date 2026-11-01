@@ -10,11 +10,18 @@ const VERTEX = `
 
 /** UV shader surface with time/resolution uniforms; fullscreen by default. */
 export class ShaderSurface {
+  readonly renderer: Pick<Three.WebGLRenderer, 'domElement'>
+  readonly uniforms: Record<string, Three.IUniform> & {
+    uTime: Three.IUniform<number>
+    uResolution: Three.IUniform<Three.Vector2>
+  }
+  readonly object: Three.Mesh<Three.PlaneGeometry, Three.ShaderMaterial>
+  private disposed = false
   /** @param {Pick<Three.WebGLRenderer, 'domElement'>} renderer
    * @param {string} fragmentShader @param {Record<string, Three.IUniform>} [uniforms]
    * @param {{ width?: number, height?: number, fullscreen?: boolean }} [options]
    */
-  constructor(renderer, fragmentShader, uniforms = {}, { width = 2, height = 2, fullscreen = true } = {}) {
+  constructor(renderer: Pick<Three.WebGLRenderer, 'domElement'>, fragmentShader: string, uniforms: Record<string, Three.IUniform> = {}, { width = 2, height = 2, fullscreen = true }: { width?: number; height?: number; fullscreen?: boolean } = {}) {
     this.renderer = renderer
     this.uniforms = {
       uTime: { value: 0 },
@@ -31,7 +38,7 @@ export class ShaderSurface {
     this.update(0, 0)
   }
 
-  update(dt, elapsed) {
+  update(dt: number, elapsed: number) {
     this.uniforms.uTime.value = elapsed
     const canvas = this.renderer.domElement
     this.uniforms.uResolution.value.set(Math.max(1, canvas.width), Math.max(1, canvas.height))

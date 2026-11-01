@@ -2,8 +2,13 @@ import * as Three from 'three'
 
 /** Many copies of one mesh, submitted in one draw call per render pass. */
 export class InstanceField {
+  readonly count: number
+  readonly object: Three.InstancedMesh<Three.BufferGeometry, Three.Material>
+  readonly pose = new Three.Object3D()
+  readonly color = new Three.Color()
+  private disposed = false
   /** @param {number} count @param {Three.BufferGeometry} geometry @param {Three.Material} material */
-  constructor(count, geometry, material) {
+  constructor(count: number, geometry: Three.BufferGeometry, material: Three.Material) {
     if (!Number.isInteger(count) || count < 1) throw new RangeError('Instance count must be a positive integer')
     this.count = count
     this.object = new Three.InstancedMesh(geometry, material, count)
@@ -14,7 +19,7 @@ export class InstanceField {
   }
 
   /** @param {number} index @param {Three.Vector3} position @param {number} [scale] @param {Three.ColorRepresentation} [color] */
-  set(index, position, scale = 1, color = 0xffffff) {
+  set(index: number, position: Three.Vector3, scale = 1, color: Three.ColorRepresentation = 0xffffff) {
     if (index < 0 || index >= this.count) throw new RangeError('Instance index out of range')
     this.pose.position.copy(position)
     this.pose.scale.setScalar(scale)

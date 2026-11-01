@@ -12,22 +12,22 @@ export const RAD_TO_DEG = 180 / Math.PI
 
 /** Convert radians to degrees. */
 /** @param {number} r */
-export function deg(r) { return r * RAD_TO_DEG }
+export function deg(r: number) { return r * RAD_TO_DEG }
 /** Convert degrees to radians. */
 /** @param {number} d */
-export function rad(d) { return d * DEG_TO_RAD }
+export function rad(d: number) { return d * DEG_TO_RAD }
 
 // --- Core math helpers ------------------------------------------------------
 
 /** Clamp v to [min, max]. */
 /** @param {number} v @param {number} min @param {number} max */
-export function clamp(v, min, max) {
+export function clamp(v: number, min: number, max: number) {
   return v < min ? min : v > max ? max : v
 }
 
 /** Linear interpolation from a to b by t. */
 /** @param {number} a @param {number} b @param {number} t */
-export function lerp(a, b, t) {
+export function lerp(a: number, b: number, t: number) {
   return a + (b - a) * t
 }
 
@@ -36,13 +36,13 @@ export function lerp(a, b, t) {
  * Does not clamp the output.
  */
 /** @param {number} v @param {number} inMin @param {number} inMax @param {number} outMin @param {number} outMax */
-export function map(v, inMin, inMax, outMin, outMax) {
+export function map(v: number, inMin: number, inMax: number, outMin: number, outMax: number) {
   return outMin + (outMax - outMin) * ((v - inMin) / (inMax - inMin))
 }
 
 /** GLSL-style smoothstep. */
 /** @param {number} edge0 @param {number} edge1 @param {number} x */
-export function smoothstep(edge0, edge1, x) {
+export function smoothstep(edge0: number, edge1: number, x: number) {
   const t = clamp((x - edge0) / (edge1 - edge0), 0, 1)
   return t * t * (3 - 2 * t)
 }
@@ -51,25 +51,25 @@ export function smoothstep(edge0, edge1, x) {
 
 /** Quadratic ease-in. */
 /** @param {number} t */
-export function easeIn(t) {
+export function easeIn(t: number) {
   return t * t
 }
 
 /** Quadratic ease-out. */
 /** @param {number} t */
-export function easeOut(t) {
+export function easeOut(t: number) {
   return t * (2 - t)
 }
 
 /** Quadratic ease-in-out. */
 /** @param {number} t */
-export function easeInOut(t) {
+export function easeInOut(t: number) {
   return t < 0.5 ? 2 * t * t : -1 + (4 - 2 * t) * t
 }
 
 /** Elastic ease-out (one overshoot). */
 /** @param {number} t */
-export function elasticOut(t) {
+export function elasticOut(t: number) {
   if (t === 0 || t === 1) return t
   const p = 0.3
   return Math.pow(2, -10 * t) * Math.sin((t - p / 4) * (2 * Math.PI) / p) + 1
@@ -77,7 +77,7 @@ export function elasticOut(t) {
 
 /** Bounce ease-out. */
 /** @param {number} t */
-export function bounceOut(t) {
+export function bounceOut(t: number) {
   if (t < 1 / 2.75) {
     return 7.5625 * t * t
   } else if (t < 2 / 2.75) {
@@ -110,16 +110,16 @@ const _perm = (() => {
   return perm
 })()
 
-function _fade(t) { return t * t * t * (t * (t * 6 - 15) + 10) }
+function _fade(t: number) { return t * t * t * (t * (t * 6 - 15) + 10) }
 
-function _grad2(hash, x, y) {
+function _grad2(hash: number, x: number, y: number) {
   const h = hash & 3
   const u = h < 2 ? x : y
   const v = h < 2 ? y : x
   return ((h & 1) ? -u : u) + ((h & 2) ? -v : v)
 }
 
-function _grad3(hash, x, y, z) {
+function _grad3(hash: number, x: number, y: number, z: number) {
   const h = hash & 15
   const u = h < 8 ? x : y
   const v = h < 4 ? y : (h === 12 || h === 14 ? x : z)
@@ -128,7 +128,7 @@ function _grad3(hash, x, y, z) {
 
 /** Classic Perlin-style noise for 2D input. Returns [-1, 1]. */
 /** @param {number} x @param {number} y */
-export function noise2(x, y) {
+export function noise2(x: number, y: number) {
   const X = Math.floor(x) & 255
   const Y = Math.floor(y) & 255
   x -= Math.floor(x)
@@ -150,7 +150,7 @@ export function noise2(x, y) {
 
 /** Classic Perlin-style noise for 3D input. Returns [-1, 1]. */
 /** @param {number} x @param {number} y @param {number} z */
-export function noise3(x, y, z) {
+export function noise3(x: number, y: number, z: number) {
   const X = Math.floor(x) & 255
   const Y = Math.floor(y) & 255
   const Z = Math.floor(z) & 255

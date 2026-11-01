@@ -5,9 +5,10 @@
     "target": "ES2022",
     "module": "ESNext",
     "moduleResolution": "Bundler",
+    "allowImportingTsExtensions": true,
     "lib": ["ES2022", "DOM"],
     "skipLibCheck": true,
     "types": ["node", "vitest/globals"]
   },
-  "include": ["src/runtime/contracts.d.ts", "tests/contracts.ts"]
+  "include": ["src/runtime/contracts.d.ts", "tests/contracts.ts", "src/stdlib/math.ts", "src/stdlib/geometry.ts", "src/stdlib/lights.ts", "src/stdlib/scene/InstanceField.ts", "src/stdlib/scene/ShaderSurface.ts"]
 }

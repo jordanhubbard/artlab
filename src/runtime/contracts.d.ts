@@ -20,9 +20,7 @@ export interface ResourceScope {
   dispose(): Promise<void>
 }
 
-export interface MeshOptions extends Three.MeshStandardMaterialParameters {
-  side?: 'front' | 'back' | 'double' | Three.Side
-}
+export type MeshOptions = import('../stdlib/geometry.ts').MeshOptions
 
 export interface ArtlabContext extends RuntimeBindings {
   Three: typeof Three
