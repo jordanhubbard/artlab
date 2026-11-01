@@ -1,5 +1,15 @@
 // marble-run — spiral ramps, platforms, and marbles with simple physics.
 import * as Three from 'three'
+import type { ArtlabContext } from '../../src/runtime/contracts'
+type Ramp = ReturnType<typeof buildRamps>[number]
+type MarbleMesh = Three.Mesh<Three.SphereGeometry, Three.MeshStandardMaterial>
+type MarbleContext = ArtlabContext & {
+  _lights: Three.Light[]; _model: Three.Group; _modelTiltX: number; _modelTiltZ: number
+  _ramps: Ramp[]; _rampMeshes: ReturnType<typeof buildRampMeshes>
+  _bowl: Three.Mesh<Three.CylinderGeometry, Three.MeshStandardMaterial>
+  _tiltHud?: HTMLDivElement; _onTiltKey(event: KeyboardEvent): void
+  _marbles: Marble[]; _spawnTimer: number; _marbleIndex: number
+}
 
 const GRAVITY = -15
 const BOUNCE = 0.55
@@ -43,7 +53,7 @@ function buildRamps() {
   return ramps
 }
 
-function buildRampMeshes(ramps) {
+function buildRampMeshes(ramps: Ramp[]) {
   const meshes = []
   for (let i = 0; i < ramps.length; i++) {
     const r = ramps[i]
@@ -62,17 +72,23 @@ function buildRampMeshes(ramps) {
 }
 
 class Marble {
-  constructor(x, y, z, hue) {
+  readonly pos: Three.Vector3
+  readonly vel: Three.Vector3
+  readonly radius: number
+  readonly hue: number
+  readonly mesh: MarbleMesh
+  alive = true
+  constructor(x: number, y: number, z: number, hue: number) {
     this.pos = new Three.Vector3(x, y, z)
     this.vel = new Three.Vector3((Math.random() - 0.5) * 0.5, 0, (Math.random() - 0.5) * 0.3)
     this.radius = 0.16 + Math.random() * 0.06
     this.hue = hue
-    this.mesh = null
+    this.mesh = createMarbleMesh(this)
     this.alive = true
   }
 }
 
-function createMarbleMesh(marble) {
+function createMarbleMesh(marble: Pick<Marble, 'radius' | 'hue'>): MarbleMesh {
   const geo = new Three.SphereGeometry(marble.radius, 16, 12)
   const mat = new Three.MeshStandardMaterial({
     color: new Three.Color().setHSL(marble.hue, 0.8, 0.55),
@@ -81,23 +97,23 @@ function createMarbleMesh(marble) {
   return new Three.Mesh(geo, mat)
 }
 
-function rampSurfaceY(ramp, x) {
+function rampSurfaceY(ramp: Ramp, x: number) {
   return ramp.cy + (x - ramp.cx) * Math.sin(ramp.tilt) + 0.06
 }
 
-function rampNormal(ramp) {
+function rampNormal(ramp: Ramp) {
   const slope = Math.sin(ramp.tilt)
   return new Three.Vector3(-slope, 1, 0).normalize()
 }
 
-function localGravity(ctx) {
+function localGravity(ctx: MarbleContext) {
   const g = new Three.Vector3(0, GRAVITY, 0)
   if (!ctx._model) return g
   ctx._model.updateMatrixWorld()
   return g.applyQuaternion(ctx._model.quaternion.clone().invert())
 }
 
-function setModelTilt(ctx, x, z) {
+function setModelTilt(ctx: MarbleContext, x: number, z: number) {
   ctx._modelTiltX = Math.max(-MAX_MODEL_TILT, Math.min(MAX_MODEL_TILT, x))
   ctx._modelTiltZ = Math.max(-MAX_MODEL_TILT, Math.min(MAX_MODEL_TILT, z))
   ctx._model.rotation.x = ctx._modelTiltX
@@ -105,14 +121,14 @@ function setModelTilt(ctx, x, z) {
   updateTiltHud(ctx)
 }
 
-function updateTiltHud(ctx) {
+function updateTiltHud(ctx: MarbleContext) {
   if (!ctx._tiltHud) return
   const x = Math.round(Three.MathUtils.radToDeg(ctx._modelTiltX ?? 0))
   const z = Math.round(Three.MathUtils.radToDeg(ctx._modelTiltZ ?? 0))
   ctx._tiltHud.textContent = `Tilt X ${x}°   Tilt Z ${z}°`
 }
 
-function collideWithRamps(marble, ramps) {
+function collideWithRamps(marble: Marble, ramps: Ramp[]) {
   for (const r of ramps) {
     // Check if marble is above this ramp
     const mx = marble.pos.x
@@ -142,7 +158,7 @@ function collideWithRamps(marble, ramps) {
   }
 }
 
-export function setup(ctx) {
+export function setup(ctx: MarbleContext) {
   ctx.setHelp('Arrow keys: tilt model   •   R: reset tilt   •   Drag: orbit camera')
   ctx.camera.position.set(0, 2.2, 12.8)
   ctx.camera.lookAt(0, 1.05, 0)
@@ -215,7 +231,7 @@ export function setup(ctx) {
   ctx._marbleIndex = 0
 }
 
-export function update(ctx, dt) {
+export function update(ctx: MarbleContext, dt: number) {
   const dt_ = Math.min(dt, 0.03)
   const gravity = localGravity(ctx)
 
@@ -226,7 +242,6 @@ export function update(ctx, dt) {
     const hue = (ctx._marbleIndex * 0.13) % 1
     const entry = ctx._ramps[0]
     const marble = new Marble(entry.minX + 0.65 + Math.random() * 0.35, 6.6, (Math.random() - 0.5) * 0.22, hue)
-    marble.mesh = createMarbleMesh(marble)
     marble.mesh.position.copy(marble.pos)
     ctx._model.add(marble.mesh)
     ctx._marbles.push(marble)
@@ -271,7 +286,7 @@ export function update(ctx, dt) {
   })
 }
 
-export function teardown(ctx) {
+export function teardown(ctx: MarbleContext) {
   if (ctx._onTiltKey) window.removeEventListener('keydown', ctx._onTiltKey)
   ctx._tiltHud?.remove()
   for (const m of ctx._rampMeshes) {

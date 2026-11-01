@@ -1,12 +1,28 @@
 // Camera Journey — a visible spline-driven camera tour through a pillar field.
 // Press C to toggle manual OrbitControls; press Space to rejoin the path.
+import type * as Three from 'three'
+import type { ArtlabContext } from '../../src/runtime/contracts'
+type StandardMesh = Three.Mesh<Three.BufferGeometry, Three.MeshStandardMaterial>
+type JourneyContext = ArtlabContext & {
+  _journeyHud: HTMLDivElement
+  _pillarField: Three.InstancedMesh
+  _cameraPath: Three.CatmullRomCurve3
+  _pathRail: Three.Line<Three.BufferGeometry, Three.LineBasicMaterial>
+  _pathMarkers: StandardMesh[]
+  _journeyLook: Three.Vector3
+  _pathProgress: number; _useOrbit: boolean
+  _core: StandardMesh
+  _rings: { mesh: StandardMesh; speed: number; tiltX: number; tiltZ: number }[]
+  _orbiters: ({ mesh: StandardMesh } & typeof ORBITER_DATA[number])[]
+  _onKey(event: KeyboardEvent): void
+}
 
 const TOUR_SECONDS = 42
 const LOOK_AHEAD = 0.045
 const GRID_SIZE = 13
 const GRID_SPACING = 1.35
 
-const PATH_POINTS = [
+const PATH_POINTS: [number, number, number][] = [
   [-8.5, 2.2,  6.0],
   [-5.0, 5.0, -6.5],
   [ 0.8, 3.4, -9.0],
@@ -33,21 +49,21 @@ const ORBITER_DATA = [
   { color: 0xccff44, emissive: 0x223300, radius: 0.10, orbitR: 3.2, orbitTilt: -0.6, speed: -0.8,  phase: 2.62 },
 ]
 
-function wrap01(t) {
+function wrap01(t: number) {
   return ((t % 1) + 1) % 1
 }
 
-function pillarHeight(x, z) {
+function pillarHeight(x: number, z: number) {
   const ridge = Math.sin(x * 0.7) * Math.cos(z * 0.55)
   const bowl = Math.exp(-0.035 * (x * x + z * z))
   return 0.35 + Math.max(0, ridge * 0.75 + bowl * 1.8)
 }
 
-function setHud(ctx, text) {
+function setHud(ctx: JourneyContext, text: string) {
   if (ctx._journeyHud) ctx._journeyHud.textContent = text
 }
 
-function buildPillarField(ctx) {
+function buildPillarField(ctx: JourneyContext) {
   const { Three } = ctx
   const count = GRID_SIZE * GRID_SIZE
   const geo = new Three.BoxGeometry(0.42, 1, 0.42)
@@ -78,7 +94,7 @@ function buildPillarField(ctx) {
   ctx._pillarField = pillars
 }
 
-function buildPathRail(ctx) {
+function buildPathRail(ctx: JourneyContext) {
   const { Three } = ctx
   const points = PATH_POINTS.map(p => new Three.Vector3(...p))
   const curve = new Three.CatmullRomCurve3(points, true, 'catmullrom', 0.28)
@@ -108,7 +124,7 @@ function buildPathRail(ctx) {
   ctx._pathMarkers = markers
 }
 
-function updateCamera(ctx, t) {
+function updateCamera(ctx: JourneyContext, t: number) {
   const u = wrap01(t / TOUR_SECONDS)
   const pos = ctx._cameraPath.getPointAt(u)
   const look = ctx._cameraPath.getPointAt(wrap01(u + LOOK_AHEAD))
@@ -122,7 +138,7 @@ function updateCamera(ctx, t) {
   ctx._pathProgress = u
 }
 
-function updateHud(ctx) {
+function updateHud(ctx: JourneyContext) {
   const progress = Math.round((ctx._pathProgress ?? 0) * 100)
   setHud(ctx, [
     'CAMERA JOURNEY',
@@ -133,7 +149,7 @@ function updateHud(ctx) {
   ].join('\n'))
 }
 
-export function setup(ctx) {
+export function setup(ctx: JourneyContext) {
   const { Three, sphere, torus, mesh, ambient, point } = ctx
 
   ctx.setHelp('C: toggle scripted/manual camera   •   Space: rejoin path')
@@ -199,6 +215,7 @@ export function setup(ctx) {
   }
 
   const container = ctx.renderer.domElement.parentElement
+  if (!container) throw new Error('Camera Journey requires a canvas container')
   container.style.position = 'relative'
   const hud = document.createElement('div')
   hud.id = 'camera-journey-hud'
@@ -234,7 +251,7 @@ export function setup(ctx) {
   window.addEventListener('keydown', ctx._onKey)
 }
 
-export function update(ctx, dt) {
+export function update(ctx: JourneyContext, dt: number) {
   const t = ctx.elapsed
 
   ctx._core.material.emissiveIntensity = 0.6 + 0.32 * (0.5 + 0.5 * Math.sin(t * 1.1))
@@ -265,7 +282,7 @@ export function update(ctx, dt) {
   updateHud(ctx)
 }
 
-export function teardown(ctx) {
+export function teardown(ctx: JourneyContext) {
   window.removeEventListener('keydown', ctx._onKey)
   ctx._journeyHud?.remove()
   ctx.controls.enabled = true

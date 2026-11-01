@@ -20,6 +20,8 @@
     "examples/cloth-sim/cloth-sim.ts", "examples/n-body-gravity/n-body-gravity.ts",
     "examples/mobius-strip/mobius-strip.ts", "examples/recursive-spirals/recursive-spirals.ts", "examples/penrose-tiles/penrose-tiles.ts",
     "examples/terrain-flyover/terrain-flyover.ts",
+    "examples/domino-chain/domino-chain.ts", "examples/marble-run/marble-run.ts",
+    "examples/camera-journey/camera-journey.ts",
     "examples/strange-attractor/strange-attractor.ts", "examples/reaction-diffusion/reaction-diffusion.ts",
     "src/stdlib/physics/particles.ts", "examples/force-field-playground/force-field-playground.ts",
     "examples/clock-3d/clock-3d.ts", "examples/clock-kinetic/clock-kinetic.ts",

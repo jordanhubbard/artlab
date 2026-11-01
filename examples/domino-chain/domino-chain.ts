@@ -1,6 +1,18 @@
 // domino-chain — 20 physics dominoes in a curved path; click the first to topple.
 import * as Three from 'three'
 import { body, integrate, gravityForce, applyForce, applyImpulse } from '../../src/physics/Physics.ts'
+import type { ArtlabContext } from '../../src/runtime/contracts'
+import type { Body } from '../../src/physics/Physics.ts'
+type Domino = Body & {
+  _mesh: Three.Mesh<Three.BoxGeometry, Three.MeshStandardMaterial>
+  _facing: number; _tilt: number; _angVel: number; _fallen: boolean; _index: number
+}
+type DominoContext = ArtlabContext & {
+  _dominoes: Domino[]; _lights: Three.Light[]; _started: boolean
+  _ground: Three.Mesh<Three.PlaneGeometry, Three.MeshStandardMaterial>
+  _hint: Three.Mesh<Three.ConeGeometry, Three.MeshStandardMaterial>
+  _onClick(event: MouseEvent): void
+}
 
 const COUNT    = 20
 const DOM_W    = 0.3
@@ -12,7 +24,7 @@ const G        = 9.0
 const DAMPING  = 0.92
 const FRICTION = 0.85
 
-function buildDominoes(ctx) {
+function buildDominoes(ctx: ArtlabContext): Domino[] {
   const geo = new Three.BoxGeometry(DOM_W, DOM_H, DOM_D)
   const dominoes = []
 
@@ -33,10 +45,10 @@ function buildDominoes(ctx) {
     mesh.rotation.y = facing
     ctx.add(mesh)
 
-    const phys = body({
+    const phys = Object.assign(body({
       position: new Three.Vector3(cx, GROUND_Y + DOM_H / 2, cz),
       mass: 1.0,
-    })
+    }), { _mesh: mesh, _facing: facing, _tilt: 0, _angVel: 0, _fallen: false, _index: i })
     phys._mesh   = mesh
     phys._facing = facing
     phys._tilt   = 0
@@ -50,7 +62,7 @@ function buildDominoes(ctx) {
   return dominoes
 }
 
-function checkCollisions(dominoes) {
+function checkCollisions(dominoes: Domino[]) {
   for (let i = 0; i < dominoes.length - 1; i++) {
     const a = dominoes[i]
     const b = dominoes[i + 1]
@@ -73,7 +85,7 @@ function checkCollisions(dominoes) {
   }
 }
 
-export function setup(ctx) {
+export function setup(ctx: DominoContext) {
   ctx.setHelp('Click the first domino to topple the chain')
   ctx.camera.position.set(5, 8, 10)
   ctx.camera.lookAt(0, 1, 0)
@@ -113,7 +125,7 @@ export function setup(ctx) {
   ctx.add(ctx._hint)
 }
 
-export function update(ctx, dt) {
+export function update(ctx: DominoContext, dt: number) {
   const dt_ = Math.min(dt, 0.05)
 
   // Fade hint
@@ -145,7 +157,7 @@ export function update(ctx, dt) {
   checkCollisions(ctx._dominoes)
 }
 
-export function teardown(ctx) {
+export function teardown(ctx: DominoContext) {
   ctx.renderer.domElement.removeEventListener('click', ctx._onClick)
   for (const dom of ctx._dominoes) ctx.remove(dom._mesh)
   ctx.remove(ctx._ground)
