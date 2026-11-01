@@ -3,6 +3,18 @@
 // The planets keep their Keplerian simulation in solar-system.js. This module
 // treats the camera as the spacecraft and continuously computes a fly-by path
 // from the live planet positions, so course changes affect only the viewpoint.
+import type * as Three from 'three'
+import type { ArtlabContext } from '../../src/runtime/contracts.ts'
+
+interface JourneyState {
+  time: number; playing: boolean; done: boolean; legIndex: number;
+  currentTarget: string; currentLabel: string; nextTarget: string | null; nextLabel: string | null;
+  phase: string; speed: number; courseCorrection: number; deltaV: number;
+}
+export type JourneyContext = ArtlabContext & {
+  _journey?: JourneyState;
+  _planets?: Record<string, { position: Three.Vector3 }>;
+}
 
 const AU_SCALE = 100
 const PLUTO_TRANSFER_AU = 39.48
@@ -23,7 +35,7 @@ const FLYBY_PLAN = [
 ]
 
 const START_SPEED = 42
-const START_TIMES = []
+const START_TIMES: number[] = []
 let total = 0
 for (const leg of FLYBY_PLAN) {
   START_TIMES.push(total)
@@ -31,7 +43,7 @@ for (const leg of FLYBY_PLAN) {
 }
 const TOTAL_DURATION = total
 
-const FALLBACK_POSITIONS = {
+const FALLBACK_POSITIONS: Record<string, [number, number, number]> = {
   mercury: [0.387 * AU_SCALE, 0, 0],
   venus: [0.723 * AU_SCALE, 0, 0],
   earth: [1.000 * AU_SCALE, 0, 0],
@@ -44,39 +56,39 @@ const FALLBACK_POSITIONS = {
 
 export const FLYBY_TARGETS = FLYBY_PLAN.map(leg => leg.name)
 
-function v3(ctx, x = 0, y = 0, z = 0) {
+function v3(ctx: JourneyContext, x = 0, y = 0, z = 0) {
   return new ctx.Three.Vector3(x, y, z)
 }
 
-function clamp01(t) {
+function clamp01(t: number) {
   return Math.min(1, Math.max(0, t))
 }
 
-function smoothstep(t) {
+function smoothstep(t: number) {
   const x = clamp01(t)
   return x * x * (3 - 2 * x)
 }
 
-function lerpValue(a, b, t) {
+function lerpValue(a: number, b: number, t: number) {
   return a + (b - a) * t
 }
 
-function lerpVector(ctx, a, b, t) {
+function lerpVector(ctx: JourneyContext, a: Three.Vector3, b: Three.Vector3, t: number) {
   return v3(ctx).lerpVectors(a, b, smoothstep(t))
 }
 
-function safeUnit(ctx, vec, fallback = null) {
+function safeUnit(ctx: JourneyContext, vec: Three.Vector3, fallback: Three.Vector3 | null = null) {
   if (vec.lengthSq() > EPS) return vec.clone().normalize()
   if (fallback && fallback.lengthSq() > EPS) return fallback.clone().normalize()
   return v3(ctx, 1, 0, 0)
 }
 
-function sideFromOutward(ctx, outward) {
+function sideFromOutward(ctx: JourneyContext, outward: Three.Vector3) {
   const side = v3(ctx, -outward.z, 0, outward.x)
   return safeUnit(ctx, side, v3(ctx, 0, 0, 1))
 }
 
-function plutoTransferPosition(ctx) {
+function plutoTransferPosition(ctx: JourneyContext) {
   const neptune = bodyPosition(ctx, 'neptune')
   const outward = safeUnit(ctx, neptune, v3(ctx, 1, 0, 0))
   const side = sideFromOutward(ctx, outward)
@@ -85,7 +97,7 @@ function plutoTransferPosition(ctx) {
     .add(v3(ctx, 0, 340, 0))
 }
 
-function beyondPosition(ctx) {
+function beyondPosition(ctx: JourneyContext) {
   const transfer = plutoTransferPosition(ctx)
   const outward = safeUnit(ctx, transfer, v3(ctx, 1, 0, 0))
   const side = sideFromOutward(ctx, outward)
@@ -94,7 +106,7 @@ function beyondPosition(ctx) {
     .add(v3(ctx, 0, 760, 0))
 }
 
-function bodyPosition(ctx, name) {
+function bodyPosition(ctx: JourneyContext, name: string): Three.Vector3 {
   if (name === 'sun') return v3(ctx, 0, 0, 0)
   if (name === 'pluto-transfer') return plutoTransferPosition(ctx)
   if (name === 'beyond') return beyondPosition(ctx)
@@ -106,7 +118,7 @@ function bodyPosition(ctx, name) {
   return v3(ctx, fallback[0], fallback[1], fallback[2])
 }
 
-function launchPoint(ctx) {
+function launchPoint(ctx: JourneyContext) {
   const mercury = bodyPosition(ctx, 'mercury')
   const outward = safeUnit(ctx, mercury, v3(ctx, 1, 0, 0))
   const side = sideFromOutward(ctx, outward)
@@ -115,14 +127,14 @@ function launchPoint(ctx) {
     .add(v3(ctx, 0, 8, 0))
 }
 
-function legIndexForTime(time) {
+function legIndexForTime(time: number) {
   for (let i = FLYBY_PLAN.length - 1; i >= 0; i--) {
     if (time >= START_TIMES[i]) return i
   }
   return 0
 }
 
-function frameForLeg(ctx, index) {
+function frameForLeg(ctx: JourneyContext, index: number) {
   const leg = FLYBY_PLAN[index]
   const prev = FLYBY_PLAN[index - 1]
   const next = FLYBY_PLAN[index + 1]
@@ -164,18 +176,18 @@ function frameForLeg(ctx, index) {
   return { leg, target, origin, nextPos, inbound, outbound, side, up, approach, periapsis, exit }
 }
 
-function exitPointForLeg(ctx, index) {
+function exitPointForLeg(ctx: JourneyContext, index: number): Three.Vector3 {
   return frameForLeg(ctx, index).exit
 }
 
-function positionOnLeg(ctx, frame, progress) {
+function positionOnLeg(ctx: JourneyContext, frame: ReturnType<typeof frameForLeg>, progress: number) {
   const p = clamp01(progress)
   if (p < 0.52) return lerpVector(ctx, frame.origin, frame.approach, p / 0.52)
   if (p < 0.68) return lerpVector(ctx, frame.approach, frame.periapsis, (p - 0.52) / 0.16)
   return lerpVector(ctx, frame.periapsis, frame.exit, (p - 0.68) / 0.32)
 }
 
-function lookOnLeg(ctx, frame, progress) {
+function lookOnLeg(ctx: JourneyContext, frame: ReturnType<typeof frameForLeg>, progress: number) {
   const depart = smoothstep((progress - 0.60) / 0.40)
   const outboundLook = frame.target.clone()
     .add(frame.outbound.clone().multiplyScalar(frame.leg.pass * 3.5))
@@ -183,25 +195,25 @@ function lookOnLeg(ctx, frame, progress) {
   return v3(ctx).lerpVectors(frame.target, outboundLook, depart)
 }
 
-function phaseForProgress(progress) {
+function phaseForProgress(progress: number) {
   if (progress < 0.52) return 'approach'
   if (progress < 0.68) return 'periapsis burn'
   return 'departure'
 }
 
-function speedForLeg(index, progress) {
+function speedForLeg(index: number, progress: number) {
   const from = index > 0 ? FLYBY_PLAN[index - 1].speed : START_SPEED
   const to = FLYBY_PLAN[index].speed
   return lerpValue(from, to, smoothstep(progress))
 }
 
-function courseCorrectionFor(frame) {
+function courseCorrectionFor(frame: ReturnType<typeof frameForLeg>) {
   const dot = Math.min(1, Math.max(-1, frame.inbound.dot(frame.outbound)))
   return Math.acos(dot) * 180 / Math.PI
 }
 
-export function setupJourney(ctx) {
-  ctx._journey = {
+export function setupJourney(ctx: JourneyContext): JourneyState {
+  return ctx._journey = {
     time: 0,
     playing: false,
     done: false,
@@ -217,16 +229,16 @@ export function setupJourney(ctx) {
   }
 }
 
-export function startJourney(ctx) {
-  if (!ctx._journey) setupJourney(ctx)
-  ctx._journey.time = 0
-  ctx._journey.playing = true
-  ctx._journey.done = false
-  ctx._journey.phase = 'solar departure'
-  ctx._journey.speed = START_SPEED
+export function startJourney(ctx: JourneyContext) {
+  const journey = ctx._journey ?? setupJourney(ctx)
+  journey.time = 0
+  journey.playing = true
+  journey.done = false
+  journey.phase = 'solar departure'
+  journey.speed = START_SPEED
 }
 
-export function updateJourney(ctx, dt) {
+export function updateJourney(ctx: JourneyContext, dt: number) {
   const j = ctx._journey
   if (!j || !j.playing || j.done) return
 
@@ -265,21 +277,21 @@ export function updateJourney(ctx, dt) {
   }
 }
 
-export function journeyProgress(ctx) {
+export function journeyProgress(ctx: JourneyContext) {
   if (!ctx._journey) return 0
   return Math.min(1, ctx._journey.time / TOTAL_DURATION)
 }
 
-export function journeyDone(ctx) {
+export function journeyDone(ctx: JourneyContext) {
   return ctx._journey ? ctx._journey.done : false
 }
 
-export function currentPlanet(ctx) {
+export function currentPlanet(ctx: JourneyContext) {
   if (!ctx._journey) return null
   return ctx._journey.currentTarget ?? null
 }
 
-export function journeyStatus(ctx) {
+export function journeyStatus(ctx: JourneyContext) {
   if (!ctx._journey) return null
   const j = ctx._journey
   return {

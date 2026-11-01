@@ -12,6 +12,22 @@
 //   teardownAudio(ctx)   — call when the tab goes hidden / package unloads
 
 import * as Tone from 'tone'
+import type * as Three from 'three'
+import type { ArtlabContext } from '../../src/runtime/contracts.ts'
+
+export type SolarAudioContext = Pick<ArtlabContext, 'camera' | 'setBloom'> & {
+  _audio?: {
+    pads: Record<string, Tone.PolySynth<Tone.AMSynth>>;
+    padVolumes: Record<string, Tone.Volume>;
+    drone: Tone.Synth; droneVol: Tone.Volume; reverb: Tone.Reverb;
+    delay: Tone.FeedbackDelay; master: Tone.Volume; analyser: Tone.Analyser;
+    _padPlaying: Record<string, boolean>; _lfoPhase: number;
+  } | null;
+  _bloomStrength?: number;
+  _sunMesh?: Three.Mesh<Three.BufferGeometry, Three.MeshStandardMaterial>;
+  _stars?: Three.Points<Three.BufferGeometry, Three.PointsMaterial>;
+  _planets?: Record<string, { position: Three.Vector3 }>;
+}
 
 // Distance thresholds for proximity-triggered note on/off
 const NEAR_DIST = 60
@@ -31,13 +47,13 @@ const PLANET_NOTES = {
 
 // Shared AMSynth options — soft, evolving pad character
 const PAD_SYNTH_OPTIONS = {
-  oscillator:         { type: 'sine' },
+  oscillator:         { type: 'sine' as const },
   envelope:           { attack: 3.0, decay: 0, sustain: 1.0, release: 6.0 },
-  modulation:         { type: 'sine' },
+  modulation:         { type: 'sine' as const },
   modulationEnvelope: { attack: 4.0, decay: 0, sustain: 0.8, release: 8.0 },
 }
 
-export async function setupAudio(ctx) {
+export async function setupAudio(ctx: SolarAudioContext) {
   try {
     // Must be called from a user gesture — Tone.start() unlocks the AudioContext
     await Tone.start()
@@ -64,8 +80,8 @@ export async function setupAudio(ctx) {
     master.connect(analyser)
 
     // ── Per-planet pads ───────────────────────────────────────────────────────
-    const pads       = {}
-    const padVolumes = {}
+    const pads: Record<string, Tone.PolySynth<Tone.AMSynth>> = {}
+    const padVolumes: Record<string, Tone.Volume> = {}
 
     for (const [name] of Object.entries(PLANET_NOTES)) {
       const vol = new Tone.Volume(-Infinity)   // silent until camera is near
@@ -106,13 +122,14 @@ export async function setupAudio(ctx) {
   }
 }
 
-export function updateAudio(ctx, dt) {
+export function updateAudio(ctx: SolarAudioContext, dt: number) {
   const a = ctx._audio
   if (!a) return
 
   // ── FFT analysis ─────────────────────────────────────────────────────────
   // getValue() returns Float32Array of dB values (roughly -120 to 0)
   const fft      = a.analyser.getValue()
+  if (!(fft instanceof Float32Array)) return
   const binCount = fft.length
 
   // Bin ranges matching the spec
@@ -165,7 +182,7 @@ export function updateAudio(ctx, dt) {
         vol.volume.rampTo(-6, 2)
       } else if (dist > FAR_DIST && a._padPlaying[name]) {
         // Camera left proximity — release the pad
-        pad.triggerRelease(Tone.now())
+        pad.triggerRelease(note, Tone.now())
         a._padPlaying[name] = false
         vol.volume.rampTo(-Infinity, 4)
       } else if (dist >= NEAR_DIST && dist <= FAR_DIST && a._padPlaying[name]) {
@@ -183,7 +200,7 @@ export function updateAudio(ctx, dt) {
   a.master.volume.rampTo(-12 + lfoDb, 0.5)
 }
 
-export function teardownAudio(ctx) {
+export function teardownAudio(ctx: SolarAudioContext) {
   const a = ctx._audio
   if (!a) return
 
@@ -191,7 +208,7 @@ export function teardownAudio(ctx) {
     // Release and dispose every pad
     for (const [name, pad] of Object.entries(a.pads)) {
       try {
-        if (a._padPlaying[name]) pad.triggerRelease(Tone.now())
+        if (a._padPlaying[name]) pad.releaseAll(Tone.now())
         pad.dispose()
       } catch (_) { /* ignore disposal errors on already-stopped nodes */ }
     }
@@ -216,7 +233,8 @@ export function teardownAudio(ctx) {
 
     // Stop transport and close the AudioContext
     Tone.Transport.stop()
-    Tone.context.close()
+    const context = Tone.context
+    if ('close' in context && typeof context.close === 'function') void context.close()
   } catch (e) {
     console.warn('Audio teardown error:', e)
   } finally {

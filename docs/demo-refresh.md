@@ -129,10 +129,11 @@ Monaco still suppresses semantic diagnostics, and ModuleCompiler transpiles
 TypeScript rather than constructing a fully typechecked browser program. The
 strict CI gate now checks the runtime context, scene components, renderers,
 physics backends, assets, audio/video/UI libraries, compiler and preview hosts,
-CLI, and 52 of the 55 canonical demo entry graphs. The three remaining demo
-graphs are Long Winter, Signal Salvage, and Solar System. The IDE coordinator,
-an unused legacy particle helper, and most test implementations also remain
-outside the strict project. `tsconfig.transpile.json` still uses `noCheck` for
+CLI, and 53 of the 55 canonical demo entry graphs. The two remaining demo
+graphs are Long Winter and Signal Salvage. The IDE coordinator and most test
+implementations also remain outside the strict project. The shared test context
+and Solar System audio and camera journey tests are checked by `tsconfig.tests.json`.
+`tsconfig.transpile.json` still uses `noCheck` for
 the whole-repository syntax pass; this is an unfinished semantic migration,
 not whole-repository type safety. An editor diagnostics service using the
 shared contracts remains a separate improvement.

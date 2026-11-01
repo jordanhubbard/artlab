@@ -1,6 +1,7 @@
 // @vitest-environment jsdom
 import { describe, it, expect, vi } from 'vitest'
 import * as Three from 'three'
+import { makeContext } from '../../tests/context.ts'
 import {
   FLYBY_TARGETS,
   setupJourney,
@@ -9,7 +10,7 @@ import {
   journeyStatus,
 } from './camera-journey.ts'
 
-const PLANET_POSITIONS = {
+const PLANET_POSITIONS: Record<string, [number, number, number]> = {
   mercury: [38, 0, 4],
   venus: [70, 0, -18],
   earth: [98, 0, 14],
@@ -21,21 +22,13 @@ const PLANET_POSITIONS = {
 }
 
 function makeCtx() {
-  const planets = {}
+  const planets: Record<string, { position: Three.Vector3 }> = {}
   for (const [name, pos] of Object.entries(PLANET_POSITIONS)) {
     planets[name] = { position: new Three.Vector3(...pos) }
   }
-  return {
-    Three,
-    _planets: planets,
-    camera: {
-      position: new Three.Vector3(),
-      lookAt: vi.fn(),
-    },
-    controls: {
-      target: new Three.Vector3(),
-    },
-  }
+  const ctx = Object.assign(makeContext(), { _planets: planets })
+  vi.spyOn(ctx.camera, 'lookAt')
+  return ctx
 }
 
 describe('solar-system camera journey', () => {
@@ -77,10 +70,12 @@ describe('solar-system camera journey', () => {
     startJourney(ctx)
 
     updateJourney(ctx, 1)
-    const initial = journeyStatus(ctx).speed
+    const initial = journeyStatus(ctx)
+    if (!initial) throw new Error('Journey status unavailable after setup')
     for (let i = 0; i < 8; i++) updateJourney(ctx, 18)
-    const later = journeyStatus(ctx).speed
+    const later = journeyStatus(ctx)
+    if (!later) throw new Error('Journey status unavailable after update')
 
-    expect(later).toBeGreaterThan(initial)
+    expect(later.speed).toBeGreaterThan(initial.speed)
   })
 })

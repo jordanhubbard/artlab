@@ -8,6 +8,31 @@
 import { setupJourney, startJourney, updateJourney, journeyDone, journeyStatus } from './camera-journey.ts'
 import { setupAudio, updateAudio, teardownAudio } from './audio.ts'
 import { meanAnomaly, keplerPosition } from '../../src/physics/Physics.ts'
+import type * as ThreeTypes from 'three'
+import type { CSS2DObject as LabelObject } from 'three/addons/renderers/CSS2DRenderer.js'
+import type { JourneyContext } from './camera-journey.ts'
+import type { SolarAudioContext } from './audio.ts'
+
+type PlanetName = typeof PLANET_ORDER[number]
+interface PlanetData {
+  a: number; T: number; e: number; r: number; tilt: number; rot: number; color: number; tex: string;
+  atm?: [number, number, number]; clouds?: string; night?: string; rings?: boolean;
+}
+type SolarContext = JourneyContext & SolarAudioContext & {
+  _planets: Record<string, ThreeTypes.Group>;
+  _lodRoots: Record<string, ThreeTypes.LOD>;
+  _orbitLines: ThreeTypes.Line[];
+  _labelDivs: { div: HTMLDivElement; name: PlanetName }[];
+  _pickMeshes: { m: ThreeTypes.Mesh; name: PlanetName }[];
+  _earthClouds?: ThreeTypes.Mesh;
+  _moonGroup: ThreeTypes.Group; _belt: ThreeTypes.InstancedMesh;
+  _beltAngles: Float32Array; _beltRadii: Float32Array; _beltYs: Float32Array;
+  _beltScales: Float32Array; _beltRots: Float32Array; _beltDummy: ThreeTypes.Object3D; _beltN: number;
+  _orbitVisible: boolean; _onKey: (event: KeyboardEvent) => void; _onClick: (event: MouseEvent) => void;
+  _ssHint: HTMLDivElement; _ssMissionHud: HTMLDivElement;
+  _focusTween?: { fromPos: ThreeTypes.Vector3; fromLook: ThreeTypes.Vector3;
+    toPos: ThreeTypes.Vector3; toLook: ThreeTypes.Vector3; t: number; dur: number } | null;
+}
 
 // ── Constants ──────────────────────────────────────────────────────────────────
 const AU   = 100          // 1 AU → Three.js units
@@ -35,7 +60,7 @@ export const TEXTURES = Object.freeze({
 })
 
 // ── Planet catalogue ───────────────────────────────────────────────────────────
-const PLANETS = {
+const PLANETS: Record<PlanetName, PlanetData> = {
   mercury: { a: 0.387, T: 0.241,  e: 0.206, r: 0.383,  tilt:   0.03, rot:   58.6,  color: 0x9e9e9e, tex: TEXTURES.mercury },
   venus:   { a: 0.723, T: 0.615,  e: 0.007, r: 0.949,  tilt: 177.4,  rot: -243,    color: 0xe8c870, tex: TEXTURES.venusSurface,             atm: [1.0, 0.85, 0.50], clouds: TEXTURES.venusClouds },
   earth:   { a: 1.000, T: 1.000,  e: 0.017, r: 1.000,  tilt:  23.44, rot:    1.0,  color: 0x2255aa, tex: TEXTURES.earthDay,                 atm: [0.3, 0.6,  1.0 ], clouds: TEXTURES.earthClouds, night: TEXTURES.earthNight },
@@ -45,7 +70,7 @@ const PLANETS = {
   uranus:  { a: 19.19, T: 84.01,  e: 0.046, r: 4.007,  tilt:  97.77, rot:   -0.718,color: 0x7de8e8, tex: TEXTURES.uranus,                  atm: [0.5, 0.9,  0.9 ] },
   neptune: { a: 30.07, T: 164.8,  e: 0.010, r: 3.883,  tilt:  28.32, rot:    0.671,color: 0x3f54ba, tex: TEXTURES.neptune,                atm: [0.2, 0.4,  1.0 ] },
 }
-const PLANET_ORDER = ['mercury','venus','earth','mars','jupiter','saturn','uranus','neptune']
+const PLANET_ORDER = ['mercury','venus','earth','mars','jupiter','saturn','uranus','neptune'] as const
 
 // ── Atmosphere shaders (inline — no external file deps needed) ─────────────────
 const ATM_VERT = /* glsl */`
@@ -74,24 +99,24 @@ const ATM_FRAG = /* glsl */`
 // ── Helpers ────────────────────────────────────────────────────────────────────
 
 /** Resolve a package-relative texture path to a URL that works in Vite dev/prod. */
-function assetURL(rel) {
+function assetURL(rel: string) {
   return new URL(`./assets/textures/${rel}`, import.meta.url).href
 }
 
-function loadTex(Three, rel) {
+function loadTex(Three: typeof ThreeTypes, rel: string) {
   const t = new Three.TextureLoader().load(assetURL(rel))
   t.colorSpace = Three.SRGBColorSpace
   return t
 }
 
-function makeAtmosphere(Three, parent, r, rgb) {
+function makeAtmosphere(Three: typeof ThreeTypes, parent: ThreeTypes.Object3D, r: number, rgb: [number, number, number]) {
   const geo  = new Three.SphereGeometry(r * 1.025, 48, 48)
   const unif = {
     uColor:    { value: new Three.Vector3(...rgb) },
     uStrength: { value: 1.0 },
     uOpacity:  { value: 0.9 },
   }
-  const mkMat = (side) => new Three.ShaderMaterial({
+  const mkMat = (side: ThreeTypes.Side) => new Three.ShaderMaterial({
     uniforms: unif, vertexShader: ATM_VERT, fragmentShader: ATM_FRAG,
     blending: Three.AdditiveBlending, transparent: true, depthWrite: false, side,
   })
@@ -99,7 +124,7 @@ function makeAtmosphere(Three, parent, r, rgb) {
   parent.add(new Three.Mesh(geo, mkMat(Three.FrontSide)))
 }
 
-function fixRingUVs(geo, innerR, outerR) {
+function fixRingUVs(geo: ThreeTypes.BufferGeometry, innerR: number, outerR: number) {
   const pos = geo.attributes.position, uv = geo.attributes.uv
   for (let i = 0; i < pos.count; i++) {
     const x = pos.getX(i), y = pos.getY(i)
@@ -108,19 +133,19 @@ function fixRingUVs(geo, innerR, outerR) {
   uv.needsUpdate = true
 }
 
-function easeInOut(t) {
+function easeInOut(t: number) {
   return t < 0.5 ? 2*t*t : -1 + (4 - 2*t)*t
 }
 
 // ── Setup ──────────────────────────────────────────────────────────────────────
 
-export async function setup(ctx) {
+export async function setup(ctx: SolarContext) {
   const { Three } = ctx
 
   ctx.setHelp('O: toggle orbit lines   •   Begin Slingshot: Sun-to-Pluto gravity-assist fly-by   •   Click a planet to focus')
 
   // CSS2DObject — dynamic import so the package degrades gracefully in blob-URL contexts
-  let CSS2DObject = null
+  let CSS2DObject: typeof LabelObject | null = null
   try {
     const m = await import('three/addons/renderers/CSS2DRenderer.js')
     CSS2DObject = m.CSS2DObject
@@ -170,7 +195,7 @@ export async function setup(ctx) {
   ctx._lodRoots   = {}  // name → LOD node (carries self-rotation)
   ctx._orbitLines = []
   ctx._labelDivs  = []  // [{ div, name }] for opacity fade
-  const pickMeshes = [] // [{ m, name }] for raycasting
+  const pickMeshes: SolarContext['_pickMeshes'] = []
 
   for (const name of PLANET_ORDER) {
     const d = PLANETS[name]
@@ -187,14 +212,14 @@ export async function setup(ctx) {
     orbit.add(tilted)
 
     // Planet sphere with LOD
-    const materialOptions = { map: loadTex(Three, d.tex), roughness: 0.85 }
+    const materialOptions: ThreeTypes.MeshStandardMaterialParameters = { map: loadTex(Three, d.tex), roughness: 0.85 }
     if (d.night) {
       materialOptions.emissive = new Three.Color(0xffffff)
       materialOptions.emissiveMap = loadTex(Three, d.night)
       materialOptions.emissiveIntensity = 0.35
     }
     const mat = new Three.MeshStandardMaterial(materialOptions)
-    const mkSphere = (segs) => {
+    const mkSphere = (segs: number) => {
       const m = new Three.Mesh(new Three.SphereGeometry(r, segs, Math.round(segs / 2)), mat)
       m.castShadow = m.receiveShadow = true
       return m
@@ -206,7 +231,7 @@ export async function setup(ctx) {
     lod.addLevel(mkSphere(16),  3000)
     tilted.add(lod)
     ctx._lodRoots[name] = lod
-    lod.children.forEach(c => { if (c.isMesh) pickMeshes.push({ m: c, name }) })
+    lod.children.forEach(c => { if (c instanceof Three.Mesh) pickMeshes.push({ m: c, name }) })
 
     // Cloud layers
     if (d.clouds) {
@@ -332,8 +357,9 @@ export async function setup(ctx) {
 
   // Navigation hint — drag/zoom/click instructions in bottom-left
   const _btnContainer = ctx.renderer.domElement.parentElement
+  if (!_btnContainer) throw new Error('Solar System requires a canvas container')
   _btnContainer.style.position = 'relative'
-  let hint = _btnContainer.querySelector('#ss-nav-hint')
+  let hint = _btnContainer.querySelector<HTMLDivElement>('#ss-nav-hint')
   if (!hint) {
     hint = document.createElement('div')
     hint.id = 'ss-nav-hint'
@@ -346,7 +372,7 @@ export async function setup(ctx) {
   }
   ctx._ssHint = hint
 
-  let hud = _btnContainer.querySelector('#ss-mission-hud')
+  let hud = _btnContainer.querySelector<HTMLDivElement>('#ss-mission-hud')
   if (!hud) {
     hud = document.createElement('div')
     hud.id = 'ss-mission-hud'
@@ -362,7 +388,7 @@ export async function setup(ctx) {
   _updateMissionHud(ctx)
 
   // Begin Slingshot button — bottom-centre of canvas container
-  let btn = _btnContainer.querySelector('#start-btn')
+  let btn = _btnContainer.querySelector<HTMLButtonElement>('#start-btn')
   if (!btn) {
     btn = document.createElement('button')
     btn.id = 'start-btn'
@@ -375,9 +401,10 @@ export async function setup(ctx) {
     _btnContainer.appendChild(btn)
   }
   btn.textContent = 'Begin Slingshot'
+  const startButton = btn
   btn.style.display = 'block'
   btn.addEventListener('click', () => {
-    btn.remove()
+    startButton.remove()
     setupAudio(ctx)
     startJourney(ctx)
     _updateMissionHud(ctx)
@@ -386,7 +413,7 @@ export async function setup(ctx) {
 
 // ── Update ─────────────────────────────────────────────────────────────────────
 
-export function update(ctx, dt) {
+export function update(ctx: SolarContext, dt: number) {
   if (!ctx._planets) return   // async setup() still in progress
 
   const { Three } = ctx
@@ -462,18 +489,18 @@ export function update(ctx, dt) {
     for (const { div, name } of ctx._labelDivs) {
       const r    = PLANETS[name].r * PS
       const dist = cam.distanceTo(ctx._planets[name].position)
-      div.style.opacity = Three.MathUtils.clamp((dist - r * 0.5) / (r * 1.5), 0, 1)
+      div.style.opacity = String(Three.MathUtils.clamp((dist - r * 0.5) / (r * 1.5), 0, 1))
     }
   }
 }
 
 // ── Teardown ───────────────────────────────────────────────────────────────────
 
-export function teardown(ctx) {
+export function teardown(ctx: SolarContext) {
   teardownAudio(ctx)
   if (ctx._onKey)   window.removeEventListener('keydown', ctx._onKey)
   if (ctx._onClick) ctx.renderer?.domElement.removeEventListener('click', ctx._onClick)
-  ctx.renderer?.domElement.parentElement.querySelector('#start-btn')?.remove()
+  ctx.renderer?.domElement.parentElement?.querySelector('#start-btn')?.remove()
   ctx._ssHint?.remove()
   ctx._ssMissionHud?.remove()
   // Label divs live in the CSS2D overlay, not the scene graph, so detaching the
@@ -484,7 +511,7 @@ export function teardown(ctx) {
 
 // ── Private ────────────────────────────────────────────────────────────────────
 
-function _startFocus(ctx, name) {
+function _startFocus(ctx: SolarContext, name: PlanetName) {
   if (ctx._journey?.playing) return
   const r = PLANETS[name].r * PS
   const planetPos = ctx._planets[name].position.clone()
@@ -498,7 +525,7 @@ function _startFocus(ctx, name) {
   ctx.controls.enabled = false
 }
 
-function _updateMissionHud(ctx) {
+function _updateMissionHud(ctx: SolarContext) {
   const hud = ctx._ssMissionHud
   if (!hud) return
 

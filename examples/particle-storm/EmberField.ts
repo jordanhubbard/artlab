@@ -1,11 +1,15 @@
 import * as Three from 'three'
 import { InstanceField } from '../../src/stdlib/scene/InstanceField.ts'
 
-function randVel(seed) {
+interface Ember {
+  position: Three.Vector3; vx: number; vy: number; vz: number; seed: number;
+}
+
+function randVel(seed: number) {
   return Math.sin(seed * 127.1 + 311.7) * Math.cos(seed * 269.5 + 183.3);
 }
 
-function fireColor(dist, radius) {
+function fireColor(dist: number, radius: number) {
   const t = Math.min(1, Math.max(0, dist / radius));
   let r, g, b;
   if (t < 0.3) {
@@ -24,7 +28,7 @@ function fireColor(dist, radius) {
   return (ri << 16) | (gi << 8) | bi;
 }
 
-function spawn(p, seed) {
+function spawn(p: Ember, seed: number) {
   let vx = randVel(seed);
   let vy = randVel(seed + 1);
   let vz = randVel(seed + 2);
@@ -45,18 +49,20 @@ function spawn(p, seed) {
 
 
 export class EmberField extends InstanceField {
+  readonly radius: number
+  readonly particles: Ember[]
   constructor({ count = 500, radius = 8 } = {}) {
     super(count, new Three.SphereGeometry(0.06, 4, 4), new Three.MeshBasicMaterial({ color: 0xffffff }))
     this.radius = radius
     this.particles = Array.from({ length: count }, (_, i) => {
-      const particle = { position: new Three.Vector3() }
+      const particle: Ember = { position: new Three.Vector3(), vx: 0, vy: 0, vz: 0, seed: 0 }
       spawn(particle, i * 7 + 1)
       return particle
     })
     this.update(0, 0)
   }
 
-  update(dt, elapsed) {
+  update(dt: number, elapsed: number) {
     const spin = 0.6 * dt
     const cos = Math.cos(spin), sin = Math.sin(spin)
     for (let i = 0; i < this.count; i++) {

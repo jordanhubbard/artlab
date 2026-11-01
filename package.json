@@ -17,7 +17,7 @@
     "test:watch": "vitest",
     "build:artlab": "BASE_URL=/artlab/ vite build",
     "test:e2e": "npm run build:artlab && playwright test",
-    "typecheck": "npm run check:typescript && tsc --noEmit && tsc -p tsconfig.transpile.json",
+    "typecheck": "npm run check:typescript && tsc --noEmit && tsc -p tsconfig.tests.json && tsc -p tsconfig.transpile.json",
     "check:typescript": "test -z \"$(git ls-files '*.js')\" && ! grep -R '\"entry\".*\\.js' examples/*/artlab.json"
   },
   "dependencies": {
