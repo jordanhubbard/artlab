@@ -18,6 +18,17 @@ import { Vector3 }          from 'three'
 import { AudioEngine }      from '../audio/AudioEngine.ts'
 import { FFTPipeline }      from '../audio/FFTPipeline.ts'
 import { AudioAssetLoader } from '../assets/AudioAssetLoader.ts'
+import type { Object3D } from 'three'
+import type { Frequency, Time, Subdivision } from 'tone/build/esm/core/type/Units'
+export interface PadOptions { note?: Frequency; type?: Exclude<Tone.ToneOscillatorType, 'custom'>; reverb?: boolean }
+export interface SpatialOptions {
+  refDistance?: number; maxDistance?: number; rolloffFactor?: number
+  panningModel?: PanningModelType; distanceModel?: DistanceModelType
+}
+export interface SequencerOptions {
+  notes?: string[]; subdivision?: Subdivision; bpm?: number
+  onStep?(note: string, index: number): void
+}
 
 // ---------------------------------------------------------------------------
 // Module-level singletons — shared across DSL modules within a scene
@@ -30,12 +41,12 @@ export const engine = AudioEngine.getInstance ? AudioEngine.getInstance() : new 
 export const fft = new FFTPipeline()
 
 // Internal asset loader — created lazily after start() resolves.
-let _assetLoader = null
+let _assetLoader: AudioAssetLoader | null = null
 
 // Microphone handle (Tone.UserMedia) — created on start(), closed on stop().
 // Tapped directly into the FFT so mic audio drives band analysis without
 // routing to the speakers (which would feed back).
-let _mic = null
+let _mic: Tone.UserMedia | null = null
 
 // ---------------------------------------------------------------------------
 // Lifecycle
@@ -61,7 +72,7 @@ export async function start() {
       fft.connectInput(_mic)
     }
   } catch (e) {
-    console.info('[audio] microphone unavailable:', e?.message || e)
+    console.info('[audio] microphone unavailable:', e instanceof Error ? e.message : e)
     _mic = null
   }
 
@@ -119,7 +130,7 @@ export function update() {
     bass: d.bass,
     mid:  d.mid,
     high: d.treble,   // 'high' is the public alias for the treble band
-    raw:  d.raw ?? null,
+    raw:  fft.rawData ?? null,
   }
 }
 
@@ -134,7 +145,7 @@ export function update() {
  * @param {'bass'|'mid'|'high'|'treble'} name
  * @returns {number}
  */
-export function band(name) {
+export function band(name: 'bass' | 'mid' | 'high' | 'treble') {
   const d = fft.data
   if (!d) return 0
   // Accept both 'high' (public DSL name) and 'treble' (internal FFTPipeline name).
@@ -157,7 +168,7 @@ export function band(name) {
  * @param {number}  [options.detune=0]    cents
  * @returns {Promise<AudioBufferSourceNode>}
  */
-export async function play(src, options = {}) {
+export async function play(src: string, options: { volume?: number; loop?: boolean; detune?: number } = {}) {
   const { volume = 1, loop = false, detune = 0 } = options
 
   if (!_assetLoader) {
@@ -169,11 +180,12 @@ export async function play(src, options = {}) {
   // Route through the Tone.js master chain when available; fall back to the
   // raw AudioContext destination so the master effects still apply.
   const ctx  = engine.audioContext
+  if (!ctx) throw new Error('[artlab/audio] audio context is unavailable')
   const dest = engine.Tone
     ? (engine.Tone.getDestination?.()?.input ?? ctx.destination)
     : ctx.destination
 
-  return _assetLoader.playOnce(buffer, dest, { volume, loop, detune })
+  return _assetLoader.playOnce(buffer, gain => Tone.connect(gain, dest), { volume, loop, detune })
 }
 
 // ---------------------------------------------------------------------------
@@ -190,7 +202,7 @@ export async function play(src, options = {}) {
  * @param {boolean} [options.reverb=true]      connect through engine reverb chain
  * @returns {{ setVolume: (db: number) => void, dispose: () => void }}
  */
-export function pad(options = {}) {
+export function pad(options: PadOptions = {}) {
   const { note = 'C3', type = 'sine', reverb = true } = options
 
   const Tone = engine.Tone
@@ -199,7 +211,7 @@ export function pad(options = {}) {
   if (!Tone) {
     console.warn('[artlab/audio] pad() called before start() — returning no-op handle')
     return {
-      setVolume(_db) {},
+      setVolume(_db: number) {},
       dispose()     {},
     }
   }
@@ -208,7 +220,7 @@ export function pad(options = {}) {
   const synth = new Tone.FMSynth({
     harmonicity:     2.5,
     modulationIndex: 10,
-    oscillator:         { type },
+    oscillator: type === 'sine' || type === 'square' || type === 'sawtooth' || type === 'triangle' ? { type } : { type },
     envelope:           { attack: 4, decay: 2, sustain: 0.85, release: 8 },
     modulation:         { type: 'triangle' },
     modulationEnvelope: { attack: 6, decay: 1, sustain: 0.9, release: 8 },
@@ -231,7 +243,7 @@ export function pad(options = {}) {
      * Use -Infinity to silence, 0 for unity, positive values to boost.
      * @param {number} db
      */
-    setVolume(db) {
+    setVolume(db: number) {
       vol.volume.rampTo(db, 1.5)
     },
 
@@ -264,7 +276,7 @@ export function pad(options = {}) {
  * @param {string}     [options.distanceModel='inverse'] Web Audio distance model
  * @returns {{ update: (obj: Three.Object3D) => void, disconnect: () => void }}
  */
-export function spatialize(audioNode, options = {}) {
+export function spatialize(audioNode: AudioNode, options: SpatialOptions = {}) {
   const {
     refDistance    = 1,
     maxDistance    = 10_000,
@@ -278,7 +290,7 @@ export function spatialize(audioNode, options = {}) {
   // If the AudioContext is not yet available, return a deferred handle that
   // wires up on the first update() call once audio has started.
   if (!ctx) {
-    let _panner = null
+    let _panner: PannerNode | null = null
     let _connected = false
 
     const ensurePanner = () => {
@@ -291,7 +303,7 @@ export function spatialize(audioNode, options = {}) {
     }
 
     return {
-      update(obj) {
+      update(obj: Object3D) {
         ensurePanner()
         if (_panner) _applyPosition(_panner, obj)
       },
@@ -314,7 +326,7 @@ export function spatialize(audioNode, options = {}) {
      * Update the PannerNode position from the Three.js object's world position.
      * @param {import('three').Object3D} obj
      */
-    update(obj) {
+    update(obj: Object3D) {
       _applyPosition(panner, obj)
     },
 
@@ -333,7 +345,7 @@ export function spatialize(audioNode, options = {}) {
 const _CHROMATIC = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B']
 
 export const NOTE_FREQ = (() => {
-  const table = {}
+  const table: Record<string, number> = {}
   for (let oct = 0; oct <= 8; oct++) {
     _CHROMATIC.forEach((note, i) => {
       const semitonesFromA4 = (oct - 4) * 12 + i - 9
@@ -368,7 +380,7 @@ const _SCALE_INTERVALS = {
  * @param {number} [startOctave=3] Starting octave number
  * @returns {string[]}  e.g. ['A3','C4','D4','E4','G4','A4',...]
  */
-export function scale(root, mode = 'minor', octaves = 2, startOctave = 3) {
+export function scale(root: string, mode: keyof typeof _SCALE_INTERVALS = 'minor', octaves = 2, startOctave = 3) {
   const intervals = _SCALE_INTERVALS[mode]
   if (!intervals) throw new Error(`[artlab/audio] Unknown scale mode: ${mode}`)
 
@@ -412,7 +424,7 @@ const _CHORD_INTERVALS = {
  * @param {string} [quality='min']  Chord quality
  * @returns {string[]}  e.g. ['A3','C4','E4']
  */
-export function chord(root, quality = 'min') {
+export function chord(root: string, quality: keyof typeof _CHORD_INTERVALS = 'min') {
   const intervals = _CHORD_INTERVALS[quality]
   if (!intervals) throw new Error(`[artlab/audio] Unknown chord quality: ${quality}`)
 
@@ -438,7 +450,7 @@ export function chord(root, quality = 'min') {
 // ---------------------------------------------------------------------------
 
 // Roman numeral → zero-based scale degree (supports upper and lower case)
-const _NUMERAL_DEGREE = { I: 0, II: 1, III: 2, IV: 3, V: 4, VI: 5, VII: 6 }
+const _NUMERAL_DEGREE: Record<string, number | undefined> = { I: 0, II: 1, III: 2, IV: 3, V: 4, VI: 5, VII: 6 }
 
 /**
  * Return a chord progression as arrays of note names.
@@ -448,7 +460,7 @@ const _NUMERAL_DEGREE = { I: 0, II: 1, III: 2, IV: 3, V: 4, VI: 5, VII: 6 }
  * @param {number} [octave=3]     Starting octave
  * @returns {string[][]}  Array of chord note arrays
  */
-export function progression(root, progressionStr, mode = 'minor', octave = 3) {
+export function progression(root: string, progressionStr: string, mode: keyof typeof _SCALE_INTERVALS = 'minor', octave = 3) {
   const scaleNotes = scale(root, mode, 1, octave)  // one-octave scale
   const numerals   = progressionStr.split('-')
 
@@ -469,7 +481,7 @@ export function progression(root, progressionStr, mode = 'minor', octave = 3) {
 // ---------------------------------------------------------------------------
 
 /** Create a Tone.Reverb with sensible ambient defaults. */
-export function reverb(opts = {}) {
+export function reverb(opts: { decay?: number; wet?: number; preDelay?: number } = {}) {
   const { decay = 4, wet = 0.5, preDelay = 0.01 } = opts
   const node = new Tone.Reverb({ decay, preDelay })
   node.wet.value = wet
@@ -477,13 +489,13 @@ export function reverb(opts = {}) {
 }
 
 /** Create a Tone.FeedbackDelay. */
-export function delay(opts = {}) {
+export function delay(opts: { delayTime?: Time; feedback?: number; wet?: number } = {}) {
   const { delayTime = '8n', feedback = 0.4, wet = 0.3 } = opts
   return new Tone.FeedbackDelay({ delayTime, feedback, wet })
 }
 
 /** Create a Tone.Chorus for thickening sounds. */
-export function chorus(opts = {}) {
+export function chorus(opts: { frequency?: number; delayTime?: number; depth?: number } = {}) {
   const { frequency = 1.5, delayTime = 3.5, depth = 0.7 } = opts
   return new Tone.Chorus({ frequency, delayTime, depth })
 }
@@ -503,7 +515,7 @@ export function chorus(opts = {}) {
  * @param {function} opts.onStep      Callback(note, index) called on each step
  * @returns {{ start(), stop(), setNotes(notes), setTempo(bpm), dispose() }}
  */
-export function sequencer(opts = {}) {
+export function sequencer(opts: SequencerOptions = {}) {
   const { notes: initialNotes = [], subdivision = '8n', bpm = 90, onStep } = opts
 
   let _notes = [...initialNotes]
@@ -527,13 +539,13 @@ export function sequencer(opts = {}) {
       seq.stop()
     },
     /** Replace the note pattern at runtime. */
-    setNotes(notes) {
+    setNotes(notes: string[]) {
       _notes  = [...notes]
       _index  = 0
       seq.events = _notes
     },
     /** Change the Transport tempo. */
-    setTempo(newBpm) {
+    setTempo(newBpm: number) {
       Tone.Transport.bpm.value = newBpm
     },
     /** Dispose the underlying Tone.Sequence. */
@@ -555,7 +567,7 @@ export function sequencer(opts = {}) {
  * @param {object} opts
  * @returns {PannerNode}
  */
-function _createPanner(ctx, audioNode, opts) {
+function _createPanner(ctx: BaseAudioContext, audioNode: AudioNode, opts: Required<SpatialOptions>) {
   const panner = ctx.createPanner()
 
   panner.panningModel   = opts.panningModel
@@ -570,7 +582,7 @@ function _createPanner(ctx, audioNode, opts) {
     : ctx.destination
 
   audioNode.connect(panner)
-  panner.connect(dest)
+  Tone.connect(panner, dest)
 
   return panner
 }
@@ -583,7 +595,7 @@ function _createPanner(ctx, audioNode, opts) {
  * @param {PannerNode} panner
  * @param {import('three').Object3D} obj
  */
-function _applyPosition(panner, obj) {
+function _applyPosition(panner: PannerNode, obj: Object3D) {
   // Compute world position (works even when the object has a parent transform).
   const pos = _worldPosition(obj)
 
@@ -608,7 +620,7 @@ const _scratchVec3 = new Vector3()
  * @param {import('three').Object3D} obj
  * @returns {Vector3}
  */
-function _worldPosition(obj) {
+function _worldPosition(obj: Object3D) {
   if (typeof obj.getWorldPosition === 'function') {
     return obj.getWorldPosition(_scratchVec3)
   }

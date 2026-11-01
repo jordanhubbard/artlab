@@ -8,6 +8,7 @@ import { PhysicsComposer } from '../src/physics/PhysicsComposer.ts'
 import { hud, label, progressBar, tooltip } from '../src/stdlib/ui.ts'
 import type { AudioEventSink } from '../src/audio/FFTPipeline.ts'
 import { emitter, forceField } from '../src/stdlib/physics/particles.ts'
+import { scale, chord, pad, sequencer, delay } from '../src/stdlib/audio.ts'
 
 type State = { speed: number }
 const sketch: Sketch<State> = {
@@ -90,3 +91,13 @@ forceField(emitters, particleHandle.emitterId, { x: 0, y: 0, z: 0 }, 2, { x: 1, 
 forceField(emitters, particleHandle.emitterId, new Vector3(), 2, { x: 1 })
 // @ts-expect-error Emitters require numeric lifetimes.
 emitter(emitters, ctx.scene, { lifetime: 'forever' })
+
+scale('A', 'dorian', 2)
+chord('C3', 'maj7')
+pad({ note: 'A3', type: 'sine' }).setVolume(-12)
+delay({ delayTime: '8n', feedback: 0.3 })
+sequencer({ notes: ['C3', 'E3'], onStep(note, index) { void note.toUpperCase(); void index.toFixed() } })
+// @ts-expect-error Scale modes are the supported interval tables.
+scale('A', 'made-up')
+// @ts-expect-error Sequencer tempo is numeric.
+sequencer({ bpm: 'fast' })

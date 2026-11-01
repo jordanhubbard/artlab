@@ -63,7 +63,7 @@ export class AudioAssetLoader {
    * @param {boolean} [opts.loop=false]
    * @returns {AudioBufferSourceNode}
    */
-  playOnce(buffer: AudioBuffer, destination: AudioNode | null = null, { volume = 1, detune = 0, offset = 0, loop = false }: PlaybackOptions = {}): AudioBufferSourceNode {
+  playOnce(buffer: AudioBuffer, destination: AudioNode | ((gain: GainNode) => void) | null = null, { volume = 1, detune = 0, offset = 0, loop = false }: PlaybackOptions = {}): AudioBufferSourceNode {
     const source = this._ctx.createBufferSource()
     const gain   = this._ctx.createGain()
 
@@ -74,7 +74,8 @@ export class AudioAssetLoader {
     gain.gain.value = volume
 
     source.connect(gain)
-    gain.connect(destination ?? this._ctx.destination)
+    if (typeof destination === 'function') destination(gain)
+    else gain.connect(destination ?? this._ctx.destination)
     source.start(0, offset)
 
     return source

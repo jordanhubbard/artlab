@@ -29,6 +29,8 @@ export class FFTPipeline {
   private _beatCooldownFrames = 8
   private _prevBass = 0
   private _prevMid = 0
+  private _rawData: Float32Array | null = null
+  get rawData() { return this._rawData }
   /**
    * @param {import('../runtime/EventBus.ts').EventBus|null} [eventBus]
    */
@@ -96,6 +98,7 @@ export class FFTPipeline {
 
     try {
       const values = this._fft.getValue()   // Float32Array of dB values
+      this._rawData = values
 
       // Convert dB → linear (0..1), then average frequency bands.
       // 512 bins, Nyquist ~22050 Hz → each bin ≈ 43 Hz
@@ -140,6 +143,7 @@ export class FFTPipeline {
     try { this._meter?.dispose() } catch (_) {}
     this._fft   = null
     this._meter = null
+    this._rawData = null
     this.data   = { bass: 0, mid: 0, treble: 0, amplitude: 0 }
     console.info('[audio] FFTPipeline disposed')
   }

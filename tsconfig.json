@@ -17,6 +17,7 @@
     "src/stdlib/scene.ts", "src/stdlib/media.ts",
     "src/stdlib/video.ts",
     "src/stdlib/ui.ts",
+    "src/stdlib/audio.ts",
     "examples/cloth-sim/cloth-sim.ts", "examples/n-body-gravity/n-body-gravity.ts",
     "examples/mobius-strip/mobius-strip.ts", "examples/recursive-spirals/recursive-spirals.ts", "examples/penrose-tiles/penrose-tiles.ts",
     "examples/terrain-flyover/terrain-flyover.ts",
