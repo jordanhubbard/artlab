@@ -1,14 +1,17 @@
 // reaction-diffusion.js — Gray-Scott reaction-diffusion simulation on a rotating sphere
 import * as THREE from 'three'
+import type { ArtlabContext } from '../../src/runtime/contracts'
 
 const W = 256, H = 256, N = W * H
 const STEPS_PER_FRAME = 8
 // Classic coral/maze parameters
 const Du = 0.16, Dv = 0.08, F = 0.055, K = 0.062
 
-let _sphere, _texture, _canvas, _ctx2d, _imageData
-let _ambient, _prevBg
-let _U, _V, _nextU, _nextV
+let _sphere: THREE.Mesh<THREE.SphereGeometry, THREE.MeshStandardMaterial>
+let _texture: THREE.CanvasTexture, _canvas: HTMLCanvasElement
+let _ctx2d: CanvasRenderingContext2D, _imageData: ImageData
+let _ambient: THREE.AmbientLight, _prevBg: THREE.Scene['background']
+let _U: Float32Array, _V: Float32Array, _nextU: Float32Array, _nextV: Float32Array
 
 function initGrid() {
   _U = new Float32Array(N).fill(1.0)
@@ -76,7 +79,7 @@ function paintCanvas() {
   _ctx2d.putImageData(_imageData, 0, 0)
 }
 
-export async function setup(ctx) {
+export async function setup(ctx: ArtlabContext) {
   _prevBg = ctx.scene.background
   ctx.scene.background = new THREE.Color(0x020408)
 
@@ -90,7 +93,9 @@ export async function setup(ctx) {
   _canvas = document.createElement('canvas')
   _canvas.width = W
   _canvas.height = H
-  _ctx2d = _canvas.getContext('2d')
+  const context = _canvas.getContext('2d')
+  if (!context) throw new Error('Reaction Diffusion requires a 2D canvas context')
+  _ctx2d = context
   _imageData = _ctx2d.createImageData(W, H)
 
   initGrid()
@@ -109,14 +114,14 @@ export async function setup(ctx) {
   ctx.add(_sphere)
 }
 
-export function update(ctx, dt) {  // eslint-disable-line no-unused-vars
+export function update(ctx: ArtlabContext, dt: number) {  // eslint-disable-line no-unused-vars
   for (let s = 0; s < STEPS_PER_FRAME; s++) stepGrid()
   paintCanvas()
   _texture.needsUpdate = true
   _sphere.rotation.y += dt * 0.18
 }
 
-export function teardown(ctx) {
+export function teardown(ctx: ArtlabContext) {
   ctx.remove(_sphere)
   ctx.remove(_ambient)
   _sphere.geometry.dispose()

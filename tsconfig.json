@@ -17,6 +17,8 @@
     "src/stdlib/scene.ts", "src/stdlib/media.ts",
     "src/stdlib/video.ts",
     "src/stdlib/ui.ts",
+    "examples/cloth-sim/cloth-sim.ts", "examples/n-body-gravity/n-body-gravity.ts",
+    "examples/strange-attractor/strange-attractor.ts", "examples/reaction-diffusion/reaction-diffusion.ts",
     "src/stdlib/physics/particles.ts", "examples/force-field-playground/force-field-playground.ts",
     "examples/clock-3d/clock-3d.ts", "examples/clock-kinetic/clock-kinetic.ts",
     "examples/particle-storm/particle-storm.ts",

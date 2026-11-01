@@ -1,5 +1,13 @@
 // cloth-sim — Verlet integration cloth with wind and mouse drag.
 import * as Three from 'three'
+import type { ArtlabContext } from '../../src/runtime/contracts'
+type Cloth = { particles: Particle[]; constraints: Constraint[] }
+type ClothMesh = Three.Mesh<Three.BufferGeometry, Three.MeshStandardMaterial>
+type ClothContext = ArtlabContext & {
+  _lights: Three.Light[]; _cloth: Cloth; _clothMesh: ClothMesh
+  _pinMarkers: Three.Mesh<Three.SphereGeometry, Three.MeshStandardMaterial>[]
+  _windTime: number
+}
 
 const COLS = 30
 const ROWS = 24
@@ -10,7 +18,11 @@ const ITERATIONS = 5
 const WIND_STRENGTH = 2.5
 
 class Particle {
-  constructor(x, y, z, pinned = false) {
+  readonly pos: Three.Vector3
+  readonly prev: Three.Vector3
+  readonly pinned: boolean
+  readonly mass: number
+  constructor(x: number, y: number, z: number, pinned = false) {
     this.pos = new Three.Vector3(x, y, z)
     this.prev = new Three.Vector3(x, y, z)
     this.pinned = pinned
@@ -19,7 +31,10 @@ class Particle {
 }
 
 class Constraint {
-  constructor(a, b, rest) {
+  readonly a: Particle
+  readonly b: Particle
+  readonly rest: number
+  constructor(a: Particle, b: Particle, rest: number) {
     this.a = a
     this.b = b
     this.rest = rest
@@ -61,7 +76,7 @@ function buildCloth() {
   return { particles, constraints }
 }
 
-function simulate(cloth, dt, wind) {
+function simulate(cloth: Cloth, dt: number, wind: Three.Vector3) {
   const dt2 = dt * dt
 
   for (const p of cloth.particles) {
@@ -79,7 +94,7 @@ function simulate(cloth, dt, wind) {
   }
 }
 
-function updateMesh(mesh, cloth) {
+function updateMesh(mesh: ClothMesh, cloth: Cloth) {
   const pos = mesh.geometry.attributes.position.array
   for (let i = 0; i < cloth.particles.length; i++) {
     pos[i * 3] = cloth.particles[i].pos.x
@@ -90,7 +105,7 @@ function updateMesh(mesh, cloth) {
   mesh.geometry.computeVertexNormals()
 }
 
-export function setup(ctx) {
+export function setup(ctx: ClothContext) {
   ctx.camera.position.set(0, 3, 8)
   ctx.camera.lookAt(0, 1, 0)
   ctx.setBloom(0.2)
@@ -160,7 +175,7 @@ export function setup(ctx) {
   ctx._windTime = 0
 }
 
-export function update(ctx, dt) {
+export function update(ctx: ClothContext, dt: number) {
   const dt_ = Math.min(dt, 0.02) // cap for stability
   ctx._windTime += dt_
 
@@ -173,7 +188,7 @@ export function update(ctx, dt) {
   updateMesh(ctx._clothMesh, ctx._cloth)
 }
 
-export function teardown(ctx) {
+export function teardown(ctx: ClothContext) {
   ctx.remove(ctx._clothMesh)
   ctx._clothMesh.geometry.dispose()
   ctx._clothMesh.material.dispose()

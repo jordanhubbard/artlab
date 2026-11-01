@@ -2,6 +2,15 @@
 import * as Three from 'three'
 import { Trail } from '../../src/stdlib/scene/Trail.ts'
 import { body, integrate, applyForce } from '../../src/physics/Physics.ts'
+import type { ArtlabContext } from '../../src/runtime/contracts'
+type GravityBody = ReturnType<typeof createBody>
+type GravityContext = ArtlabContext & {
+  _bodies: GravityBody[]
+  _clickPlane: Three.Mesh<Three.PlaneGeometry, Three.MeshBasicMaterial>
+  _raycaster: Three.Raycaster
+  _mouse: Three.Vector2
+  _onClick(event: MouseEvent): void
+}
 
 const G           = 40
 const INITIAL_N   = 30
@@ -11,7 +20,7 @@ const SOFTENING   = 0.5   // avoid singularity
 const MIN_RADIUS  = 0.15
 const DENSITY     = 1.0   // mass = density * volume
 
-function radiusFromMass(mass) {
+function radiusFromMass(mass: number) {
   return Math.max(MIN_RADIUS, Math.cbrt(mass / (DENSITY * (4 / 3) * Math.PI)))
 }
 
@@ -24,7 +33,7 @@ function randomColor() {
   return c
 }
 
-function createBody(ctx, pos, vel, mass) {
+function createBody(ctx: ArtlabContext, pos?: Three.Vector3, vel?: Three.Vector3, mass?: number) {
   const pb = body({
     position: pos || new Three.Vector3(
       (Math.random() - 0.5) * BOUNDS,
@@ -66,7 +75,7 @@ function createBody(ctx, pos, vel, mass) {
   }
 }
 
-function mergeBodies(ctx, a, b) {
+function mergeBodies(ctx: ArtlabContext, a: GravityBody, b: GravityBody) {
   // Conservation of momentum
   const totalMass = a.phys.mass + b.phys.mass
   const newVel = new Three.Vector3()
@@ -91,7 +100,7 @@ function mergeBodies(ctx, a, b) {
   b.trailBuffer.dispose()
 }
 
-export function setup(ctx) {
+export function setup(ctx: GravityContext) {
   ctx.setHelp('Click to spawn a new body into the gravitational system')
   ctx.camera.position.set(0, 0, 60)
   ctx.camera.lookAt(0, 0, 0)
@@ -129,7 +138,7 @@ export function setup(ctx) {
 const _diff = new Three.Vector3()
 const _force = new Three.Vector3()
 
-export function update(ctx, dt) {
+export function update(ctx: GravityContext, dt: number) {
   const dt_ = Math.min(dt, 0.03)
   const bodies = ctx._bodies
 
@@ -182,7 +191,7 @@ export function update(ctx, dt) {
   ctx._bodies = ctx._bodies.filter(b => b.alive)
 }
 
-export function teardown(ctx) {
+export function teardown(ctx: GravityContext) {
   for (const b of ctx._bodies) {
     ctx.remove(b.mesh)
     ctx.remove(b.trail)

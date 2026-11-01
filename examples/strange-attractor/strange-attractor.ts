@@ -1,5 +1,6 @@
 // strange-attractor.js — Lorenz butterfly attractor with animated vertex-colored trail
 import * as THREE from 'three'
+import type { ArtlabContext } from '../../src/runtime/contracts'
 
 const MAX_POINTS = 6000
 const SCALE = 0.3
@@ -8,17 +9,19 @@ const PTS_PER_FRAME = 20
 const SIGMA = 10, RHO = 28, BETA = 8 / 3
 
 // Lorenz integration state
-let lx, ly, lz
-let pointCount, phase, followIndex
+let lx: number, ly: number, lz: number
+let pointCount: number, phase: 'growing' | 'following', followIndex: number
 
 // Scene objects (kept for teardown)
-let trailGeo, trailMat, trailLine
-let followerMesh, followerLight, ambientLight, axesHelper
+let trailGeo: THREE.BufferGeometry, trailMat: THREE.LineBasicMaterial
+let trailLine: THREE.Line<THREE.BufferGeometry, THREE.LineBasicMaterial>
+let followerMesh: THREE.Mesh<THREE.SphereGeometry, THREE.MeshStandardMaterial>
+let followerLight: THREE.PointLight, ambientLight: THREE.AmbientLight, axesHelper: THREE.AxesHelper
 
 // Pre-allocated typed arrays
-let posArray, colArray
+let posArray: Float32Array, colArray: Float32Array
 
-export async function setup(ctx) {
+export async function setup(ctx: ArtlabContext) {
   lx = 0.1; ly = 0; lz = 0
   pointCount = 0; phase = 'growing'; followIndex = 0
 
@@ -51,8 +54,10 @@ export async function setup(ctx) {
 
   // Faint coordinate axes for spatial reference
   axesHelper = new THREE.AxesHelper(4)
-  axesHelper.material.opacity = 0.12
-  axesHelper.material.transparent = true
+  for (const material of [axesHelper.material].flat()) {
+    material.opacity = 0.12
+    material.transparent = true
+  }
   ctx.add(axesHelper)
 
   // Glowing sphere — hidden until the full attractor is traced
@@ -75,7 +80,7 @@ export async function setup(ctx) {
   ctx.add(followerLight)
 }
 
-export function update(ctx, dt) {
+export function update(ctx: ArtlabContext, dt: number) {
   if (phase === 'growing') {
     const toAdd = Math.min(PTS_PER_FRAME, MAX_POINTS - pointCount)
 
@@ -140,7 +145,7 @@ export function update(ctx, dt) {
   }
 }
 
-export function teardown(ctx) {
+export function teardown(ctx: ArtlabContext) {
   ctx.remove(ambientLight)
   ctx.remove(trailLine)
   ctx.remove(axesHelper)
