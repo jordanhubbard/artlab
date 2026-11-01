@@ -2,6 +2,16 @@
 import * as Three from 'three'
 import { ResourceScope, ParticleField, GestureButton } from '../../src/stdlib/scene.ts'
 import { MicrophoneInput } from '../../src/stdlib/media.ts'
+import type { ArtlabContext } from '../../src/runtime/contracts'
+type VisualizerContext = ArtlabContext & {
+  _scope: ResourceScope
+  _lights: Three.Light[]
+  _microphone: MicrophoneInput
+  _startBtn: HTMLButtonElement
+  _rings: { mesh: Three.Mesh<Three.TorusGeometry, Three.MeshStandardMaterial>; band: typeof BANDS[number]; baseScale: number }[]
+  _particles: ParticleField['object']
+  _camAngle: number
+}
 
 const RING_COUNT = 3
 const BANDS = [
@@ -12,13 +22,13 @@ const BANDS = [
 const PARTICLE_COUNT = 300
 const FFT_SIZE = 256
 
-function overlayContainer(ctx) {
+function overlayContainer(ctx: ArtlabContext) {
   return ctx.renderer?.domElement?.parentElement
     ?? document.getElementById('canvas-container')
     ?? document.body
 }
 
-export async function setup(ctx) {
+export async function setup(ctx: VisualizerContext) {
   const scope = ctx._scope = new ResourceScope()
   ctx.setHelp('Click Start to enable microphone — rings pulse with bass / mid / treble')
   ctx.camera.position.set(0, 4, 10)
@@ -74,7 +84,7 @@ export async function setup(ctx) {
   ctx._camAngle = 0
 }
 
-export function update(ctx, dt) {
+export function update(ctx: VisualizerContext, dt: number) {
   let levels = [0, 0, 0]
 
   ctx._microphone.update()
@@ -128,4 +138,4 @@ export function update(ctx, dt) {
   ctx.camera.lookAt(0, 0, 0)
 }
 
-export function teardown(ctx) { return ctx._scope.dispose() }
+export function teardown(ctx: VisualizerContext) { return ctx._scope.dispose() }

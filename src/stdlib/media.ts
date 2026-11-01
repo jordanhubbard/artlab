@@ -1,6 +1,26 @@
+export interface MicrophoneOptions {
+  fftSize?: number
+  smoothing?: number
+  mediaDevices?: Pick<MediaDevices, 'getUserMedia'>
+  AudioContext?: typeof globalThis.AudioContext
+}
 /** Gesture-started microphone analysis, with silent output and safe late permission cleanup. */
 export class MicrophoneInput {
-  constructor({ fftSize = 256, smoothing = 0.78, mediaDevices, AudioContext } = {}) {
+  readonly fftSize: number
+  readonly smoothing: number
+  private readonly _mediaDevices?: MicrophoneOptions['mediaDevices']
+  private readonly _AudioContext?: MicrophoneOptions['AudioContext']
+  private _starting: Promise<void> | null = null
+  private _closing?: Promise<void>
+  disposed = false
+  active = false
+  context?: AudioContext
+  stream: MediaStream | null = null
+  source?: MediaStreamAudioSourceNode
+  analyser?: AnalyserNode
+  silent?: GainNode
+  data = new Uint8Array(0)
+  constructor({ fftSize = 256, smoothing = 0.78, mediaDevices, AudioContext }: MicrophoneOptions = {}) {
     this.fftSize = fftSize
     this.smoothing = smoothing
     this._mediaDevices = mediaDevices
@@ -19,7 +39,8 @@ export class MicrophoneInput {
   }
 
   async _start() {
-    const AudioContext = this._AudioContext ?? globalThis.AudioContext ?? globalThis.webkitAudioContext
+    const legacy = globalThis as typeof globalThis & { webkitAudioContext?: typeof globalThis.AudioContext }
+    const AudioContext = this._AudioContext ?? globalThis.AudioContext ?? legacy.webkitAudioContext
     const devices = this._mediaDevices ?? globalThis.navigator?.mediaDevices
     if (!AudioContext || !devices?.getUserMedia) throw new Error('Microphone input is unavailable')
     const context = this.context = new AudioContext()
@@ -35,7 +56,7 @@ export class MicrophoneInput {
       if (resumeResult.status === 'rejected') throw resumeResult.reason
       if (streamResult.status === 'rejected') throw streamResult.reason
       if (this.disposed) return
-      this.source = context.createMediaStreamSource(this.stream)
+      this.source = context.createMediaStreamSource(streamResult.value)
       this.analyser = context.createAnalyser()
       this.analyser.fftSize = this.fftSize
       this.analyser.smoothingTimeConstant = this.smoothing
@@ -52,7 +73,7 @@ export class MicrophoneInput {
     }
   }
 
-  update() { if (this.active) this.analyser.getByteFrequencyData(this.data) }
+  update() { if (this.active) this.analyser?.getByteFrequencyData(this.data) }
 
   level(lo = 0, hi = 1) {
     if (!this.active) return 0

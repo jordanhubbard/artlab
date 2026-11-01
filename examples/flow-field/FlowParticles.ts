@@ -3,6 +3,11 @@ import { ParticleField } from '../../src/stdlib/scene/ParticleField.ts'
 import { noise2 } from '../../src/stdlib/math.ts'
 
 export class FlowParticles extends ParticleField {
+  readonly width: number
+  readonly height: number
+  readonly speed: number
+  readonly alpha: Float32Array
+  private readonly swatch: Three.Color
   constructor({ count = 4000, width = 100, height = 60, speed = 1.5 } = {}) {
     super(count, { size: 1.2, opacity: 0.6 })
     this.width = width
@@ -14,7 +19,7 @@ export class FlowParticles extends ParticleField {
     this.commit()
   }
 
-  spawn(i, alpha = 0.8, time = 0) {
+  spawn(i: number, alpha = 0.8, time = 0) {
     const x = (Math.random() - 0.5) * this.width
     this.positions[i * 3] = x
     this.positions[i * 3 + 1] = (Math.random() - 0.5) * this.height
@@ -23,7 +28,7 @@ export class FlowParticles extends ParticleField {
     this.swatch.toArray(this.colors, i * 3)
   }
 
-  update(dt, elapsed) {
+  update(dt: number, elapsed: number) {
     dt = Math.min(dt, 0.05)
     const time = elapsed * 0.04
     for (let i = 0; i < this.count; i++) {

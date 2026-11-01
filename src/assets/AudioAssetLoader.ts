@@ -8,8 +8,13 @@
  *
  * Supports loading from a PackageReader (zip) or directly from a URL.
  */
+export interface AudioAssetReader { readAsset(path: string): Promise<Blob> }
+export interface PlaybackOptions { volume?: number; detune?: number; offset?: number; loop?: boolean }
 export class AudioAssetLoader {
-  constructor(audioContext, packageReader = null) {
+  private readonly _ctx: AudioContext
+  private readonly _reader: AudioAssetReader | null
+  private _cache = new Map<string, AudioBuffer>()
+  constructor(audioContext: AudioContext, packageReader: AudioAssetReader | null = null) {
     this._ctx    = audioContext
     this._reader = packageReader
     this._cache  = new Map()   // path → AudioBuffer
@@ -24,8 +29,9 @@ export class AudioAssetLoader {
    * @param {string} path  package-relative path or URL
    * @returns {Promise<AudioBuffer>}
    */
-  async load(path) {
-    if (this._cache.has(path)) return this._cache.get(path)
+  async load(path: string): Promise<AudioBuffer> {
+    const cached = this._cache.get(path)
+    if (cached) return cached
 
     let arrayBuffer
     if (this._reader) {
@@ -57,7 +63,7 @@ export class AudioAssetLoader {
    * @param {boolean} [opts.loop=false]
    * @returns {AudioBufferSourceNode}
    */
-  playOnce(buffer, destination = null, { volume = 1, detune = 0, offset = 0, loop = false } = {}) {
+  playOnce(buffer: AudioBuffer, destination: AudioNode | null = null, { volume = 1, detune = 0, offset = 0, loop = false }: PlaybackOptions = {}): AudioBufferSourceNode {
     const source = this._ctx.createBufferSource()
     const gain   = this._ctx.createGain()
 
@@ -77,7 +83,7 @@ export class AudioAssetLoader {
   // ── Cache management ───────────────────────────────────────────────────────
 
   /** Remove a single cached buffer. */
-  evict(path) { this._cache.delete(path) }
+  evict(path: string) { this._cache.delete(path) }
 
   /** Clear the entire cache. */
   clear() { this._cache.clear() }
