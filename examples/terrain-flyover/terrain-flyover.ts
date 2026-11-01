@@ -1,10 +1,13 @@
 // terrain-flyover.js — procedural terrain with altitude vertex colors and spline camera flyover
 import * as THREE from 'three'
+import type { ArtlabContext } from '../../src/runtime/contracts'
 
-let _terrain, _sun, _ambient, _spline, _cameraT
+let _terrain: THREE.Mesh<THREE.PlaneGeometry, THREE.MeshStandardMaterial>
+let _sun: THREE.DirectionalLight, _ambient: THREE.AmbientLight
+let _spline: THREE.CatmullRomCurve3, _cameraT: number
 
 // Multi-octave sin/cos noise — no external deps
-function noise2d(x, z) {
+function noise2d(x: number, z: number) {
   return (
     Math.cos(x * 0.15 + z * 0.12) * 6.0 +  // broad valleys / ridges
     Math.cos(x * 0.40 - z * 0.30) * 3.0 +  // mid-scale hills
@@ -15,14 +18,14 @@ function noise2d(x, z) {
   )
 }
 
-function altitudeColor(h) {
+function altitudeColor(h: number) {
   if (h < -1.0) return new THREE.Color(0x1a3a6e)  // deep water
   if (h <  2.0) return new THREE.Color(0x2d6a2d)  // grass
   if (h <  6.0) return new THREE.Color(0x7a5c3a)  // rock
   return               new THREE.Color(0xeef0f5)  // snow
 }
 
-export async function setup(ctx) {
+export async function setup(ctx: ArtlabContext) {
   ctx.camera.position.set(-85, 22, -55)
 
   // ── Terrain geometry ──────────────────────────────────────────────────────
@@ -89,7 +92,7 @@ export async function setup(ctx) {
   _cameraT = 0
 }
 
-export function update(ctx, dt) {
+export function update(ctx: ArtlabContext, dt: number) {
   _cameraT = (_cameraT + dt * 0.008) % 1.0
 
   const p = _spline.getPoint(_cameraT)
@@ -100,7 +103,7 @@ export function update(ctx, dt) {
   ctx.camera.lookAt(look.x, look.y - 4, look.z)  // tilt gaze slightly down
 }
 
-export function teardown(ctx) {
+export function teardown(ctx: ArtlabContext) {
   ctx.remove(_terrain)
   ctx.remove(_sun)
   ctx.remove(_ambient)

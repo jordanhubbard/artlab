@@ -1,5 +1,13 @@
 // penrose-tiles — Penrose P3 (rhombus) aperiodic tiling via deflation.
 import * as Three from 'three'
+import type { ArtlabContext } from '../../src/runtime/contracts'
+type Point = [number, number]
+interface Triangle { type: 0 | 1; a: Point; b: Point; c: Point }
+type TileMesh = Three.Mesh<Three.BufferGeometry, Three.MeshStandardMaterial> & { _targetY: number; _birthTime: number }
+type PenroseContext = ArtlabContext & {
+  _lights: Three.Light[]; _triangles: Triangle[]; _tileMeshes: TileMesh[]
+  _animTime: number; _colorPhase: number
+}
 
 const PHI = (1 + Math.sqrt(5)) / 2
 const GENERATIONS = 5
@@ -9,8 +17,8 @@ const ANIM_SPEED = 0.3
 // Triangle types: 0 = thin (36°), 1 = thick (72°)
 // Each triangle: { type, a, b, c } where a,b,c are [x,y]
 
-function subdivide(triangles) {
-  const result = []
+function subdivide(triangles: Triangle[]): Triangle[] {
+  const result: Triangle[] = []
   for (const t of triangles) {
     const { type, a, b, c } = t
     if (type === 0) {
@@ -30,19 +38,19 @@ function subdivide(triangles) {
   return result
 }
 
-function lerp2(a, b, t) {
+function lerp2(a: Point, b: Point, t: number): Point {
   return [a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t]
 }
 
-function initialWheel() {
+function initialWheel(): Triangle[] {
   // 10 triangles in a decagon (sun configuration)
-  const tris = []
+  const tris: Triangle[] = []
   for (let i = 0; i < 10; i++) {
     const angle1 = (2 * Math.PI * i) / 10
     const angle2 = (2 * Math.PI * (i + 1)) / 10
     const R = 6
-    const b = [R * Math.cos(angle1), R * Math.sin(angle1)]
-    const c = [R * Math.cos(angle2), R * Math.sin(angle2)]
+    const b: Point = [R * Math.cos(angle1), R * Math.sin(angle1)]
+    const c: Point = [R * Math.cos(angle2), R * Math.sin(angle2)]
     if (i % 2 === 0) {
       tris.push({ type: 1, a: [0, 0], b, c })
     } else {
@@ -52,7 +60,7 @@ function initialWheel() {
   return tris
 }
 
-function buildTileMeshes(triangles) {
+function buildTileMeshes(triangles: Triangle[]): TileMesh[] {
   // Group pairs of triangles into rhombi by centroid proximity, then build meshes
   // Simpler: just render each triangle as a filled shape
   const meshes = []
@@ -78,7 +86,7 @@ function buildTileMeshes(triangles) {
       side: Three.DoubleSide,
       roughness: 0.4, metalness: 0.2,
     })
-    const mesh = new Three.Mesh(geo, mat)
+    const mesh = Object.assign(new Three.Mesh(geo, mat), { _targetY: 0, _birthTime: i * 0.002 })
     mesh.position.y = 0
     mesh._targetY = 0
     mesh._birthTime = i * 0.002  // stagger animation
@@ -87,7 +95,7 @@ function buildTileMeshes(triangles) {
   return meshes
 }
 
-export function setup(ctx) {
+export function setup(ctx: PenroseContext) {
   ctx.camera.position.set(0, 12, 4)
   ctx.camera.lookAt(0, 0, 0)
   ctx.setBloom(0.3)
@@ -117,7 +125,7 @@ export function setup(ctx) {
   ctx._colorPhase = 0
 }
 
-export function update(ctx, dt) {
+export function update(ctx: PenroseContext, dt: number) {
   const dt_ = Math.min(dt, 0.05)
   ctx._animTime += dt_
   ctx._colorPhase += dt_ * 0.1
@@ -139,7 +147,7 @@ export function update(ctx, dt) {
   }
 }
 
-export function teardown(ctx) {
+export function teardown(ctx: PenroseContext) {
   for (const m of ctx._tileMeshes) {
     ctx.remove(m)
     m.geometry.dispose()

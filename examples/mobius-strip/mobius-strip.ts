@@ -1,5 +1,13 @@
 // mobius-strip — parametric Möbius strip with flowing colors and tracing particles.
 import * as Three from 'three'
+import type { ArtlabContext } from '../../src/runtime/contracts'
+type MobiusContext = ArtlabContext & {
+  _lights: Three.Light[]
+  _strip: Three.Mesh<Three.BufferGeometry, Three.MeshStandardMaterial>
+  _wire: Three.Mesh<Three.BufferGeometry, Three.MeshBasicMaterial>
+  _particles: Three.Points<Three.BufferGeometry, Three.PointsMaterial>
+  _particleU: Float32Array; _particleV: Float32Array; _particleSpeed: Float32Array
+}
 
 const SEGMENTS_U = 120
 const SEGMENTS_V = 20
@@ -7,7 +15,7 @@ const HALF_WIDTH = 1.5
 const RADIUS     = 4
 const PARTICLES  = 200
 
-function mobiusPoint(u, v) {
+function mobiusPoint(u: number, v: number) {
   // u in [0, 2π], v in [-1, 1]
   const halfAngle = u / 2
   const r = RADIUS + v * HALF_WIDTH * Math.cos(halfAngle)
@@ -53,7 +61,7 @@ function buildStripGeometry() {
   return geo
 }
 
-export function setup(ctx) {
+export function setup(ctx: MobiusContext) {
   ctx.camera.position.set(0, 6, 10)
   ctx.camera.lookAt(0, 0, 0)
   ctx.setBloom(0.5)
@@ -113,7 +121,7 @@ export function setup(ctx) {
   ctx.add(ctx._particles)
 }
 
-export function update(ctx, dt) {
+export function update(ctx: MobiusContext, dt: number) {
   const dt_ = Math.min(dt, 0.05)
   ctx._strip.rotation.y += dt_ * 0.15
 
@@ -134,7 +142,7 @@ export function update(ctx, dt) {
   ctx._particles.geometry.attributes.position.needsUpdate = true
 }
 
-export function teardown(ctx) {
+export function teardown(ctx: MobiusContext) {
   ctx.remove(ctx._strip)
   ctx.remove(ctx._wire)
   ctx.remove(ctx._particles)

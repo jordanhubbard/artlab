@@ -1,5 +1,12 @@
 // recursive-spirals — fractal spiral arms, each tip spawning smaller spirals.
 import * as Three from 'three'
+import type { ArtlabContext } from '../../src/runtime/contracts'
+interface SpiralParticle { x: number; y: number; hue: number; brightness: number; size: number; depth: number }
+type SpiralContext = ArtlabContext & {
+  _lights: Three.Light[]; _basePositions: Float32Array
+  _points: Three.Points<Three.BufferGeometry, Three.PointsMaterial>
+  _particleCount: number; _rotationSpeed: number
+}
 
 const MAX_DEPTH = 4
 const ARMS = 5
@@ -8,7 +15,7 @@ const PHI = (1 + Math.sqrt(5)) / 2
 const SCALE_DECAY = 0.4
 const PARTICLE_SIZE = 0.06
 
-function generateSpiral(cx, cy, radius, angleOffset, depth, particles) {
+function generateSpiral(cx: number, cy: number, radius: number, angleOffset: number, depth: number, particles: SpiralParticle[]): void {
   if (depth > MAX_DEPTH || radius < 0.02) return
 
   const armCount = depth === 0 ? ARMS : 3
@@ -36,7 +43,7 @@ function generateSpiral(cx, cy, radius, angleOffset, depth, particles) {
   }
 }
 
-export function setup(ctx) {
+export function setup(ctx: SpiralContext) {
   ctx.camera.position.set(0, 0, 18)
   ctx.camera.lookAt(0, 0, 0)
   ctx.setBloom(0.7)
@@ -46,7 +53,7 @@ export function setup(ctx) {
   ctx._lights = [ambient]
 
   // Generate all spiral particles
-  const particleData = []
+  const particleData: SpiralParticle[] = []
   generateSpiral(0, 0, 5, 0, 0, particleData)
 
   const count = particleData.length
@@ -87,7 +94,7 @@ export function setup(ctx) {
   ctx._rotationSpeed = 0.08
 }
 
-export function update(ctx, dt) {
+export function update(ctx: SpiralContext, dt: number) {
   const dt_ = Math.min(dt, 0.05)
   const time = ctx.elapsed || 0
 
@@ -119,7 +126,7 @@ export function update(ctx, dt) {
   ctx._points.geometry.attributes.color.needsUpdate = true
 }
 
-export function teardown(ctx) {
+export function teardown(ctx: SpiralContext) {
   ctx.remove(ctx._points)
   ctx._points.geometry.dispose()
   ctx._points.material.dispose()
