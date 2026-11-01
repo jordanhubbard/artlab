@@ -2,6 +2,34 @@ export const GAME_DURATION = 90
 export const MAX_FRAGMENTS = 28
 export const MAX_HAZARDS = 16
 
+export type CollectibleKind = 'memory' | 'resonance' | 'prism' | 'repair'
+export type HazardKind = 'gravity' | 'debris' | 'corruption'
+export type ChaosType = 'debris-stream' | 'corruption-swarm' | 'gravity-well' | 'blackout' | 'signal-storm'
+interface EntityPosition { id: number; x: number; y: number; z: number; active: boolean }
+export type Fragment = EntityPosition & { type?: 'fragment'; kind?: CollectibleKind }
+export type Hazard = EntityPosition & { type?: 'hazard'; kind?: HazardKind }
+interface EventDefinition { type: ChaosType; duration: number; incompatible?: ChaosType[] }
+export type GameEvent =
+  | { type: 'pulse'; strength: number }
+  | { type: 'collected'; kind?: CollectibleKind; combo: number }
+  | { type: 'hit'; health: number }
+  | { type: 'event-warning' | 'event-started' | 'event-ended'; event: ChaosType }
+  | { type: 'game-over' }
+export interface GameInput {
+  x?: number; y?: number; pulseHeld?: boolean; pulseReleased?: boolean; micEnergy?: number;
+}
+export interface GameState {
+  phase: 'ready' | 'playing' | 'paused' | 'game-over'; random: () => number;
+  timeRemaining: number; wave: number; score: number; combo: number; comboFor: number;
+  health: number; pulseCharge: number; pulseFor: number; resonanceFor: number;
+  scoreMultiplier: number; scoreMultiplierFor: number; invulnerableFor: number;
+  player: { x: number; y: number }; fragments: Fragment[]; hazards: Hazard[];
+  spawnFragmentIn: number; spawnHazardIn: number;
+  activeEvents: { type: ChaosType; remaining: number }[];
+  eventWarning: ChaosType | null; eventWarningFor: number; pendingEvent: ChaosType | null;
+  nextEventIn: number; nextEntityId: number;
+}
+
 const PLAYER_SPEED = 6
 const X_LIMIT = 6
 const Y_LIMIT = 3.5
@@ -13,7 +41,7 @@ const EVENT_INTERVAL_RANGE = 6
 // The opening anomaly is deliberately not random: players need to see one
 // telegraph land early to learn what the warning line means.
 const FIRST_EVENT_LEAD = EVENT_INTERVAL_MIN - EVENT_WARNING_TIME
-const EVENT_DEFINITIONS = [
+const EVENT_DEFINITIONS: EventDefinition[] = [
   { type: 'debris-stream', duration: 5 },
   { type: 'corruption-swarm', duration: 6 },
   { type: 'gravity-well', duration: 6 },
@@ -21,7 +49,7 @@ const EVENT_DEFINITIONS = [
   { type: 'signal-storm', duration: 7, incompatible: ['blackout'] },
 ]
 
-export function createGame({ random = Math.random } = {}) {
+export function createGame({ random = Math.random } = {}): GameState {
   return {
     phase: 'ready',
     random,
@@ -51,26 +79,26 @@ export function createGame({ random = Math.random } = {}) {
   }
 }
 
-export function startGame(state) {
+export function startGame(state: GameState) {
   resetMission(state)
   state.phase = 'playing'
   return state
 }
 
-export function restartGame(state) {
+export function restartGame(state: GameState) {
   return startGame(state)
 }
 
-export function togglePause(state) {
+export function togglePause(state: GameState) {
   if (state.phase === 'playing') state.phase = 'paused'
   else if (state.phase === 'paused') state.phase = 'playing'
   return state.phase
 }
 
-export function stepGame(state, input, dt) {
+export function stepGame(state: GameState, input: GameInput, dt: number): GameEvent[] {
   if (state.phase !== 'playing' || dt <= 0) return []
 
-  const events = []
+  const events: GameEvent[] = []
   updateMissionClock(state, dt, events)
   if (state.phase !== 'playing') return events
 
@@ -85,7 +113,7 @@ export function stepGame(state, input, dt) {
   return events
 }
 
-function resetMission(state) {
+function resetMission(state: GameState) {
   state.timeRemaining = GAME_DURATION
   state.wave = 1
   state.score = 0
@@ -112,21 +140,21 @@ function resetMission(state) {
   state.nextEntityId = 1
 }
 
-function updateMissionClock(state, dt, events) {
+function updateMissionClock(state: GameState, dt: number, events: GameEvent[]) {
   state.timeRemaining = Math.max(0, state.timeRemaining - dt)
   const elapsed = GAME_DURATION - state.timeRemaining
   state.wave = elapsed < 30 ? 1 : elapsed < 60 ? 2 : 3
   if (state.timeRemaining === 0) endGame(state, events)
 }
 
-function updatePlayer(state, input, dt) {
+function updatePlayer(state: GameState, input: GameInput, dt: number) {
   const x = clamp(Number(input.x) || 0, -1, 1)
   const y = clamp(Number(input.y) || 0, -1, 1)
   state.player.x = clamp(state.player.x + x * PLAYER_SPEED * dt, -X_LIMIT, X_LIMIT)
   state.player.y = clamp(state.player.y + y * PLAYER_SPEED * dt, -Y_LIMIT, Y_LIMIT)
 }
 
-function updatePulse(state, input, dt, events) {
+function updatePulse(state: GameState, input: GameInput, dt: number, events: GameEvent[]) {
   if (input.pulseHeld) {
     const micBoost = clamp(Number(input.micEnergy) || 0, 0, 1)
     state.pulseCharge = clamp(state.pulseCharge + dt * (0.7 + micBoost), 0, 1)
@@ -142,7 +170,7 @@ function updatePulse(state, input, dt, events) {
   }
 }
 
-function applyPulse(state, strength) {
+function applyPulse(state: GameState, strength: number) {
   for (const fragment of state.fragments) {
     if (fragment.z > -12) {
       fragment.x += (state.player.x - fragment.x) * strength * 0.7
@@ -168,7 +196,7 @@ function applyPulse(state, strength) {
   }
 }
 
-function updateTimers(state, dt) {
+function updateTimers(state: GameState, dt: number) {
   state.comboFor = Math.max(0, state.comboFor - dt)
   if (state.comboFor === 0) state.combo = 1
   state.invulnerableFor = Math.max(0, state.invulnerableFor - dt)
@@ -178,7 +206,7 @@ function updateTimers(state, dt) {
   if (state.scoreMultiplierFor === 0) state.scoreMultiplier = 1
 }
 
-function updateChaosDirector(state, dt, events) {
+function updateChaosDirector(state: GameState, dt: number, events: GameEvent[]) {
   for (const event of state.activeEvents) event.remaining -= dt
   const ended = state.activeEvents.filter(event => event.remaining <= 0)
   state.activeEvents = state.activeEvents.filter(event => event.remaining > 0)
@@ -188,6 +216,7 @@ function updateChaosDirector(state, dt, events) {
     state.eventWarningFor = Math.max(0, state.eventWarningFor - dt)
     if (state.eventWarningFor === 0) {
       const definition = EVENT_DEFINITIONS.find(item => item.type === state.pendingEvent)
+      if (!definition) throw new Error(`Unknown anomaly: ${state.pendingEvent}`)
       state.activeEvents.push({ type: definition.type, remaining: definition.duration })
       events.push({ type: 'event-started', event: definition.type })
       state.pendingEvent = null
@@ -210,7 +239,7 @@ function updateChaosDirector(state, dt, events) {
   events.push({ type: 'event-warning', event: selected.type })
 }
 
-function isCompatible(state, candidate) {
+function isCompatible(state: GameState, candidate: EventDefinition) {
   return state.activeEvents.every(active => {
     const definition = EVENT_DEFINITIONS.find(item => item.type === active.type)
     return !candidate.incompatible?.includes(active.type)
@@ -218,7 +247,7 @@ function isCompatible(state, candidate) {
   })
 }
 
-function spawnEntities(state, dt) {
+function spawnEntities(state: GameState, dt: number) {
   state.spawnFragmentIn -= dt
   state.spawnHazardIn -= dt
 
@@ -235,11 +264,16 @@ function spawnEntities(state, dt) {
   }
 }
 
-function createEntity(state, type) {
+function createEntity(state: GameState, type: 'fragment'): Fragment
+function createEntity(state: GameState, type: 'hazard'): Hazard
+function createEntity(state: GameState, type: 'fragment' | 'hazard'): Fragment | Hazard {
+  const id = state.nextEntityId++
+  const species = type === 'fragment'
+    ? { type, kind: chooseCollectible(state.random()) }
+    : { type, kind: chooseHazard(state.random()) }
   return {
-    id: state.nextEntityId++,
-    type,
-    kind: type === 'fragment' ? chooseCollectible(state.random()) : chooseHazard(state.random()),
+    id,
+    ...species,
     x: (state.random() * 2 - 1) * X_LIMIT,
     y: (state.random() * 2 - 1) * Y_LIMIT,
     z: -42 - state.random() * 12,
@@ -247,7 +281,7 @@ function createEntity(state, type) {
   }
 }
 
-function advanceEntities(state, dt) {
+function advanceEntities(state: GameState, dt: number) {
   const stormSpeed = hasEvent(state, 'signal-storm') ? 1.45 : 1
   const speed = [10, 13, 16][state.wave - 1] * stormSpeed
   for (const entity of state.fragments) entity.z += speed * dt
@@ -265,7 +299,7 @@ function advanceEntities(state, dt) {
   }
 }
 
-function resolveCollisions(state, events) {
+function resolveCollisions(state: GameState, events: GameEvent[]) {
   for (const fragment of state.fragments) {
     if (!fragment.active || !collides(state, fragment)) continue
     fragment.active = false
@@ -295,7 +329,7 @@ function resolveCollisions(state, events) {
   }
 }
 
-function applyCollectibleReward(state, kind) {
+function applyCollectibleReward(state: GameState, kind: CollectibleKind) {
   if (kind === 'resonance') {
     state.resonanceFor = 8
   } else if (kind === 'prism') {
@@ -306,44 +340,44 @@ function applyCollectibleReward(state, kind) {
   }
 }
 
-function chooseCollectible(value) {
+function chooseCollectible(value: number): CollectibleKind {
   if (value > 0.94) return 'repair'
   if (value > 0.72) return 'prism'
   if (value > 0.48) return 'resonance'
   return 'memory'
 }
 
-function chooseHazard(value) {
+function chooseHazard(value: number): HazardKind {
   if (value > 0.78) return 'gravity'
   if (value > 0.42) return 'debris'
   return 'corruption'
 }
 
-function hasEvent(state, type) {
+function hasEvent(state: GameState, type: ChaosType) {
   return state.activeEvents.some(event => event.type === type)
 }
 
-function nextWarningDelay(state) {
+function nextWarningDelay(state: GameState) {
   return EVENT_INTERVAL_MIN - EVENT_WARNING_TIME + state.random() * EVENT_INTERVAL_RANGE
 }
 
-function collides(state, entity) {
+function collides(state: GameState, entity: EntityPosition) {
   const dx = entity.x - state.player.x
   const dy = entity.y - state.player.y
   return dx * dx + dy * dy + entity.z * entity.z <= COLLISION_RADIUS * COLLISION_RADIUS
 }
 
-function removeExpiredEntities(state) {
+function removeExpiredEntities(state: GameState) {
   state.fragments = state.fragments.filter(entity => entity.active && entity.z < 4)
   state.hazards = state.hazards.filter(entity => entity.active && entity.z < 4)
 }
 
-function endGame(state, events) {
+function endGame(state: GameState, events: GameEvent[]) {
   if (state.phase === 'game-over') return
   state.phase = 'game-over'
   events.push({ type: 'game-over' })
 }
 
-function clamp(value, min, max) {
+function clamp(value: number, min: number, max: number) {
   return Math.max(min, Math.min(max, value))
 }

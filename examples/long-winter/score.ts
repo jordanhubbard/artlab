@@ -6,6 +6,15 @@ export const TOTAL_BARS = 56
 export const SECONDS_PER_BEAT = 60 / BPM
 export const DURATION = TOTAL_BARS * BEATS_PER_BAR * SECONDS_PER_BEAT
 
+interface Song {
+  title: string; voice: 'bell' | 'pluck' | 'chip'; chords: string[][]; bass: string[];
+  melody: (string | null)[]; kick: number[]; snare: number[]; hats: number[];
+  chordRows: number[]; melodyRows: number[];
+}
+export interface VoiceActivity { melody: number; chord: number; bass: number; drums: number }
+export type MusicalPosition = ReturnType<typeof musicalPosition>
+export type PerformanceAction = 'tend' | 'wave' | 'watch' | 'conduct' | 'run' | 'pull' | 'dive' | 'bow'
+
 const SONGS = {
   'blue-hour': {
     title: 'BLÅ TIMMEN', voice: 'bell',
@@ -61,23 +70,24 @@ const SONGS = {
     melody: ['D5', null, 'F#5', 'A5', null, 'B5', 'A5', null, 'G5', null, 'F#5', 'E5', null, 'C#5', 'D5', null],
     kick: [0, 8], snare: [12], hats: [2, 6, 10, 14], chordRows: [0], melodyRows: [0, 2, 3, 5, 6, 8, 10, 11, 13, 14],
   },
-}
+} satisfies Record<string, Song>
 
-export const ACTS = [
-  { id: 'blue-hour', name: 'I · BLUE HOUR', startBar: 0, endBar: 6, source: 'NordicLandscape.js', action: 'tend' },
-  { id: 'hearth-song', name: 'II · FIRE IN THE SNOW', startBar: 6, endBar: 12, source: 'NordicLandscape.js', action: 'wave' },
-  { id: 'fjord-mirror', name: 'III · FJORD MIRROR', startBar: 12, endBar: 18, source: 'NordicLandscape.js', action: 'watch' },
-  { id: 'aurora-code', name: 'IV · AURORA CODE', startBar: 18, endBar: 24, source: 'NordicLandscape.js', action: 'conduct' },
-  { id: 'birch-run', name: 'V · BIRCH RUN', startBar: 24, endBar: 30, source: 'NordicLandscape.js', action: 'run' },
-  { id: 'loose-pixel', name: 'VI · THE LOOSE PIXEL', startBar: 30, endBar: 36, source: 'WinterWorld.js', action: 'pull' },
-  { id: 'copper-tunnel', name: 'VII · COPPER TUNNEL', startBar: 36, endBar: 42, source: 'DemoGraphics.js', action: 'dive' },
-  { id: 'color-storm', name: 'VIII · SILVER BLOOM', startBar: 42, endBar: 50, source: 'DemoGraphics.js', action: 'conduct' },
-  { id: 'first-light', name: 'IX · FIRST LIGHT', startBar: 50, endBar: 56, source: 'NordicLandscape.js', action: 'bow' },
-].map(act => ({ ...act, song: SONGS[act.id] }))
+const ACT_SEQUENCE: { id: keyof typeof SONGS; name: string; startBar: number; endBar: number; source: `${string}.ts`; action: PerformanceAction }[] = [
+  { id: 'blue-hour', name: 'I · BLUE HOUR', startBar: 0, endBar: 6, source: 'NordicLandscape.ts', action: 'tend' },
+  { id: 'hearth-song', name: 'II · FIRE IN THE SNOW', startBar: 6, endBar: 12, source: 'NordicLandscape.ts', action: 'wave' },
+  { id: 'fjord-mirror', name: 'III · FJORD MIRROR', startBar: 12, endBar: 18, source: 'NordicLandscape.ts', action: 'watch' },
+  { id: 'aurora-code', name: 'IV · AURORA CODE', startBar: 18, endBar: 24, source: 'NordicLandscape.ts', action: 'conduct' },
+  { id: 'birch-run', name: 'V · BIRCH RUN', startBar: 24, endBar: 30, source: 'NordicLandscape.ts', action: 'run' },
+  { id: 'loose-pixel', name: 'VI · THE LOOSE PIXEL', startBar: 30, endBar: 36, source: 'WinterWorld.ts', action: 'pull' },
+  { id: 'copper-tunnel', name: 'VII · COPPER TUNNEL', startBar: 36, endBar: 42, source: 'DemoGraphics.ts', action: 'dive' },
+  { id: 'color-storm', name: 'VIII · SILVER BLOOM', startBar: 42, endBar: 50, source: 'DemoGraphics.ts', action: 'conduct' },
+  { id: 'first-light', name: 'IX · FIRST LIGHT', startBar: 50, endBar: 56, source: 'NordicLandscape.ts', action: 'bow' },
+]
+export const ACTS = ACT_SEQUENCE.map(act => ({ ...act, song: SONGS[act.id] }))
 
 export const PARTS = ACTS
 
-export function musicalPosition(seconds) {
+export function musicalPosition(seconds: number) {
   const safeSeconds = Math.max(0, Math.min(DURATION, Number(seconds) || 0))
   const absoluteBeat = safeSeconds / SECONDS_PER_BEAT
   const bar = Math.min(TOTAL_BARS - 1, Math.floor(absoluteBeat / BEATS_PER_BAR))
@@ -91,11 +101,11 @@ export function musicalPosition(seconds) {
   return { seconds: safeSeconds, absoluteBeat, bar, beat, row, pattern, actIndex, act, actProgress, partIndex: actIndex, part: act, partProgress: actProgress }
 }
 
-export function stepAt(position) {
+export function stepAt(position: MusicalPosition) {
   const localStep = Math.floor((position.absoluteBeat - position.act.startBar * BEATS_PER_BAR) * ROWS_PER_BEAT)
   const row = ((localStep % 16) + 16) % 16
   const chordIndex = Math.floor(localStep / 16) % position.act.song.chords.length
-  const song = position.act.song
+  const song: Song = position.act.song
   return {
     step: Math.floor(position.absoluteBeat * ROWS_PER_BEAT), localStep, row,
     melodyNote: song.melody[row], chord: song.chords[chordIndex], bassNote: song.bass[chordIndex],

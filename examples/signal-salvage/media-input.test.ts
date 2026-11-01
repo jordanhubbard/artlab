@@ -1,17 +1,19 @@
 // @vitest-environment jsdom
-import { describe, expect, it, vi } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { createMediaInput } from './media-input.ts'
 
-function stream(kind) {
+function stream(kind: 'video' | 'audio') {
   const track = { kind, stop: vi.fn() }
-  return { getTracks: () => [track], track }
+  const result = { getTracks: () => [track], track }
+  // Native track and audio internals are stubbed only at the injection boundary.
+  return result as unknown as MediaStream & typeof result
 }
 
 function audioContext() {
   const analyser = {
     fftSize: 0,
     connect: vi.fn(),
-    getFloatTimeDomainData: vi.fn(buffer => buffer.fill(0.5)),
+    getFloatTimeDomainData: vi.fn((buffer: Float32Array) => buffer.fill(0.5)),
     disconnect: vi.fn(),
   }
   const source = { connect: vi.fn(), disconnect: vi.fn() }
@@ -20,7 +22,7 @@ function audioContext() {
     disconnect: vi.fn(),
     gain: { setValueAtTime: vi.fn() },
   }
-  return {
+  const context = {
     analyser,
     source,
     silentGain,
@@ -33,13 +35,13 @@ function audioContext() {
     createGain: vi.fn(() => silentGain),
     close: vi.fn().mockResolvedValue(undefined),
   }
+  return context as unknown as AudioContext & typeof context
 }
 
-const documentRef = {
-  createElement: tag => tag === 'canvas'
-    ? { getContext: () => null }
-    : { srcObject: null, play: vi.fn().mockResolvedValue(undefined) },
-}
+const documentRef = document
+vi.spyOn(HTMLMediaElement.prototype, 'play').mockResolvedValue(undefined)
+vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockReturnValue(null)
+beforeEach(() => vi.clearAllMocks())
 
 describe('Signal Salvage media input', () => {
   it('starts camera and microphone independently', async () => {
@@ -61,8 +63,8 @@ describe('Signal Salvage media input', () => {
 
     expect(input.cameraStatus).toBe('active')
     expect(input.microphoneStatus).toBe('active')
-    expect(input.video.srcObject).toBe(camera)
-    expect(input.video.play).toHaveBeenCalledTimes(1)
+    expect(input.video?.srcObject).toBe(camera)
+    expect(input.video?.play).toHaveBeenCalledTimes(1)
     expect(rawAudio.source.connect).toHaveBeenCalledWith(rawAudio.analyser)
     expect(rawAudio.resume).toHaveBeenCalledTimes(1)
     expect(rawAudio.analyser.connect).toHaveBeenCalledWith(rawAudio.silentGain)
@@ -134,20 +136,20 @@ describe('Signal Salvage media input', () => {
     expect(rawAudio.analyser.disconnect).toHaveBeenCalledTimes(1)
     expect(rawAudio.silentGain.disconnect).toHaveBeenCalledTimes(1)
     expect(rawAudio.close).toHaveBeenCalledTimes(1)
-    expect(input.video.srcObject).toBeNull()
+    expect(input.video?.srcObject).toBeNull()
   })
 
   it('stops streams that resolve after teardown instead of resurrecting media', async () => {
-    let resolveCamera
-    let resolveMicrophone
+    let resolveCamera: ((stream: MediaStream) => void) | undefined
+    let resolveMicrophone: ((stream: MediaStream) => void) | undefined
     const camera = stream('video')
     const microphone = stream('audio')
     const rawAudio = audioContext()
     const input = createMediaInput({
       mediaDevices: {
         getUserMedia: vi.fn()
-          .mockImplementationOnce(() => new Promise(resolve => { resolveCamera = resolve }))
-          .mockImplementationOnce(() => new Promise(resolve => { resolveMicrophone = resolve })),
+          .mockImplementationOnce(() => new Promise<MediaStream>(resolve => { resolveCamera = resolve }))
+          .mockImplementationOnce(() => new Promise<MediaStream>(resolve => { resolveMicrophone = resolve })),
       },
       createAudioContext: () => rawAudio,
       documentRef,
@@ -155,14 +157,26 @@ describe('Signal Salvage media input', () => {
 
     const starting = input.start()
     await input.dispose()
+    if (!resolveCamera || !resolveMicrophone) throw new Error('Media requests did not start')
     resolveCamera(camera)
     resolveMicrophone(microphone)
     await starting
 
     expect(camera.track.stop).toHaveBeenCalledTimes(1)
     expect(microphone.track.stop).toHaveBeenCalledTimes(1)
-    expect(input.video.srcObject).toBeNull()
+    expect(input.video?.srcObject).toBeNull()
     expect(input.cameraStatus).not.toBe('active')
     expect(input.microphoneStatus).not.toBe('active')
+  })
+
+  it('keeps a fallback texture when no DOM or media devices exist', async () => {
+    const input = createMediaInput({ documentRef: null, mediaDevices: null, createAudioContext: () => null })
+    await input.start()
+    input.update(1)
+    expect(input.video).toBeNull()
+    expect(input.cameraStatus).toBe('unavailable')
+    expect(input.microphoneStatus).toBe('unavailable')
+    expect(input.texture).toBeTruthy()
+    await input.dispose()
   })
 })

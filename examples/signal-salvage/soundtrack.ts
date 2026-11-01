@@ -1,4 +1,14 @@
 import * as ToneModule from 'tone'
+import type { GameState, GameEvent } from './game.ts'
+
+export type SoundtrackTone = Pick<typeof ToneModule,
+  'start' | 'Limiter' | 'Reverb' | 'Filter' | 'Volume' | 'PolySynth' | 'FMSynth'
+  | 'MonoSynth' | 'Synth' | 'MembraneSynth' | 'NoiseSynth' | 'Transport'>
+interface SoundGraph {
+  filter: ToneModule.Filter; master: ToneModule.Volume;
+  pad: ToneModule.PolySynth<ToneModule.FMSynth>; bass: ToneModule.MonoSynth;
+  chime: ToneModule.Synth; pulse: ToneModule.MembraneSynth; noise: ToneModule.NoiseSynth;
+}
 
 const HARMONIC_SCENES = [
   {
@@ -51,12 +61,23 @@ const HARMONIC_SCENES = [
   },
 ]
 
-export function createSoundtrack({ Tone = ToneModule, random = Math.random } = {}) {
+export function createSoundtrack({ Tone = ToneModule, random = Math.random }: { Tone?: SoundtrackTone; random?: () => number } = {}) {
   return new Soundtrack(Tone, random)
 }
 
 class Soundtrack {
-  constructor(Tone, random) {
+  private _Tone: SoundtrackTone
+  private _random: () => number
+  private _nodes: { dispose(): unknown }[] = []
+  private _repeatIds: number[] = []
+  private _bar = 0
+  private _startPromise: Promise<void> | null = null
+  private _disposed = false
+  private _graph: SoundGraph | null = null
+  sceneIndex = 0
+  started = false
+  status: 'idle' | 'starting' | 'active' | 'stopped' | 'unavailable' = 'idle'
+  constructor(Tone: SoundtrackTone, random: () => number) {
     this._Tone = Tone
     this._random = random
     this._nodes = []
@@ -75,31 +96,33 @@ class Soundtrack {
     return this._startPromise
   }
 
-  update(state, micEnergy = 0) {
-    if (!this.started) return
+  update(state: Pick<GameState, 'wave' | 'combo' | 'health'>, micEnergy = 0) {
+    const graph = this._graph
+    if (!this.started || !graph) return
     this._Tone.Transport.bpm.value = 80 + state.wave * 8
     const brightness = 500 + state.combo * 180 + micEnergy * 1600
-    this._filter.frequency.rampTo(brightness, 0.15)
+    graph.filter.frequency.rampTo(brightness, 0.15)
     const danger = state.health <= 1 ? -3 : -8
-    this._master.volume.rampTo(danger + Math.min(4, state.combo - 1), 0.25)
+    graph.master.volume.rampTo(danger + Math.min(4, state.combo - 1), 0.25)
   }
 
-  handle(events) {
-    if (!this.started) return
+  handle(events: GameEvent[]) {
+    const graph = this._graph
+    if (!this.started || !graph) return
     for (const event of events) {
       if (event.type === 'collected') {
         const notes = ['A5', 'C6', 'E6', 'G6']
-        this._chime.triggerAttackRelease(notes[event.combo % notes.length], '16n')
+        graph.chime.triggerAttackRelease(notes[event.combo % notes.length], '16n')
       } else if (event.type === 'hit') {
-        this._noise.triggerAttackRelease('16n')
+        graph.noise.triggerAttackRelease('16n')
       } else if (event.type === 'pulse') {
-        this._pulse.triggerAttackRelease('A2', `${0.1 + event.strength * 0.35}`)
+        graph.pulse.triggerAttackRelease('A2', `${0.1 + event.strength * 0.35}`)
       } else if (event.type === 'event-warning') {
-        this._chime.triggerAttackRelease('C7', '16n')
+        graph.chime.triggerAttackRelease('C7', '16n')
       } else if (event.type === 'event-started') {
-        this._noise.triggerAttackRelease('8n')
+        graph.noise.triggerAttackRelease('8n')
       } else if (event.type === 'game-over') {
-        this._pad.triggerAttackRelease(['A2', 'C3', 'E3'], '1m')
+        graph.pad.triggerAttackRelease(['A2', 'C3', 'E3'], '1m')
       }
     }
   }
@@ -113,6 +136,7 @@ class Soundtrack {
     this._Tone.Transport.cancel()
     for (const item of this._nodes) item.dispose()
     this._nodes.length = 0
+    this._graph = null
     this.started = false
   }
 
@@ -168,13 +192,7 @@ class Soundtrack {
     pulse.connect(master)
     noise.connect(master)
 
-    this._filter = filter
-    this._master = master
-    this._pad = pad
-    this._bass = bass
-    this._chime = chime
-    this._pulse = pulse
-    this._noise = noise
+    this._graph = { filter, master, pad, bass, chime, pulse, noise }
     this._repeatIds.push(Tone.Transport.scheduleRepeat(time => {
       if (this._bar > 0 && this._bar % 4 === 0) this._selectNextScene()
       const scene = HARMONIC_SCENES[this.sceneIndex]
@@ -196,7 +214,7 @@ class Soundtrack {
     this._bar = 0
   }
 
-  _keep(node) {
+  private _keep<T extends { dispose(): unknown }>(node: T): T {
     this._nodes.push(node)
     return node
   }

@@ -2,6 +2,16 @@ import { createGame, restartGame, startGame, stepGame, togglePause } from './gam
 import { createMediaInput } from './media-input.ts'
 import { createSignalScene } from './scene.ts'
 import { createSoundtrack } from './soundtrack.ts'
+import type { GameEvent } from './game.ts'
+import type { ArtlabContext } from '../../src/runtime/contracts.ts'
+
+interface SignalRuntime {
+  ctx: ArtlabContext; media: ReturnType<typeof createMediaInput>;
+  soundtrack: ReturnType<typeof createSoundtrack>; state: ReturnType<typeof createGame>;
+  view: ReturnType<typeof createSignalScene>; ui: ReturnType<typeof buildUi>;
+  keys: Set<string>; pulseReleased: boolean; started: boolean; starting: boolean; disposed: boolean;
+  lastHud: string; onKeyDown: ((event: KeyboardEvent) => void) | null; onKeyUp: ((event: KeyboardEvent) => void) | null;
+}
 
 const HELP = [
   'WASD / arrows: steer • Space: charge / pulse • P: pause • R: restart',
@@ -12,9 +22,9 @@ const CONTROL_KEYS = new Set([
   'a', 'd', 'w', 's', ' ', 'spacebar',
 ])
 
-let runtime = null
+let runtime: SignalRuntime | null = null
 
-export function setup(ctx) {
+export function setup(ctx: ArtlabContext) {
   ctx.setHelp(HELP)
   if (runtime) cleanup(runtime)
 
@@ -29,7 +39,7 @@ export function setup(ctx) {
   const view = createSignalScene(ctx, media.texture)
   const ui = buildUi(ctx.renderer.domElement.parentElement)
 
-  runtime = {
+  const current: SignalRuntime = {
     ctx,
     media,
     soundtrack,
@@ -45,17 +55,18 @@ export function setup(ctx) {
     onKeyDown: null,
     onKeyUp: null,
   }
-  bindControls(runtime)
-  ui.button.addEventListener('click', () => startMission(runtime), { once: true })
-  updateHud(runtime)
+  runtime = current
+  bindControls(current)
+  ui.button.addEventListener('click', () => startMission(current), { once: true })
+  updateHud(current)
 }
 
-export function update(ctx, dt) {
+export function update(ctx: ArtlabContext, dt: number) {
   const current = runtime
   if (!current || current.disposed || current.ctx !== ctx) return
 
   const frameDt = Math.max(0, Math.min(0.05, dt))
-  let events = []
+  let events: GameEvent[] = []
   if (current.started) {
     current.media.update(ctx.elapsed)
     const input = readInput(current)
@@ -71,14 +82,14 @@ export function update(ctx, dt) {
   updateHud(current)
 }
 
-export async function teardown(ctx) {
+export async function teardown(ctx?: ArtlabContext) {
   if (!runtime || (ctx && runtime.ctx !== ctx)) return
   const current = runtime
   runtime = null
   await cleanup(current)
 }
 
-async function startMission(current) {
+async function startMission(current: SignalRuntime) {
   if (current.starting || current.started || current.disposed) return
   current.starting = true
   current.ui.button.disabled = true
@@ -100,7 +111,7 @@ async function startMission(current) {
   updateHud(current)
 }
 
-function bindControls(current) {
+function bindControls(current: SignalRuntime) {
   current.onKeyDown = event => {
     const key = event.key.toLowerCase()
     if (CONTROL_KEYS.has(key)) event.preventDefault()
@@ -124,7 +135,7 @@ function bindControls(current) {
   window.addEventListener('keyup', current.onKeyUp)
 }
 
-function readInput(current) {
+function readInput(current: SignalRuntime) {
   const keys = current.keys
   const keyboardX = axis(keys, 'arrowleft', 'a', 'arrowright', 'd')
   const keyboardY = axis(keys, 'arrowdown', 's', 'arrowup', 'w')
@@ -137,13 +148,14 @@ function readInput(current) {
   }
 }
 
-function axis(keys, negativeA, negativeB, positiveA, positiveB) {
+function axis(keys: Set<string>, negativeA: string, negativeB: string, positiveA: string, positiveB: string) {
   const negative = keys.has(negativeA) || keys.has(negativeB) ? 1 : 0
   const positive = keys.has(positiveA) || keys.has(positiveB) ? 1 : 0
   return positive - negative
 }
 
-function buildUi(container) {
+function buildUi(container: HTMLElement | null) {
+  if (!container) throw new Error('Signal Salvage requires a canvas container')
   const root = document.createElement('div')
   root.dataset.signalSalvage = ''
   Object.assign(root.style, {
@@ -217,7 +229,7 @@ function buildUi(container) {
   return { root, onboarding, status, button, hud }
 }
 
-function updateHud(current) {
+function updateHud(current: SignalRuntime) {
   const state = current.state
   const seconds = Math.ceil(state.timeRemaining)
   const phase = state.phase === 'paused' ? 'PAUSED' : state.phase.toUpperCase()
@@ -245,11 +257,11 @@ function updateHud(current) {
   }
 }
 
-async function cleanup(current) {
+async function cleanup(current: SignalRuntime) {
   if (current.disposed) return
   current.disposed = true
-  window.removeEventListener('keydown', current.onKeyDown)
-  window.removeEventListener('keyup', current.onKeyUp)
+  if (current.onKeyDown) window.removeEventListener('keydown', current.onKeyDown)
+  if (current.onKeyUp) window.removeEventListener('keyup', current.onKeyUp)
   current.ui.root.remove()
   current.soundtrack.dispose()
   current.view.dispose()
@@ -257,11 +269,11 @@ async function cleanup(current) {
   await current.media.dispose()
 }
 
-function meter(value) {
+function meter(value: number) {
   const filled = Math.round(value * 10)
   return `${'█'.repeat(filled)}${'░'.repeat(10 - filled)}`
 }
 
-function clamp(value, min, max) {
+function clamp(value: number, min: number, max: number) {
   return Math.max(min, Math.min(max, value))
 }

@@ -1,14 +1,40 @@
 import * as Three from 'three'
 import { MAX_FRAGMENTS, MAX_HAZARDS } from './game.ts'
+import type { CollectibleKind, HazardKind, Fragment, Hazard, GameState, GameEvent } from './game.ts'
+
+type SceneHost = { add(object: Three.Object3D): unknown; remove(object: Three.Object3D): unknown }
+type Visual = { geometry: Three.BufferGeometry; material: Three.MeshStandardMaterial }
+type PoolMesh = Three.Mesh<Three.BufferGeometry, Three.MeshStandardMaterial>
+interface MediaSignal { motion?: { x: number; y: number; amount: number }; micEnergy?: number }
 
 const STAR_COUNT = 700
 
-export function createSignalScene(ctx, texture) {
+export function createSignalScene(ctx: SceneHost, texture: Three.Texture) {
   return new SignalScene(ctx, texture)
 }
 
 class SignalScene {
-  constructor(ctx, texture) {
+  private _ctx: SceneHost
+  private _disposed = false
+  private _pulseLife = 0
+  private _time = 0
+  private _geometries = new Set<Three.BufferGeometry>()
+  private _materials = new Set<Three.Material>()
+  readonly root: Three.Group
+  // These fields are assigned by the synchronous constructor builders below.
+  private _stars!: Three.Points<Three.BufferGeometry, Three.PointsMaterial>
+  private _nebula!: Three.Mesh<Three.BufferGeometry, Three.MeshBasicMaterial>
+  private _glow!: Three.PointLight
+  private _pulse!: Three.Mesh<Three.BufferGeometry, Three.MeshBasicMaterial>
+  signalVeil!: Three.Mesh<Three.PlaneGeometry, Three.MeshBasicMaterial>
+  craft!: Three.Group
+  aura!: Three.Mesh<Three.SphereGeometry, Three.MeshBasicMaterial>
+  fragmentMaterials!: Record<CollectibleKind, Three.MeshPhysicalMaterial>
+  fragmentVisuals!: Record<string, Visual>
+  hazardVisuals!: Record<string, Visual>
+  fragmentPool!: PoolMesh[]
+  hazardPool!: PoolMesh[]
+  constructor(ctx: SceneHost, texture: Three.Texture) {
     this._ctx = ctx
     this._disposed = false
     this._pulseLife = 0
@@ -25,14 +51,14 @@ class SignalScene {
     ctx.add(this.root)
   }
 
-  setTexture(texture) {
+  setTexture(texture: Three.Texture) {
     this.signalVeil.material.map = texture
     this.signalVeil.material.needsUpdate = true
     this.fragmentMaterials.prism.map = texture
     this.fragmentMaterials.prism.needsUpdate = true
   }
 
-  sync(state, events, dt, media = {}) {
+  sync(state: GameState, events: GameEvent[], dt: number, media: MediaSignal = {}) {
     this._time += dt
     this.craft.position.x = state.player.x
     this.craft.position.y = state.player.y
@@ -54,7 +80,7 @@ class SignalScene {
     this._ctx.remove(this.root)
   }
 
-  _buildEnvironment(texture) {
+  private _buildEnvironment(texture: Three.Texture) {
     const positions = new Float32Array(STAR_COUNT * 3)
     const colors = new Float32Array(STAR_COUNT * 3)
     const color = new Three.Color()
@@ -166,8 +192,8 @@ class SignalScene {
     this.root.add(this.craft)
   }
 
-  _buildPools(texture) {
-    const fragmentGeometries = {
+  private _buildPools(texture: Three.Texture) {
+    const fragmentGeometries: Record<CollectibleKind, Three.BufferGeometry> = {
       memory: this._keepGeometry(new Three.IcosahedronGeometry(0.48, 1)),
       resonance: this._keepGeometry(new Three.TorusKnotGeometry(0.3, 0.11, 32, 6)),
       prism: this._keepGeometry(new Three.TetrahedronGeometry(0.62, 1)),
@@ -179,10 +205,7 @@ class SignalScene {
       prism: this._collectibleMaterial(0xffffff, 0x3366aa, texture),
       repair: this._collectibleMaterial(0xaaff88, 0x227733),
     }
-    this.fragmentVisuals = Object.fromEntries(Object.keys(fragmentGeometries).map(kind => [
-      kind,
-      { geometry: fragmentGeometries[kind], material: this.fragmentMaterials[kind] },
-    ]))
+    this.fragmentVisuals = makeVisuals(fragmentGeometries, this.fragmentMaterials)
     this.fragmentPool = makePool(
       this.root,
       MAX_FRAGMENTS,
@@ -190,7 +213,7 @@ class SignalScene {
       this.fragmentMaterials.prism,
     )
 
-    const hazardGeometries = {
+    const hazardGeometries: Record<HazardKind, Three.BufferGeometry> = {
       corruption: this._keepGeometry(new Three.IcosahedronGeometry(0.68, 1)),
       debris: this._keepGeometry(new Three.DodecahedronGeometry(0.66, 0)),
       gravity: this._keepGeometry(new Three.TorusGeometry(0.54, 0.2, 8, 20)),
@@ -200,10 +223,7 @@ class SignalScene {
       debris: this._hazardMaterial(0xff8b3d),
       gravity: this._hazardMaterial(0x9955ff),
     }
-    this.hazardVisuals = Object.fromEntries(Object.keys(hazardGeometries).map(kind => [
-      kind,
-      { geometry: hazardGeometries[kind], material: hazardMaterials[kind] },
-    ]))
+    this.hazardVisuals = makeVisuals(hazardGeometries, hazardMaterials)
     this.hazardPool = makePool(
       this.root,
       MAX_HAZARDS,
@@ -227,7 +247,7 @@ class SignalScene {
     this.root.add(this._pulse)
   }
 
-  _updatePulse(events, dt) {
+  private _updatePulse(events: GameEvent[], dt: number) {
     const pulse = events.find(event => event.type === 'pulse')
     if (pulse) {
       this._pulseLife = 0.5
@@ -243,7 +263,7 @@ class SignalScene {
     this._pulse.material.opacity = this._pulseLife * 1.5
   }
 
-  _updateEnvironment(state, media) {
+  private _updateEnvironment(state: GameState, media: MediaSignal) {
     const motion = media.motion ?? { x: 0, y: 0, amount: 0 }
     const micEnergy = Math.max(0, Math.min(1, Number(media.micEnergy) || 0))
     this._stars.position.z = (this._time * (2 + state.wave + motion.amount * 3)) % 10
@@ -267,7 +287,7 @@ class SignalScene {
     this.aura.material.opacity = 0.08 + micEnergy * 0.3
   }
 
-  _collectibleMaterial(color, emissive, map = null) {
+  private _collectibleMaterial(color: Three.ColorRepresentation, emissive: Three.ColorRepresentation, map: Three.Texture | null = null) {
     return this._keepMaterial(new Three.MeshPhysicalMaterial({
       map,
       color,
@@ -281,7 +301,7 @@ class SignalScene {
     }))
   }
 
-  _hazardMaterial(emissive) {
+  private _hazardMaterial(emissive: Three.ColorRepresentation) {
     return this._keepMaterial(new Three.MeshStandardMaterial({
       color: 0x35162d,
       emissive,
@@ -291,18 +311,24 @@ class SignalScene {
     }))
   }
 
-  _keepGeometry(geometry) {
+  private _keepGeometry<T extends Three.BufferGeometry>(geometry: T): T {
     this._geometries.add(geometry)
     return geometry
   }
 
-  _keepMaterial(material) {
+  private _keepMaterial<T extends Three.Material>(material: T): T {
     this._materials.add(material)
     return material
   }
 }
 
-function makePool(parent, count, geometry, material) {
+function makeVisuals<K extends string>(geometries: Record<K, Three.BufferGeometry>, materials: Record<K, Three.MeshStandardMaterial>) {
+  const visuals: Record<string, Visual> = {}
+  for (const kind in geometries) visuals[kind] = { geometry: geometries[kind], material: materials[kind] }
+  return visuals
+}
+
+function makePool(parent: Three.Object3D, count: number, geometry: Three.BufferGeometry, material: Three.MeshStandardMaterial): PoolMesh[] {
   return Array.from({ length: count }, (_, index) => {
     const mesh = new Three.Mesh(geometry, material)
     mesh.visible = false
@@ -312,13 +338,13 @@ function makePool(parent, count, geometry, material) {
   })
 }
 
-function syncPool(pool, entities, time, spin, visuals) {
+function syncPool(pool: PoolMesh[], entities: (Fragment | Hazard)[], time: number, spin: number, visuals: Record<string, Visual>) {
   for (let i = 0; i < pool.length; i++) {
     const mesh = pool[i]
     const entity = entities[i]
     mesh.visible = Boolean(entity?.active)
     if (!mesh.visible) continue
-    const visual = visuals[entity.kind] ?? Object.values(visuals)[0]
+    const visual = (entity.kind ? visuals[entity.kind] : undefined) ?? Object.values(visuals)[0]
     mesh.geometry = visual.geometry
     mesh.material = visual.material
     mesh.position.set(entity.x, entity.y, entity.z)

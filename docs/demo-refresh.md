@@ -116,6 +116,13 @@ sign correction additionally passed its focused production-browser check.
 Screenshots were inspected and are attached to the browser report. No native-GPU
 throughput claim is inferred from these tests.
 
+Migration qualification on 2026-11-01 passed lint, the strict compiler projects,
+538 Vitest tests, and the production build. Five focused production-browser
+checks passed: Signal Salvage loading, keyboard fallback, synthetic camera/mic
+input, late-stream cleanup, and Long Winter's complete act sequence including
+reflection and ray-marching shaders. The complete browser suite has not yet
+been rerun for the finished semantic migration.
+
 ## Follow-up migration context
 
 The framework, IDE, CLI, examples, and tests are now TypeScript. Some legacy
@@ -129,10 +136,11 @@ Monaco still suppresses semantic diagnostics, and ModuleCompiler transpiles
 TypeScript rather than constructing a fully typechecked browser program. The
 strict CI gate now checks the runtime context, scene components, renderers,
 physics backends, assets, audio/video/UI libraries, compiler and preview hosts,
-CLI, and 53 of the 55 canonical demo entry graphs. The two remaining demo
-graphs are Long Winter and Signal Salvage. The IDE coordinator and most test
-implementations also remain outside the strict project. The shared test context
-and Solar System audio and camera journey tests are checked by `tsconfig.tests.json`.
+CLI, and all 55 canonical demo entry graphs, including their helper modules.
+The IDE coordinator and most test implementations remain outside the strict
+project. The shared test context, Solar System audio and camera journey tests,
+all five Signal Salvage test modules, and Long Winter's test module are checked
+by `tsconfig.tests.json`.
 `tsconfig.transpile.json` still uses `noCheck` for
 the whole-repository syntax pass; this is an unfinished semantic migration,
 not whole-repository type safety. An editor diagnostics service using the

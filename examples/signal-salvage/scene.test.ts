@@ -9,11 +9,11 @@ function makeCtx() {
     scene,
     camera: new Three.PerspectiveCamera(),
     controls: { enabled: true, target: new Three.Vector3() },
-    add: vi.fn(object => {
+    add: vi.fn((object: Three.Object3D) => {
       scene.add(object)
       return object
     }),
-    remove: vi.fn(object => scene.remove(object)),
+    remove: vi.fn((object: Three.Object3D) => scene.remove(object)),
   }
 }
 

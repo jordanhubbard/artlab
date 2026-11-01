@@ -100,7 +100,7 @@ export function snowfall(count = 2200) {
   return snow
 }
 
-export function hash(value) {
+export function hash(value: number) {
   const x=Math.sin(value*127.1)*43758.5453
   return x-Math.floor(x)
 }

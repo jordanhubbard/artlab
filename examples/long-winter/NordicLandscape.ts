@@ -1,9 +1,21 @@
 import * as Three from 'three'
 import { Reflector } from 'three/addons/objects/Reflector.js'
 import { atmosphere, snowfall, hash, NOISE } from './NorthernAtmosphere.ts'
+import type { MusicalPosition, VoiceActivity } from './score.ts'
 
 /** A sculpted fjord, with planar reflections and a shader-driven northern sky. */
 export class NordicLandscape {
+  readonly object: Three.Group
+  readonly sky: ReturnType<typeof atmosphere>['sky']
+  readonly aurora: Three.Group
+  readonly uniforms: ReturnType<typeof atmosphere>['uniforms']
+  readonly mountains: ReturnType<typeof mountains>[]
+  readonly lake: ReturnType<typeof makeIce>
+  readonly cabin: ReturnType<typeof cabin>
+  readonly shore: Three.Mesh<Three.SphereGeometry, Three.MeshStandardMaterial>
+  readonly trees: Three.Group
+  readonly birches: Three.Group
+  readonly snow: ReturnType<typeof snowfall>
   constructor() {
     this.object = new Three.Group()
     this.object.name = 'Northern light / sculpted fjord'
@@ -24,7 +36,7 @@ export class NordicLandscape {
     this.object.add(this.sky, ...this.mountains, this.lake, this.shore, this.cabin, this.trees, this.birches, this.snow, this.aurora)
   }
 
-  update(_dt, position, activity) {
+  update(_dt: number, position: MusicalPosition, activity: VoiceActivity) {
     const { id } = position.act
     this.object.visible = !['loose-pixel', 'copper-tunnel', 'color-storm'].includes(id)
     if (!this.object.visible) return
@@ -43,21 +55,21 @@ export class NordicLandscape {
   dispose() { this.lake.dispose() }
 }
 
-function noise(x, z) {
+function noise(x: number, z: number) {
   const ix=Math.floor(x), iz=Math.floor(z), fx=x-ix, fz=z-iz
   const a=fx*fx*(3-2*fx), b=fz*fz*(3-2*fz)
-  const h=(i,j)=>hash(i*17.17+j*93.7)
+  const h=(i: number,j: number)=>hash(i*17.17+j*93.7)
   return Three.MathUtils.lerp(Three.MathUtils.lerp(h(ix,iz),h(ix+1,iz),a),Three.MathUtils.lerp(h(ix,iz+1),h(ix+1,iz+1),a),b)
 }
 
-function elevation(x,z,layer) {
+function elevation(x: number,z: number,layer: number) {
   let sum=0, scale=.075, weight=1
   for(let i=0;i<6;i++){sum+=weight*(1-Math.abs(noise(x*scale+layer*13,z*scale)*2-1));scale*=2.07;weight*=.48}
   const valley=1-.74*Math.exp(-Math.pow((x-4)/12,2))
   return sum*12*valley-3.4
 }
 
-function mountains(z, layer) {
+function mountains(z: number, layer: number) {
   const geometry=new Three.PlaneGeometry(120,30,240,64)
   geometry.rotateX(-Math.PI/2)
   const p=geometry.attributes.position
@@ -81,7 +93,11 @@ function mountains(z, layer) {
 
 function makeIce() {
   const shader = {
-    uniforms: { ...Reflector.ReflectorShader.uniforms, uTime: { value: 0 } },
+    // Reflector fills these three standard reflection uniforms at construction.
+    uniforms: {
+      color: { value: new Three.Color() }, tDiffuse: { value: null },
+      textureMatrix: { value: new Three.Matrix4() }, uTime: { value: 0 },
+    },
     vertexShader: `uniform mat4 textureMatrix;varying vec4 vReflection;varying vec3 vWorld;void main(){vReflection=textureMatrix*vec4(position,1.);vWorld=(modelMatrix*vec4(position,1.)).xyz;gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.);}`,
     fragmentShader: /* glsl */`
       uniform sampler2D tDiffuse;uniform float uTime;varying vec4 vReflection;varying vec3 vWorld;
@@ -105,17 +121,17 @@ function makeIce() {
   const ice=new Reflector(new Three.PlaneGeometry(220,220),{textureWidth:1024,textureHeight:1024,clipBias:.003,multisample:0,shader})
   ice.rotation.x=-Math.PI/2
   ice.position.set(0,-2.8,-30)
-  return ice
+  if (!(ice.material instanceof Three.ShaderMaterial)) throw new Error('Reflector requires a shader material')
+  return Object.assign(ice, { material: ice.material })
 }
 
 function cabin() {
-  const group=new Three.Group()
   const wood=new Three.MeshStandardMaterial({color:0x732c29,roughness:.9})
   const white=new Three.MeshStandardMaterial({color:0xc4d4de,roughness:.8})
   const dark=new Three.MeshStandardMaterial({color:0x27313a,roughness:.8})
   const windows=new Three.MeshStandardMaterial({color:0xeec18b,emissive:0xffa544,emissiveIntensity:1.4})
-  group.userData.windows=windows
-  const box=(size,pos,mat)=>{const m=new Three.Mesh(new Three.BoxGeometry(...size),mat);m.position.set(...pos);group.add(m);return m}
+  const group=Object.assign(new Three.Group(), { userData: { windows } })
+  const box=(size: [number, number, number],pos: [number, number, number],mat: Three.Material)=>{const m=new Three.Mesh(new Three.BoxGeometry(...size),mat);m.position.set(...pos);group.add(m);return m}
   box([3.5,2.3,2.7],[0,.9,0],wood)
   for(let i=0;i<16;i++) box([.07,2.25,.045],[-1.65+i*.22,.9,1.37],dark)
   for(const side of [-1,1]) {

@@ -1,6 +1,9 @@
 // @vitest-environment jsdom
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import * as Three from 'three'
+import { existsSync } from 'node:fs'
+import { makeContext } from '../../tests/context.ts'
+import type { TrackerTone } from './TrackerTransport.ts'
 
 vi.mock('tone', () => ({
   Transport: { clear: vi.fn(), stop: vi.fn() },
@@ -12,22 +15,17 @@ import { NordicLandscape } from './NordicLandscape.ts'
 import { TrackerTransport } from './TrackerTransport.ts'
 
 function mockCtx() {
-  const container = document.createElement('div')
-  const canvas = document.createElement('canvas')
-  container.appendChild(canvas)
-  document.body.appendChild(container)
-  const camera = new Three.PerspectiveCamera(60, 1, 0.1, 100)
-  return {
-    Three,
-    camera,
-    renderer: { domElement: canvas, info: { render: { calls: 5 } } },
-    controls: { enabled: true, target: new Three.Vector3(), update: vi.fn() },
-    add: vi.fn(object => object),
-    remove: vi.fn(),
-    setBloom: vi.fn(),
-    setHelp: vi.fn(),
-    elapsed: 0,
-  }
+  const ctx = makeContext()
+  vi.spyOn(ctx, 'add')
+  vi.spyOn(ctx, 'remove')
+  vi.spyOn(ctx, 'setBloom')
+  vi.spyOn(ctx, 'setHelp')
+  return ctx
+}
+
+function trackerFor(Tone: ReturnType<typeof fakeTone>, now?: () => number) {
+  // Stub Tone's native audio internals at the dependency injection boundary.
+  return new TrackerTransport({ Tone: Tone as unknown as TrackerTone, now })
 }
 
 function fakeTone() {
@@ -52,6 +50,12 @@ function fakeTone() {
 }
 
 describe('Long Winter score', () => {
+  it('links every act to an existing TypeScript source module', () => {
+    for (const act of ACTS) {
+      expect(act.source).toMatch(/\.ts$/)
+      expect(existsSync(new URL(act.source, import.meta.url))).toBe(true)
+    }
+  })
   it('covers a roughly two-minute performance with nine contiguous acts and songs', () => {
     expect(DURATION).toBeGreaterThan(100)
     expect(DURATION).toBeLessThan(125)
@@ -87,7 +91,7 @@ describe('Northern Light rendering', () => {
     const geometry = landscape.mountains[0].geometry
     expect(new Set(Array.from(geometry.attributes.position.array).filter((_, i) => i % 3 === 1)).size).toBeGreaterThan(1000)
     expect(Array.from(geometry.attributes.normal.array).every(Number.isFinite)).toBe(true)
-    expect(landscape.trees.children.every(tree => tree.isInstancedMesh)).toBe(true)
+    expect(landscape.trees.children.every(tree => tree instanceof Three.InstancedMesh)).toBe(true)
     const dispose = vi.spyOn(landscape.lake.getRenderTarget(), 'dispose')
     landscape.dispose()
     expect(dispose).toHaveBeenCalledOnce()
@@ -113,7 +117,7 @@ describe('Northern Light rendering', () => {
 describe('TrackerTransport', () => {
   it('uses transport time, supports seek/pause, and releases the scheduled score', async () => {
     const Tone = fakeTone()
-    const transport = new TrackerTransport({ Tone, now: () => 10 })
+    const transport = trackerFor(Tone, () => 10)
     await transport.start()
     expect(transport.status).toBe('playing')
     expect(Tone.Transport.bpm.value).toBe(110)
@@ -131,7 +135,7 @@ describe('TrackerTransport', () => {
     const Tone = fakeTone()
     Tone.start.mockRejectedValueOnce(new Error('no device'))
     let now = 4
-    const transport = new TrackerTransport({ Tone, now: () => now })
+    const transport = trackerFor(Tone, () => now)
     await transport.start()
     now = 9
     expect(transport.status).toBe('silent')
@@ -140,18 +144,34 @@ describe('TrackerTransport', () => {
 
   it('uses one noise hit when a tracker row contains both snare and hi-hat', async () => {
     const Tone = fakeTone()
-    const transport = new TrackerTransport({ Tone })
+    const transport = trackerFor(Tone)
     await transport.start()
     Tone.Transport.seconds = 73 * 60 / 110
     transport.playStep(1)
-    expect(transport.noise.triggerAttackRelease).toHaveBeenCalledTimes(1)
+    expect(transport.noise?.triggerAttackRelease).toHaveBeenCalledTimes(1)
     transport.dispose()
+  })
+
+  it('does not create audio nodes after disposal wins a pending start', async () => {
+    const Tone = fakeTone()
+    let resolveStart: (() => void) | undefined
+    Tone.start.mockImplementationOnce(() => new Promise<void>(resolve => { resolveStart = resolve }))
+    const transport = trackerFor(Tone)
+    const starting = transport.start()
+    transport.dispose()
+    if (!resolveStart) throw new Error('Audio startup did not begin')
+    resolveStart()
+    await starting
+    expect(transport.status).toBe('disposed')
+    expect(Tone.Limiter).not.toHaveBeenCalled()
+    expect(Tone.Transport.start).not.toHaveBeenCalled()
+    expect(transport.nodes).toHaveLength(0)
   })
 })
 
 describe('Long Winter example', () => {
-  let ctx
-  let example
+  let ctx: ReturnType<typeof mockCtx>
+  let example: typeof import('./long-winter.ts')
 
   beforeEach(async () => {
     document.body.innerHTML = ''
@@ -165,7 +185,7 @@ describe('Long Winter example', () => {
     example.setup(ctx)
     expect(ctx.setHelp).toHaveBeenCalled()
     expect(ctx.setBloom).toHaveBeenCalled()
-    expect(ctx.add.mock.calls.length).toBeGreaterThanOrEqual(3)
+    expect(vi.mocked(ctx.add).mock.calls.length).toBeGreaterThanOrEqual(3)
     expect(document.querySelector('.lw-watch')?.textContent).toBe('WATCH NORTHERN LIGHT')
     expect(document.querySelector('.lw-score')).not.toBeNull()
     expect(document.querySelector('.lw-source')).not.toBeNull()

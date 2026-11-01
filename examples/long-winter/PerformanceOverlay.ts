@@ -1,9 +1,24 @@
 import { ACTS, DURATION } from './score.ts'
+import type { MusicalPosition, VoiceActivity } from './score.ts'
+
+interface PerformanceMetrics { drawCalls: number; p50: number; p95: number; width: number; height: number; path: string }
 
 const GREETINGS = 'GREETINGS TO THE DREAMERS OF THE NORTH · FAIRLIGHT · KEFRENS · SILENTS · SPACEBALLS · RAZOR 1911 · AND EVERYONE STILL MAKING MACHINES SING · '
 
 export class PerformanceOverlay {
-  constructor(parent, onStart) {
+  readonly root: HTMLDivElement
+  readonly watch: HTMLButtonElement
+  readonly title: HTMLElement
+  readonly act: HTMLElement
+  readonly part: HTMLElement
+  readonly song: HTMLElement
+  readonly time: HTMLElement
+  readonly palette: HTMLElement
+  readonly tracker: HTMLElement
+  readonly source: HTMLAnchorElement
+  readonly credits: HTMLElement
+  constructor(parent: HTMLElement | null, onStart: () => unknown) {
+    if (!parent) throw new Error('Long Winter requires a canvas container')
     this.root = document.createElement('div')
     this.root.dataset.longWinter = ''
     this.root.innerHTML = `
@@ -17,16 +32,16 @@ export class PerformanceOverlay {
       <div class="lw-credits" hidden></div>`
     this.style()
     parent.appendChild(this.root)
-    this.watch = this.root.querySelector('.lw-watch')
-    this.title = this.root.querySelector('.lw-title')
-    this.act = this.root.querySelector('.lw-act')
-    this.part = this.root.querySelector('.lw-part')
-    this.song = this.root.querySelector('.lw-song')
-    this.time = this.root.querySelector('.lw-time')
-    this.palette = this.root.querySelector('.lw-palette')
-    this.tracker = this.root.querySelector('.lw-tracker')
-    this.source = this.root.querySelector('.lw-source')
-    this.credits = this.root.querySelector('.lw-credits')
+    this.watch = requiredElement<HTMLButtonElement>(this.root, '.lw-watch')
+    this.title = requiredElement(this.root, '.lw-title')
+    this.act = requiredElement(this.root, '.lw-act')
+    this.part = requiredElement(this.root, '.lw-part')
+    this.song = requiredElement(this.root, '.lw-song')
+    this.time = requiredElement(this.root, '.lw-time')
+    this.palette = requiredElement(this.root, '.lw-palette')
+    this.tracker = requiredElement(this.root, '.lw-tracker')
+    this.source = requiredElement<HTMLAnchorElement>(this.root, '.lw-source')
+    this.credits = requiredElement(this.root, '.lw-credits')
     this.watch.addEventListener('click', async () => {
       if (this.watch.disabled) return
       this.watch.disabled = true
@@ -36,8 +51,8 @@ export class PerformanceOverlay {
       this.title.classList.add('playing')
       this.root.classList.add('started')
     })
-    this.root.querySelector('.lw-score').addEventListener('click', () => { this.tracker.hidden = !this.tracker.hidden })
-    this.root.querySelector('.lw-fullscreen').addEventListener('click', () => {
+    requiredElement<HTMLButtonElement>(this.root, '.lw-score').addEventListener('click', () => { this.tracker.hidden = !this.tracker.hidden })
+    requiredElement<HTMLButtonElement>(this.root, '.lw-fullscreen').addEventListener('click', () => {
       if (document.fullscreenElement) document.exitFullscreen?.().catch(() => {})
       else if (parent.requestFullscreen) parent.requestFullscreen().catch(() => {})
       else document.getElementById('btn-fullscreen')?.click()
@@ -67,13 +82,13 @@ export class PerformanceOverlay {
     this.root.appendChild(style)
   }
 
-  update(position, activity, metrics) {
+  update(position: MusicalPosition, activity: VoiceActivity, metrics: PerformanceMetrics) {
     this.act.textContent = `ACT ${roman(position.actIndex + 1)} / IX`
     this.part.textContent = position.act.name.replace(/^.+? · /, '')
     this.song.textContent = `♫ ${position.act.song.title} · ${position.act.song.voice.toUpperCase()} LEAD`
     this.time.textContent = `${clock(position.seconds)} / ${clock(DURATION)}`
     this.source.href = `https://github.com/jordanhubbard/artlab/blob/main/examples/long-winter/${position.act.source}`
-    const meter = value => `${'█'.repeat(Math.round(value * 8))}${'·'.repeat(8 - Math.round(value * 8))}`
+    const meter = (value: number) => `${'█'.repeat(Math.round(value * 8))}${'·'.repeat(8 - Math.round(value * 8))}`
     this.tracker.textContent = [
       `SONG ${String(position.actIndex + 1).padStart(2, '0')}  ${position.act.song.title}`,
       `PATTERN ${String(position.pattern).padStart(2, '0')}  ROW ${String(position.row).padStart(2, '0')}`,
@@ -88,8 +103,9 @@ export class PerformanceOverlay {
     if (position.seconds >= DURATION) this.showCredits(metrics)
   }
 
-  showCredits(metrics) {
-    const platform = navigator.userAgentData?.platform || navigator.platform || 'browser device'
+  showCredits(metrics: PerformanceMetrics) {
+    const agentData = (navigator as Navigator & { userAgentData?: { platform: string } }).userAgentData
+    const platform = agentData?.platform || navigator.platform || 'browser device'
     const browser = navigator.userAgent.match(/(Firefox|Chrome|Safari)\/[\d.]+/)?.[0] || 'browser'
     this.credits.hidden = false
     this.credits.innerHTML = `<strong>FIRST LIGHT</strong><p>Nine songs for the northern night<br>Sculpted fjords · reflected aurora · silver light sculptures<br>For the artists who made the Amiga dream</p><p>${metrics.drawCalls} draw calls · ${metrics.p50.toFixed(1)} ms p50 · ${metrics.p95.toFixed(1)} ms p95</p><p>${metrics.width}×${metrics.height} · ${metrics.path}<br>${platform} · ${browser} · measured live</p><p>${ACTS.length} ACTS · MADE WITH ARTLAB</p>`
@@ -98,9 +114,15 @@ export class PerformanceOverlay {
   dispose() { this.root.remove() }
 }
 
-function clock(seconds) {
+function requiredElement<T extends HTMLElement = HTMLElement>(root: ParentNode, selector: string): T {
+  const element = root.querySelector<T>(selector)
+  if (!element) throw new Error(`Missing Long Winter element: ${selector}`)
+  return element
+}
+
+function clock(seconds: number) {
   const whole = Math.floor(seconds)
   return `${String(Math.floor(whole / 60)).padStart(2, '0')}:${String(whole % 60).padStart(2, '0')}`
 }
 
-function roman(value) { return ['I', 'II', 'III', 'IV', 'V', 'VI', 'VII', 'VIII', 'IX'][value - 1] }
+function roman(value: number) { return ['I', 'II', 'III', 'IV', 'V', 'VI', 'VII', 'VIII', 'IX'][value - 1] }

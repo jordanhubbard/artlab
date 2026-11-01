@@ -4,8 +4,15 @@ import { PerformanceOverlay } from './PerformanceOverlay.ts'
 import { ACTS, BEATS_PER_BAR, SECONDS_PER_BEAT } from './score.ts'
 import { TrackerTransport } from './TrackerTransport.ts'
 import { WinterWorld } from './WinterWorld.ts'
+import type { MusicalPosition } from './score.ts'
 
 class LongWinter extends Scene {
+  // Initialized during setup(), before the host starts update().
+  private moonlight!: Three.DirectionalLight
+  private world!: WinterWorld
+  private transport!: TrackerTransport
+  private overlay!: PerformanceOverlay
+  private frames: number[] = []
   setup() {
     this.ctx.setHelp('Watch Northern Light · Fullscreen for native-resolution visuals · Space: pause/resume · ←/→: acts')
     this.ctx.setBloom(0.22)
@@ -23,10 +30,12 @@ class LongWinter extends Scene {
     this.frames = []
     const parent = this.ctx.renderer.domElement.parentElement
     this.overlay = this.scope.own(new PerformanceOverlay(parent, () => this.transport.start()))
-    this.scope.listen(window, 'keydown', event => this.onKey(event))
+    this.scope.listen(window, 'keydown', event => {
+      if (event instanceof KeyboardEvent) this.onKey(event)
+    })
   }
 
-  onKey(event) {
+  private onKey(event: KeyboardEvent) {
     if (event.key === ' ') {
       event.preventDefault()
       this.transport.togglePause()
@@ -39,10 +48,10 @@ class LongWinter extends Scene {
     }
   }
 
-  update(dt) {
+  update(dt: number) {
     this.transport.update(dt)
     const position = this.transport.position
-    this.world.update(dt, position, this.transport.activity)
+    this.world.updateScore(dt, position, this.transport.activity)
     this.moonlight.color.set(position.act.id === 'first-light' ? 0xffc59a : 0xa9cfea)
     this.moveCamera(position)
     this.frames.push(dt * 1000)
@@ -61,7 +70,7 @@ class LongWinter extends Scene {
     })
   }
 
-  moveCamera(position) {
+  private moveCamera(position: MusicalPosition) {
     const t = position.seconds
     const p = position.actProgress
     if (position.act.id === 'blue-hour' || position.act.id === 'first-light') {

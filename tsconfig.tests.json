@@ -1,5 +1,5 @@
 {
   "extends": "./tsconfig.json",
-  "include": ["tests/context.ts", "examples/solar-system/audio.test.ts", "examples/solar-system/camera-journey.test.ts"],
+  "include": ["tests/context.ts", "examples/solar-system/audio.test.ts", "examples/solar-system/camera-journey.test.ts", "examples/signal-salvage/*.test.ts", "examples/long-winter/long-winter.test.ts"],
   "exclude": []
 }

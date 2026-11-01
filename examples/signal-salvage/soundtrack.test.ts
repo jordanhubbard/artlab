@@ -3,20 +3,21 @@ import { describe, expect, it, vi } from 'vitest'
 vi.mock('tone', () => ({}))
 
 import { createSoundtrack } from './soundtrack.ts'
+import type { SoundtrackTone } from './soundtrack.ts'
 
 function node() {
   return {
     connect: vi.fn().mockReturnThis(),
     toDestination: vi.fn().mockReturnThis(),
     dispose: vi.fn(),
-    triggerAttackRelease: vi.fn(),
+    triggerAttackRelease: vi.fn<(notes: string | string[], duration?: string, time?: number) => void>(),
     volume: { rampTo: vi.fn() },
     frequency: { rampTo: vi.fn() },
   }
 }
 
 function toneMock({ rejectStart = false } = {}) {
-  const nodes = []
+  const nodes: ReturnType<typeof node>[] = []
   let scheduleId = 40
   const make = vi.fn(function () {
     const result = node()
@@ -40,7 +41,7 @@ function toneMock({ rejectStart = false } = {}) {
     NoiseSynth: make,
     Transport: {
       bpm: { value: 0 },
-      scheduleRepeat: vi.fn(() => ++scheduleId),
+      scheduleRepeat: vi.fn((_callback: (time: number) => void, _interval: string) => ++scheduleId),
       clear: vi.fn(),
       start: vi.fn(),
       stop: vi.fn(),
@@ -49,10 +50,15 @@ function toneMock({ rejectStart = false } = {}) {
   }
 }
 
+function soundtrackFor(Tone: ReturnType<typeof toneMock>, random?: () => number) {
+  // The fake constructors replace Web Audio only at the injected Tone boundary.
+  return createSoundtrack({ Tone: Tone as unknown as SoundtrackTone, random })
+}
+
 describe('Signal Salvage soundtrack', () => {
   it('starts from a gesture and connects the terminal node to destination', async () => {
     const Tone = toneMock()
-    const soundtrack = createSoundtrack({ Tone })
+    const soundtrack = soundtrackFor(Tone)
 
     await soundtrack.start()
 
@@ -64,7 +70,7 @@ describe('Signal Salvage soundtrack', () => {
 
   it('is idempotent and becomes a silent fallback when Tone cannot start', async () => {
     const Tone = toneMock({ rejectStart: true })
-    const soundtrack = createSoundtrack({ Tone })
+    const soundtrack = soundtrackFor(Tone)
 
     await soundtrack.start()
     await soundtrack.start()
@@ -76,7 +82,7 @@ describe('Signal Salvage soundtrack', () => {
 
   it('turns game events into synthesized cues', async () => {
     const Tone = toneMock()
-    const soundtrack = createSoundtrack({ Tone })
+    const soundtrack = soundtrackFor(Tone)
     await soundtrack.start()
 
     soundtrack.handle([
@@ -96,12 +102,13 @@ describe('Signal Salvage soundtrack', () => {
 
   it('changes to a non-repeating harmonic scene every four measures', async () => {
     const Tone = toneMock()
-    const soundtrack = createSoundtrack({ Tone, random: () => 0 })
+    const soundtrack = soundtrackFor(Tone, () => 0)
     await soundtrack.start()
 
     const chordSchedule = Tone.Transport.scheduleRepeat.mock.calls
       .find(([, interval]) => interval === '1m')
     expect(chordSchedule).toBeTruthy()
+    if (!chordSchedule) throw new Error('No harmonic schedule was registered')
 
     const initialScene = soundtrack.sceneIndex
     chordSchedule[0](0)
@@ -116,7 +123,7 @@ describe('Signal Salvage soundtrack', () => {
     const padChords = Tone.nodes
       .flatMap(item => item.triggerAttackRelease.mock.calls)
       .filter(([notes]) => Array.isArray(notes))
-    expect(padChords.at(-1)[0]).not.toEqual(initialChord)
+    expect(padChords.at(-1)?.[0]).not.toEqual(initialChord)
 
     const previousScene = soundtrack.sceneIndex
     chordSchedule[0](12)
@@ -128,7 +135,7 @@ describe('Signal Salvage soundtrack', () => {
 
   it('reacts to game intensity and disposes all resources', async () => {
     const Tone = toneMock()
-    const soundtrack = createSoundtrack({ Tone })
+    const soundtrack = soundtrackFor(Tone)
     await soundtrack.start()
 
     soundtrack.update({ combo: 5, wave: 3, health: 1 }, 0.75)
@@ -143,13 +150,14 @@ describe('Signal Salvage soundtrack', () => {
   })
 
   it('does not build or start audio after teardown wins a pending start', async () => {
-    let resolveStart
+    let resolveStart: (() => void) | undefined
     const Tone = toneMock()
-    Tone.start = vi.fn(() => new Promise(resolve => { resolveStart = resolve }))
-    const soundtrack = createSoundtrack({ Tone })
+    Tone.start = vi.fn(() => new Promise<void>(resolve => { resolveStart = resolve }))
+    const soundtrack = soundtrackFor(Tone)
 
     const starting = soundtrack.start()
     soundtrack.dispose()
+    if (!resolveStart) throw new Error('Audio startup did not begin')
     resolveStart()
     await starting
 

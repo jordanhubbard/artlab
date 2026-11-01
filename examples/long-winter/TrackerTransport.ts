@@ -1,9 +1,29 @@
 import * as ToneModule from 'tone'
 import { BPM, DURATION, musicalPosition, stepAt } from './score.ts'
+import type { VoiceActivity } from './score.ts'
+
+export type TrackerTone = Pick<typeof ToneModule,
+  'start' | 'Limiter' | 'Reverb' | 'Volume' | 'Synth' | 'FMSynth' | 'PolySynth'
+  | 'MonoSynth' | 'MembraneSynth' | 'NoiseSynth' | 'Transport'>
 
 /** Nine original tracker songs sharing one audio-clock transport. */
 export class TrackerTransport {
-  constructor({ Tone = ToneModule, now = () => performance.now() / 1000 } = {}) {
+  readonly Tone: TrackerTone
+  readonly now: () => number
+  status: 'idle' | 'playing' | 'silent' | 'ended' | 'paused' | 'paused-silent' | 'disposed' = 'idle'
+  readonly nodes: { dispose(): unknown }[] = []
+  repeatId: number | null = null
+  startedAt = 0
+  pausedAt = 0
+  activity: VoiceActivity = { melody: 0, chord: 0, bass: 0, drums: 0 }
+  lastStep = -1
+  private disposed = false
+  leads: { chip: ToneModule.Synth; pluck: ToneModule.Synth; bell: ToneModule.FMSynth } | null = null
+  chords: ToneModule.PolySynth<ToneModule.Synth> | null = null
+  bass: ToneModule.MonoSynth | null = null
+  kick: ToneModule.MembraneSynth | null = null
+  noise: ToneModule.NoiseSynth | null = null
+  constructor({ Tone = ToneModule, now = () => performance.now() / 1000 }: { Tone?: TrackerTone; now?: () => number } = {}) {
     this.Tone = Tone
     this.now = now
     this.status = 'idle'
@@ -16,17 +36,19 @@ export class TrackerTransport {
   }
 
   async start() {
-    if (this.status === 'playing') return
+    if (this.status === 'playing' || this.disposed) return
     this.startedAt = this.now() - this.pausedAt
     try {
       await this.Tone.start()
+      if (this.disposed) return
       this.buildGraph()
       this.Tone.Transport.bpm.value = BPM
       this.Tone.Transport.seconds = this.pausedAt
       this.Tone.Transport.start()
       this.status = 'playing'
     } catch (error) {
-      console.info('[long-winter] audio unavailable; continuing silently:', error?.message || error)
+      if (this.disposed) return
+      console.info('[long-winter] audio unavailable; continuing silently:', error instanceof Error ? error.message : error)
       this.status = 'silent'
     }
   }
@@ -55,7 +77,8 @@ export class TrackerTransport {
     this.repeatId = Tone.Transport.scheduleRepeat(time => this.playStep(time), '16n')
   }
 
-  playStep(time) {
+  playStep(time: number) {
+    if (!this.leads || !this.chords || !this.bass || !this.kick || !this.noise) return
     const position = musicalPosition(this.Tone.Transport.seconds)
     const step = stepAt(position)
     if (step.step === this.lastStep) return
@@ -80,14 +103,14 @@ export class TrackerTransport {
       this.chords.triggerAttackRelease(step.chord, position.act.id === 'fjord-mirror' ? '1m' : '2n', time, 0.36)
       this.activity.chord = 1
     }
-    if (step.melody) {
+    if (step.melody && step.melodyNote) {
       this.leads[position.act.song.voice].triggerAttackRelease(step.melodyNote, position.act.id === 'blue-hour' ? '8n' : '16n', time, 0.38)
       this.activity.melody = 1
     }
   }
 
-  update(dt) {
-    for (const voice of Object.keys(this.activity)) this.activity[voice] = Math.max(0, this.activity[voice] - dt * 5)
+  update(dt: number) {
+    for (const voice of ['melody', 'chord', 'bass', 'drums'] as const) this.activity[voice] = Math.max(0, this.activity[voice] - dt * 5)
     if (this.seconds >= DURATION && this.status !== 'ended') {
       this.pausedAt = DURATION
       this.Tone.Transport.stop?.()
@@ -120,7 +143,7 @@ export class TrackerTransport {
     }
   }
 
-  seek(seconds) {
+  seek(seconds: number) {
     const target = Math.max(0, Math.min(DURATION, seconds))
     this.pausedAt = target
     this.lastStep = -1
@@ -129,6 +152,8 @@ export class TrackerTransport {
   }
 
   dispose() {
+    if (this.disposed) return
+    this.disposed = true
     if (this.repeatId !== null) this.Tone.Transport.clear(this.repeatId)
     this.Tone.Transport.stop?.()
     for (const node of this.nodes.reverse()) node.dispose?.()
@@ -136,7 +161,7 @@ export class TrackerTransport {
     this.status = 'disposed'
   }
 
-  keep(node) {
+  private keep<T extends { dispose(): unknown }>(node: T): T {
     this.nodes.push(node)
     return node
   }

@@ -1,5 +1,6 @@
 import * as Three from 'three'
 import { ShaderSurface } from '../../src/stdlib/scene/ShaderSurface.ts'
+import type { MusicalPosition, VoiceActivity } from './score.ts'
 
 /** Full-resolution sphere tracing: signed-distance sculpture, shadows, AO and a reflection bounce. */
 export class DemoGraphics extends ShaderSurface {
@@ -13,7 +14,7 @@ export class DemoGraphics extends ShaderSurface {
     this.object.visible = false
   }
 
-  update(dt, position, activity) {
+  update(dt: number, position: number | MusicalPosition, activity: Pick<VoiceActivity, 'bass' | 'melody' | 'drums'> = { bass: 0, melody: 0, drums: 0 }) {
     // ShaderSurface initializes resolution before the subclass is constructed.
     if (typeof position === 'number') return super.update(dt, position)
     const index = ['loose-pixel', 'copper-tunnel', 'color-storm'].indexOf(position.act.id)

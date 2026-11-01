@@ -163,13 +163,19 @@ bin/          `artlab` CLI (create / serve / build / pack packages)
 ```bash
 npm run build          # build to dist/
 npm run preview        # serve the production build locally
-npm run typecheck      # strict context contracts and opted-in sketch checks
+npm run typecheck      # strict source/demo checks and migrated tests
 npm test               # run vitest once
 npm run test:watch     # watch mode
 npm run test:e2e       # Playwright end-to-end (builds first)
 ```
 
-Every example has a `<name>.test.ts` that exercises `setup`/`update`/`teardown` against a lightweight mock ctx. Stdlib modules have unit tests under `src/stdlib/__tests__/`.
+Demo tests exercise `setup`/`update`/`teardown` against a shared context or a lightweight host fixture. Stdlib modules have unit tests under `src/stdlib/__tests__/`.
+
+Strict checking covers the framework and all 55 canonical demo graphs. The IDE
+coordinator/boot modules and most test implementations still await migration;
+the whole-repository syntax pass still uses `noCheck`. See the
+[migration context](docs/demo-refresh.md#follow-up-migration-context) for the
+remaining boundaries.
 
 ## Contributing
 

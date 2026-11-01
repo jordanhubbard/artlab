@@ -12,7 +12,7 @@ import {
 
 const idleInput = { x: 0, y: 0, pulseHeld: false, pulseReleased: false, micEnergy: 0 }
 
-function fixedRandom(...values) {
+function fixedRandom(...values: number[]) {
   let index = 0
   return () => values[index++ % values.length]
 }
@@ -184,7 +184,9 @@ describe('Signal Salvage game model', () => {
 
     const events = stepGame(state, { ...idleInput, pulseReleased: true }, 0.01)
 
-    expect(events.find(event => event.type === 'pulse').strength).toBeGreaterThan(1)
+    const pulse = events.find(event => event.type === 'pulse')
+    if (!pulse) throw new Error('Expected a charged pulse event')
+    expect(pulse.strength).toBeGreaterThan(1)
   })
 
   it('takes damage from a hazard and ends when health reaches zero', () => {
@@ -212,6 +214,7 @@ describe('Signal Salvage game model', () => {
     expect(charged).toBeGreaterThan(0.5)
     expect(state.pulseCharge).toBe(0)
     expect(events[0].type).toBe('pulse')
+    if (events[0].type !== 'pulse') throw new Error('Expected the first event to be a pulse')
     expect(events[0].strength).toBeCloseTo(charged)
   })
 

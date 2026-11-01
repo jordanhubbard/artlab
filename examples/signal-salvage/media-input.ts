@@ -4,16 +4,45 @@ const SAMPLE_WIDTH = 32
 const SAMPLE_HEIGHT = 24
 const SAMPLE_INTERVAL = 1 / 15
 
-export function createMediaInput(options = {}) {
+export interface MediaInputOptions {
+  mediaDevices?: Pick<MediaDevices, 'getUserMedia'> | null;
+  createAudioContext?: () => AudioContext | null;
+  documentRef?: Pick<Document, 'createElement'> | null;
+}
+type MediaStatus = 'idle' | 'requesting' | 'active' | 'unavailable' | 'denied' | 'stopped'
+
+export function createMediaInput(options: MediaInputOptions = {}) {
   return new MediaInput(options)
 }
 
 class MediaInput {
+  private _mediaDevices: MediaInputOptions['mediaDevices']
+  private _createAudioContext: () => AudioContext | null
+  private _document: MediaInputOptions['documentRef']
+  private _cameraStream: MediaStream | null = null
+  private _microphoneStream: MediaStream | null = null
+  private _audioContext: AudioContext | null = null
+  private _microphoneSource: MediaStreamAudioSourceNode | null = null
+  private _analyser: AnalyserNode | null = null
+  private _silentGain: GainNode | null = null
+  private _sampleContext: CanvasRenderingContext2D | null = null
+  private _previousLuminance: Float32Array<ArrayBuffer>
+  private _waveform: Float32Array<ArrayBuffer>
+  private _lastSampleAt = -Infinity
+  private _startPromise: Promise<void> | null = null
+  private _disposed = false
+  private _sampleCanvas: HTMLCanvasElement | null
+  cameraStatus: MediaStatus = 'idle'
+  microphoneStatus: MediaStatus = 'idle'
+  motion = { x: 0, y: 0, amount: 0 }
+  micEnergy = 0
+  readonly video: HTMLVideoElement | null
+  texture: Three.Texture
   constructor({
     mediaDevices = globalThis.navigator?.mediaDevices,
     createAudioContext = defaultAudioContext,
     documentRef = globalThis.document,
-  } = {}) {
+  }: MediaInputOptions = {}) {
     this._mediaDevices = mediaDevices
     this._createAudioContext = createAudioContext
     this._document = documentRef
@@ -50,7 +79,7 @@ class MediaInput {
     return this._startPromise
   }
 
-  update(elapsed) {
+  update(elapsed: number) {
     this._sampleMicrophone()
     if (elapsed - this._lastSampleAt >= SAMPLE_INTERVAL) {
       this._lastSampleAt = elapsed
@@ -73,12 +102,12 @@ class MediaInput {
     this._silentGain = null
     if (this._audioContext) await this._audioContext.close()
     this._audioContext = null
-    this.video.srcObject = null
+    if (this.video) this.video.srcObject = null
     this.texture.dispose?.()
   }
 
   async _startCamera() {
-    if (!this._mediaDevices?.getUserMedia) {
+    if (!this.video || !this._mediaDevices?.getUserMedia) {
       this.cameraStatus = 'unavailable'
       return
     }
@@ -124,15 +153,16 @@ class MediaInput {
     }
     this.microphoneStatus = 'requesting'
     try {
-      this._audioContext = this._createAudioContext?.()
-      if (!this._audioContext) {
+      const audioContext = this._createAudioContext()
+      this._audioContext = audioContext
+      if (!audioContext) {
         this.microphoneStatus = 'unavailable'
         return
       }
       // Both calls begin synchronously inside the click handler. Awaiting the
       // permission prompt before creating/resuming the context loses Chrome's
       // transient user activation.
-      const resumePromise = Promise.resolve(this._audioContext.resume?.())
+      const resumePromise = Promise.resolve(audioContext.resume?.())
       const streamPromise = this._mediaDevices.getUserMedia({
         video: false,
         audio: true,
@@ -155,9 +185,9 @@ class MediaInput {
         return
       }
       this._microphoneStream = stream
-      this._buildMicrophoneGraph()
-      this._microphoneSource = this._audioContext.createMediaStreamSource(stream)
-      this._microphoneSource.connect(this._analyser)
+      const analyser = this._buildMicrophoneGraph(audioContext)
+      this._microphoneSource = audioContext.createMediaStreamSource(stream)
+      this._microphoneSource.connect(analyser)
       this.microphoneStatus = 'active'
     } catch (error) {
       stopStream(this._microphoneStream)
@@ -166,22 +196,24 @@ class MediaInput {
     }
   }
 
-  _buildMicrophoneGraph() {
-    this._analyser = this._audioContext.createAnalyser()
+  private _buildMicrophoneGraph(audioContext: AudioContext) {
+    this._analyser = audioContext.createAnalyser()
     this._analyser.fftSize = 256
     this._analyser.smoothingTimeConstant = 0.78
-    this._silentGain = this._audioContext.createGain()
+    this._silentGain = audioContext.createGain()
     if (this._silentGain.gain?.setValueAtTime) {
-      this._silentGain.gain.setValueAtTime(0, this._audioContext.currentTime ?? 0)
+      this._silentGain.gain.setValueAtTime(0, audioContext.currentTime ?? 0)
     } else if (this._silentGain.gain) {
       this._silentGain.gain.value = 0
     }
     this._analyser.connect(this._silentGain)
-    this._silentGain.connect(this._audioContext.destination)
+    this._silentGain.connect(audioContext.destination)
+    return this._analyser
   }
 
   _createVideo() {
-    const video = this._document?.createElement?.('video') ?? {}
+    const video = this._document?.createElement('video')
+    if (!video) return null
     video.autoplay = true
     video.muted = true
     video.playsInline = true
@@ -213,7 +245,7 @@ class MediaInput {
   }
 
   _sampleMotion() {
-    if (!this._sampleContext || !this.video.videoWidth) {
+    if (!this._sampleContext || !this.video?.videoWidth) {
       this.motion.x *= 0.85
       this.motion.y *= 0.85
       this.motion.amount *= 0.85
@@ -262,18 +294,20 @@ function createFallbackTexture() {
 }
 
 function defaultAudioContext() {
-  const AudioContextClass = globalThis.AudioContext ?? globalThis.webkitAudioContext
+  const AudioContextClass = globalThis.AudioContext
+    ?? (globalThis as typeof globalThis & { webkitAudioContext?: typeof AudioContext }).webkitAudioContext
   return AudioContextClass ? new AudioContextClass() : null
 }
 
-function stopStream(stream) {
+function stopStream(stream: MediaStream | null) {
   for (const track of stream?.getTracks?.() ?? []) track.stop()
 }
 
-function permissionStatus(error) {
-  return error?.name === 'NotAllowedError' ? 'denied' : 'unavailable'
+function permissionStatus(error: unknown) {
+  return typeof error === 'object' && error !== null && 'name' in error && error.name === 'NotAllowedError'
+    ? 'denied' : 'unavailable'
 }
 
-function clamp(value, min, max) {
+function clamp(value: number, min: number, max: number) {
   return Math.max(min, Math.min(max, value))
 }

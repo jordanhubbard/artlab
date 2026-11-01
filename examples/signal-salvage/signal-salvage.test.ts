@@ -1,6 +1,7 @@
 // @vitest-environment jsdom
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import * as Three from 'three'
+import { makeContext } from '../../tests/context.ts'
 
 const media = {
   start: vi.fn().mockResolvedValue(undefined),
@@ -20,7 +21,7 @@ const soundtrack = {
   status: 'active',
 }
 const view = {
-  sync: vi.fn(),
+  sync: vi.fn<ReturnType<typeof import('./scene.ts').createSignalScene>['sync']>(),
   setTexture: vi.fn(),
   dispose: vi.fn(),
 }
@@ -31,26 +32,23 @@ vi.mock('./soundtrack.ts', () => ({ createSoundtrack: vi.fn(() => soundtrack) })
 vi.mock('./scene.ts', () => ({ createSignalScene: vi.fn(() => view) }))
 
 function makeCtx() {
-  const container = document.createElement('div')
-  const canvas = document.createElement('canvas')
-  container.appendChild(canvas)
-  document.body.appendChild(container)
-  return {
-    renderer: { domElement: canvas },
-    camera: new Three.PerspectiveCamera(),
-    controls: { enabled: true, target: new Three.Vector3() },
-    setHelp: vi.fn(),
-    setBloom: vi.fn(),
-    add: vi.fn(),
-    remove: vi.fn(),
-    elapsed: 0,
-    container,
-  }
+  const ctx = makeContext()
+  const container = ctx.renderer.domElement.parentElement
+  if (!container) throw new Error('Test canvas requires a container')
+  vi.spyOn(ctx, 'setHelp')
+  vi.spyOn(ctx, 'setBloom')
+  return Object.assign(ctx, { container })
+}
+
+function clickStart(ctx: ReturnType<typeof makeCtx>) {
+  const button = ctx.container.querySelector('button')
+  if (!button) throw new Error('Mission start button is missing')
+  button.click()
 }
 
 describe('Signal Salvage lifecycle', () => {
-  let mod
-  let ctx
+  let mod: typeof import('./signal-salvage.ts')
+  let ctx: ReturnType<typeof makeCtx>
 
   beforeEach(async () => {
     vi.clearAllMocks()
@@ -79,7 +77,7 @@ describe('Signal Salvage lifecycle', () => {
   it('starts media, audio, and keyboard-only gameplay from the button', async () => {
     mod.setup(ctx)
 
-    ctx.container.querySelector('button').click()
+    clickStart(ctx)
     await new Promise(resolve => setTimeout(resolve, 0))
     mod.update(ctx, 0.016)
 
@@ -94,12 +92,14 @@ describe('Signal Salvage lifecycle', () => {
     media.motion = { x: 1, y: -0.5, amount: 0.8 }
     media.micEnergy = 0.65
     mod.setup(ctx)
-    ctx.container.querySelector('button').click()
+    clickStart(ctx)
     await new Promise(resolve => setTimeout(resolve, 0))
 
     mod.update(ctx, 0.5)
 
-    const [state, , , signals] = view.sync.mock.calls.at(-1)
+    const call = view.sync.mock.calls.at(-1)
+    if (!call) throw new Error('Scene did not receive a frame')
+    const [state, , , signals] = call
     expect(state.player.x).toBe(0)
     expect(state.player.y).toBe(0)
     expect(signals).toEqual({
@@ -112,7 +112,7 @@ describe('Signal Salvage lifecycle', () => {
 
   it('supports pause and restart controls', async () => {
     mod.setup(ctx)
-    ctx.container.querySelector('button').click()
+    clickStart(ctx)
     await new Promise(resolve => setTimeout(resolve, 0))
 
     window.dispatchEvent(new KeyboardEvent('keydown', { key: 'p' }))

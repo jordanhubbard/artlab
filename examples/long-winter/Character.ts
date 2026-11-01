@@ -1,7 +1,16 @@
 import * as Three from 'three'
+import type { PerformanceAction } from './score.ts'
 
 /** The maintenance robot performer and its recurring amber lamp. */
 export class Character {
+  readonly object: Three.Group
+  readonly body: Three.Mesh<Three.BoxGeometry, Three.MeshStandardMaterial>
+  readonly head: Three.Mesh<Three.BoxGeometry, Three.MeshStandardMaterial>
+  readonly eye: Three.Mesh<Three.BoxGeometry, Three.MeshStandardMaterial>
+  readonly lamp: Three.Mesh<Three.SphereGeometry, Three.MeshStandardMaterial>
+  readonly arm: Three.Mesh<Three.BoxGeometry, Three.MeshStandardMaterial>
+  readonly leftLeg: Three.Mesh<Three.BoxGeometry, Three.MeshStandardMaterial>
+  readonly rightLeg: Three.Mesh<Three.BoxGeometry, Three.MeshStandardMaterial>
   constructor() {
     this.object = new Three.Group()
     this.object.name = 'Pip, winter maintenance robot'
@@ -25,7 +34,7 @@ export class Character {
     this.object.position.set(-2.6, -1.65, 0.4)
   }
 
-  update(_dt, elapsed, action = 'tend', beat = 0) {
+  update(_dt: number, elapsed: number, action: PerformanceAction = 'tend', beat = 0) {
     this.object.position.y = -1.65 + Math.sin(elapsed * 3) * 0.035
     this.head.rotation.z = Math.sin(elapsed * 1.4) * 0.04
     this.arm.rotation.z = action === 'pull' ? -1.2 : action === 'conduct' || action === 'wave' ? Math.sin(beat * Math.PI) * 0.9 : -0.2
@@ -40,9 +49,10 @@ export class Character {
   dispose() { disposeTree(this.object) }
 }
 
-function disposeTree(root) {
+function disposeTree(root: Three.Object3D) {
   root.traverse(object => {
-    object.geometry?.dispose()
+    if (!(object instanceof Three.Mesh)) return
+    object.geometry.dispose()
     for (const material of [object.material].flat()) material?.dispose()
   })
   root.removeFromParent()

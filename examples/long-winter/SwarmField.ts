@@ -1,7 +1,8 @@
 import * as Three from 'three'
 import { InstanceField } from '../../src/stdlib/scene/InstanceField.ts'
+import type { MusicalPosition, VoiceActivity } from './score.ts'
 
-const PALETTES = {
+const PALETTES: Partial<Record<MusicalPosition['act']['id'], number[]>> = {
   'aurora-code': [0x20efb1, 0x3f82ff, 0xc14eff],
   'loose-pixel': [0xff9c32, 0xff416d, 0x623cff],
   'copper-tunnel': [0x00dcff, 0xff8b29, 0xe537a2],
@@ -10,6 +11,12 @@ const PALETTES = {
 
 /** One fixed buffer transforming through four recognizably different demo effects. */
 export class SwarmField extends InstanceField {
+  readonly seed: number[]
+  readonly position: Three.Vector3
+  readonly swatch: Three.Color
+  readonly first: Three.Color
+  readonly second: Three.Color
+  visibleCount: number
   constructor(count = 1400) {
     super(count, new Three.TetrahedronGeometry(0.075, 0), new Three.MeshBasicMaterial({ vertexColors: true }))
     this.seed = Array.from({ length: count }, (_, i) => hash(i + 1))
@@ -21,12 +28,12 @@ export class SwarmField extends InstanceField {
     this.visibleCount = count
   }
 
-  setDensity(scale) {
+  setDensity(scale: number) {
     this.visibleCount = Math.max(600, Math.round(this.count * scale))
     this.object.count = this.visibleCount
   }
 
-  updateScore(position, activity) {
+  updateScore(position: MusicalPosition, activity: VoiceActivity) {
     const mode = position.act.id
     const palette = PALETTES[mode]
     this.object.visible = Boolean(palette)
@@ -47,7 +54,7 @@ export class SwarmField extends InstanceField {
   }
 }
 
-function pointFor(mode, i, seed, t, morph, count) {
+function pointFor(mode: MusicalPosition['act']['id'], i: number, seed: number, t: number, morph: number, count: number) {
   const angle = seed * Math.PI * 2 + t * (0.12 + (i % 7) * 0.003)
   if (mode === 'aurora-code') {
     return { x: (seed - 0.5) * 18, y: Math.sin(seed * 36 + t * 1.3) * 1.7 + (i % 5) * 0.18, z: -7 + Math.sin(seed * 18) * 2 }
@@ -68,21 +75,21 @@ function pointFor(mode, i, seed, t, morph, count) {
   return mixPoint(sphere, helix, 0.35 + Math.sin(t * 0.45) * 0.3)
 }
 
-function hash(value) {
+function hash(value: number) {
   const x = Math.sin(value * 127.1) * 43758.5453
   return x - Math.floor(x)
 }
 
-function ease(value) {
+function ease(value: number) {
   const t = Math.max(0, Math.min(1, value))
   return t * t * (3 - 2 * t)
 }
 
-function mixPoint(a, b, t) {
+function mixPoint(a: Three.Vector3Like, b: Three.Vector3Like, t: number) {
   return { x: a.x + (b.x - a.x) * t, y: a.y + (b.y - a.y) * t, z: a.z + (b.z - a.z) * t }
 }
 
-function spherePoint(index, count, radius) {
+function spherePoint(index: number, count: number, radius: number) {
   const y = 1 - (index / (count - 1)) * 2
   const ring = Math.sqrt(1 - y * y)
   const theta = Math.PI * (3 - Math.sqrt(5)) * index
