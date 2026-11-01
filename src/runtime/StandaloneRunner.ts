@@ -7,6 +7,12 @@ import { RenderPass }     from 'three/addons/postprocessing/RenderPass.js'
 import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js'
 import { OutputPass }     from 'three/addons/postprocessing/OutputPass.js'
 
+export interface RuntimeModule {
+  setup?(ctx: SceneContext): void | Promise<void>
+  update?(ctx: SceneContext, dt: number): void
+  teardown?(ctx: SceneContext): void | Promise<void>
+}
+
 /**
  * Full-featured runtime for running an Artlab package standalone (outside the IDE).
  *
@@ -18,7 +24,22 @@ import { OutputPass }     from 'three/addons/postprocessing/OutputPass.js'
  *   runner.run(await import('../examples/solar-system/solar-system.ts'))
  */
 export class StandaloneRunner {
-  constructor(canvas) {
+  private readonly _canvas: HTMLCanvasElement
+  private readonly _renderer: Three.WebGLRenderer
+  private readonly _scene: Three.Scene
+  private readonly _camera: Three.PerspectiveCamera
+  private readonly _controls: OrbitControls
+  private readonly _labelRenderer: CSS2DRenderer
+  private readonly _bloomPass: UnrealBloomPass
+  private readonly _composer: EffectComposer
+  private readonly _clock: Three.Clock
+  private _mod: RuntimeModule | null = null
+  private _ctx: SceneContext | null = null
+  private readonly _resizeHandler: () => void
+  private _runToken = 0
+  private _animationId = 0
+  private _stopping?: Promise<void>
+  constructor(canvas: HTMLCanvasElement) {
     this._canvas = canvas
 
     // ── Renderer ────────────────────────────────────────────────────────────────
@@ -56,9 +77,9 @@ export class StandaloneRunner {
     document.body.appendChild(this._labelRenderer.domElement)
 
     // ── Bloom post-processing ────────────────────────────────────────────────────
-    this._bloomPass = null
-    this._composer  = null
-    this._initComposer()
+    const { bloomPass, composer } = this._initComposer()
+    this._bloomPass = bloomPass
+    this._composer = composer
 
     // ── Clock + module ───────────────────────────────────────────────────────────
     this._clock = new Three.Clock()
@@ -75,7 +96,7 @@ export class StandaloneRunner {
    * Load and run a package module.  Hides the loading overlay when setup() resolves.
    * @param {{ setup?: Function, update?: Function, teardown?: Function }} mod
    */
-  async run(mod) {
+  async run(mod: RuntimeModule) {
     const token = this._runToken = (this._runToken ?? 0) + 1
     await this._stopModule()
     if (token !== this._runToken) return
@@ -167,15 +188,15 @@ export class StandaloneRunner {
     const composer = new EffectComposer(this._renderer)
     composer.addPass(new RenderPass(this._scene, this._camera))
 
-    this._bloomPass = new UnrealBloomPass(
+    const bloomPass = new UnrealBloomPass(
       new Three.Vector2(window.innerWidth, window.innerHeight),
       0.55,   // strength
       0.25,   // radius
       0.85    // threshold
     )
-    composer.addPass(this._bloomPass)
+    composer.addPass(bloomPass)
     composer.addPass(new OutputPass())
-    this._composer = composer
+    return { composer, bloomPass }
   }
 
   _loop() {

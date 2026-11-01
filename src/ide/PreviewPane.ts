@@ -28,10 +28,36 @@ import { OutputPass }       from 'three/addons/postprocessing/OutputPass.js'
 import { CSS2DRenderer }    from 'three/addons/renderers/CSS2DRenderer.js'
 import { SceneContext } from '../runtime/SceneContext.ts'
 import { ModuleCompiler } from './ModuleCompiler.ts'
+import type { ModulePackage } from './ModuleCompiler.ts'
+import type { RuntimeModule } from '../runtime/StandaloneRunner.ts'
 
 export class PreviewPane {
+  private readonly _container: HTMLElement
+  readonly canvas: HTMLCanvasElement
+  private readonly _renderer: Three.WebGLRenderer
+  private readonly _scene: Three.Scene
+  private readonly _camera: Three.PerspectiveCamera
+  private readonly _controls: OrbitControls
+  private readonly _bloomPass: UnrealBloomPass
+  private readonly _composer: EffectComposer
+  private readonly _css2DRenderer: CSS2DRenderer
+  private readonly _idleLight: Three.AmbientLight
+  private readonly _clock: Three.Clock
+  private readonly _ro: ResizeObserver
+  private _animationId = 0
+  private _currentMod: RuntimeModule | null = null
+  private _ctx: SceneContext | null = null
+  private _blobUrl: string | null = null
+  private _running = false
+  private _elapsed = 0
+  private _runToken = 0
+  private _assetFiles = new Map<string, Uint8Array<ArrayBuffer>>()
+  private _textureBlobUrls: string[] = []
+  private _assetCleanup: (() => void) | null = null
+  private _unloading?: Promise<void>
+  onError?: (message: string) => void
   /** @param {HTMLElement} container */
-  constructor(container) {
+  constructor(container: HTMLElement) {
     this._container = container
 
     this.canvas = document.createElement('canvas')
@@ -79,7 +105,7 @@ export class PreviewPane {
     this._idleLight = new Three.AmbientLight(0x445566, 0.8)
     this._scene.add(this._idleLight)
 
-    this._animationId    = null
+    this._animationId    = 0
     this._currentMod     = null
     this._ctx            = null
     this._blobUrl        = null
@@ -102,23 +128,23 @@ export class PreviewPane {
    * Load and run a JavaScript package.
    * @param {{ manifest: object, artFiles: Map<string,string> }} pkg
    */
-  async run(pkg) {
+  async run(pkg: ModulePackage) {
     const { code, dispose } = await new ModuleCompiler().compile(pkg)
     return this.runCode(code, pkg.assetFiles, dispose)
   }
 
-  async reload(pkg) { return this.run(pkg) }
+  async reload(pkg: ModulePackage) { return this.run(pkg) }
 
-  async runCode(code, assetFiles = new Map(), cleanup = () => {}) {
+  async runCode(code: string, assetFiles: Map<string, Uint8Array<ArrayBuffer>> = new Map(), cleanup: () => void = () => {}) {
     const url = URL.createObjectURL(new Blob([code], { type: 'text/javascript' }))
     return this._startModule(() => import(/* @vite-ignore */ url), assetFiles, url, cleanup)
   }
 
-  async runFromModule(mod) {
+  async runFromModule(mod: RuntimeModule) {
     return this._startModule(() => Promise.resolve(mod))
   }
 
-  async _startModule(load, assetFiles = new Map(), url = null, cleanup = () => {}) {
+  async _startModule(load: () => Promise<RuntimeModule>, assetFiles: Map<string, Uint8Array<ArrayBuffer>> = new Map(), url: string | null = null, cleanup: () => void = () => {}) {
     const token = this._runToken = (this._runToken ?? 0) + 1
     try {
       await this._unloadModule()
@@ -140,7 +166,7 @@ export class PreviewPane {
       if (url && url !== this._blobUrl) { URL.revokeObjectURL(url); cleanup() }
       if (token === this._runToken) {
         await this._unloadModule()
-        this._showError(error.message)
+        this._showError(error instanceof Error ? error.message : String(error))
         throw error
       }
     }
@@ -191,11 +217,11 @@ export class PreviewPane {
 
     this._controls.update()
 
-    if (this._running && typeof this._currentMod?.update === 'function') {
+    if (this._running && this._ctx && typeof this._currentMod?.update === 'function') {
       try {
         this._currentMod.update(this._ctx, dt)
       } catch (err) {
-        this._showError(`update() threw:\n${err.message}`)
+        this._showError(`update() threw:\n${err instanceof Error ? err.message : String(err)}`)
       }
     }
 
@@ -237,7 +263,7 @@ export class PreviewPane {
     const ctx = this._ctx
     this._currentMod = null
     this._unloading = (async () => {
-      try { await mod.teardown?.(ctx) } catch (error) { console.error('[PreviewPane] teardown:', error) }
+      try { if (ctx) await mod.teardown?.(ctx) } catch (error) { console.error('[PreviewPane] teardown:', error) }
       this._clearUserObjects()
       if (this._blobUrl) URL.revokeObjectURL(this._blobUrl)
       this._blobUrl = null
@@ -264,11 +290,11 @@ export class PreviewPane {
     this._camera.updateProjectionMatrix()
   }
 
-  _showError(msg) {
+  _showError(msg: string) {
     this._running = false
     console.error('[PreviewPane]', msg)
     this.onError?.(msg)
-    let ov = this._container.querySelector('.preview-error')
+    let ov = this._container.querySelector<HTMLElement>('.preview-error')
     if (!ov) {
       ov = document.createElement('div')
       ov.className = 'preview-error'
@@ -286,7 +312,7 @@ export class PreviewPane {
   }
 
   _clearError() {
-    const ov = this._container.querySelector('.preview-error')
+    const ov = this._container.querySelector<HTMLElement>('.preview-error')
     if (ov) ov.style.display = 'none'
   }
 }

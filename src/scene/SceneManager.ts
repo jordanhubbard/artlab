@@ -1,6 +1,8 @@
 import * as Three from 'three'
 
 export class SceneManager {
+  readonly scene: Three.Scene
+  readonly ambient: Three.AmbientLight
   constructor() {
     this.scene = new Three.Scene()
     this.scene.background = new Three.Color(0x000005)
@@ -11,7 +13,7 @@ export class SceneManager {
   }
 
   /** Convenience to add objects directly to the scene */
-  add(...objects) {
+  add(...objects: Three.Object3D[]) {
     objects.forEach(o => this.scene.add(o))
     return this
   }

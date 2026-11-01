@@ -12,7 +12,7 @@
  */
 import { createRenderer as _createRendererBackend } from './RendererFactory.ts'
 
-export async function createRenderer(canvas) {
+export async function createRenderer(canvas: HTMLCanvasElement) {
   const backend = await _createRendererBackend(canvas)
   return {
     renderer:  backend,

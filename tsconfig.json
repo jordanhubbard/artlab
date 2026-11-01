@@ -21,6 +21,8 @@
     "examples/shader-playground/shader-playground.ts",
     "examples/music-visualizer/music-visualizer.ts",
     "src/physics/Physics.ts",
+    "src/runtime/StandaloneRunner.ts", "src/ide/PreviewPane.ts",
+    "src/scene/SceneManager.ts", "src/renderer/WebGPURenderer.ts",
     "src/renderer/IRenderer.ts", "src/renderer/RendererFactory.ts",
     "src/renderer/PostProcessing.ts",
     "src/renderer/MaterialFactory.ts",
