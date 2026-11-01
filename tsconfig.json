@@ -8,13 +8,14 @@
     "allowImportingTsExtensions": true,
     "lib": ["ES2022", "DOM"],
     "skipLibCheck": true,
-    "types": ["node", "vitest/globals"]
+    "types": ["node", "vitest/globals", "vite/client"]
   },
   "include": [
     "src/runtime/contracts.d.ts", "src/runtime/SceneContext.ts", "tests/contracts.ts",
     "src/stdlib/math.ts", "src/stdlib/geometry.ts", "src/stdlib/lights.ts",
     "src/stdlib/sketch.ts", "src/stdlib/scene/**/*.ts",
     "src/physics/Physics.ts",
+    "src/ide/ModuleCompiler.ts", "src/ide/SourceLibrary.ts", "src/ide/SourceBrowser.ts",
     "src/physics/IPhysicsWorld.ts", "src/physics/OrbitalWorld.ts",
     "src/physics/ParticleWorld.ts", "src/physics/RigidWorld.ts",
     "src/physics/FluidWorld.ts", "src/physics/PhysicsComposer.ts",

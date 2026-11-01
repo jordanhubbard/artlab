@@ -1,6 +1,8 @@
+import type { SourceLibrary } from './SourceLibrary.ts'
 /** Searchable source navigation; selecting a file opens its editable workspace copy. */
 export class SourceBrowser {
-  constructor(parent, library, open) {
+  readonly element: HTMLDetailsElement
+  constructor(parent: HTMLElement, library: SourceLibrary, open: (path: string) => unknown) {
     const root = document.createElement('details')
     root.id = 'environment-source'
     root.style.cssText = 'padding:10px 8px;border-top:1px solid #25334b;font:11px monospace'
