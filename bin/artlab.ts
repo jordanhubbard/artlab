@@ -26,7 +26,7 @@ const ROOT       = path.resolve(__dirname, '..')   // repo root
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
-function die(msg, code = 1) {
+function die(msg: string, code = 1): never {
   console.error(`artlab: ${msg}`)
   process.exit(code)
 }
@@ -45,13 +45,13 @@ Usage:
 // ── Zip utilities (pure Node, no external deps) ───────────────────────────────
 // Implements the ZIP format used by PackageWriter, but synchronously via zlib.
 
-function u16le(val) {
+function u16le(val: number) {
   const b = Buffer.alloc(2)
   b.writeUInt16LE(val, 0)
   return b
 }
 
-function u32le(val) {
+function u32le(val: number) {
   const b = Buffer.alloc(4)
   b.writeUInt32LE(val >>> 0, 0)
   return b
@@ -67,7 +67,7 @@ const CRC_TABLE = (() => {
   return t
 })()
 
-function crc32(buf) {
+function crc32(buf: Uint8Array) {
   let crc = 0xffffffff
   for (let i = 0; i < buf.length; i++) crc = CRC_TABLE[(crc ^ buf[i]) & 0xff] ^ (crc >>> 8)
   return (crc ^ 0xffffffff) >>> 0
@@ -78,7 +78,7 @@ function crc32(buf) {
  * @param {Buffer} data
  * @returns {Buffer|null}
  */
-function deflateSync(data) {
+function deflateSync(data: Buffer): Buffer | null {
   try {
     const compressed = zlib.deflateRawSync(data, { level: 6 })
     return compressed.length < data.length ? compressed : null
@@ -92,7 +92,8 @@ function deflateSync(data) {
  * @param {Array<{ name: string, data: Buffer }>} entries
  * @returns {Buffer}
  */
-function buildZip(entries) {
+interface ZipEntry { name: string; data: Buffer }
+function buildZip(entries: ZipEntry[]): Buffer {
   const localBlocks   = []
   const centralBlocks = []
   let offset = 0
@@ -166,7 +167,7 @@ function buildZip(entries) {
  * @param {Buffer} buf
  * @returns {Array<{ name: string, data: Buffer }>}
  */
-function parseZip(buf) {
+function parseZip(buf: Buffer): ZipEntry[] {
   const entries = []
   let pos = 0
 
@@ -206,7 +207,7 @@ function parseZip(buf) {
 
 // ── Subcommand: create ────────────────────────────────────────────────────────
 
-function cmdCreate(name) {
+function cmdCreate(name?: string) {
   if (!name) die('create requires a package <name>')
 
   const kebab = name.replace(/\s+/g, '-').toLowerCase()
@@ -266,7 +267,7 @@ export function teardown(ctx) {
 
 // ── Subcommand: serve ─────────────────────────────────────────────────────────
 
-function cmdServe(dir) {
+function cmdServe(dir?: string) {
   const target = path.resolve(process.cwd(), dir ?? '.')
 
   if (!fs.existsSync(target)) die(`directory not found: ${target}`)
@@ -298,23 +299,56 @@ function cmdServe(dir) {
 
 // ── Subcommand: build ─────────────────────────────────────────────────────────
 
-async function cmdBuild(dir) {
+interface BuildDiagnostic { line: number; col: number; message: string }
+interface BuildResult { ok: boolean; warnings: BuildDiagnostic[]; errors: BuildDiagnostic[] }
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null
+}
+function isDiagnostic(value: unknown): value is BuildDiagnostic {
+  return isRecord(value) && typeof value.line === 'number' && typeof value.col === 'number' && typeof value.message === 'string'
+}
+function buildResult(value: unknown): BuildResult {
+  if (!isRecord(value) || typeof value.ok !== 'boolean' || !Array.isArray(value.warnings) || !value.warnings.every(isDiagnostic) || !Array.isArray(value.errors) || !value.errors.every(isDiagnostic)) {
+    die('DSL Transpiler returned an invalid result')
+  }
+  return { ok: value.ok, warnings: value.warnings, errors: value.errors }
+}
+function errorMessage(error: unknown): string { return error instanceof Error ? error.message : String(error) }
+interface CliManifest { name: string; version: string; dependencies: Record<string, string> }
+function readManifest(source: string): CliManifest {
+  const value: unknown = JSON.parse(source)
+  if (!isRecord(value) || typeof value.name !== 'string' || !value.name || typeof value.version !== 'string' || !value.version) die('artlab.json must have string "name" and "version" fields')
+  const dependencies = value.dependencies ?? {}
+  if (!isRecord(dependencies)) die('artlab.json dependencies must be an object')
+  const validated: Record<string, string> = {}
+  for (const [name, url] of Object.entries(dependencies)) {
+    if (typeof url !== 'string') die(`Dependency "${name}" must be a string`)
+    validated[name] = url
+  }
+  return { name: value.name, version: value.version, dependencies: validated }
+}
+async function cmdBuild(dir?: string) {
   const target = path.resolve(process.cwd(), dir ?? '.')
 
   if (!fs.existsSync(target)) die(`directory not found: ${target}`)
 
   // Dynamically import the DSL Transpiler (ESM from src/)
   const transpilerPath = pathToFileURL(path.join(ROOT, 'src', 'dsl', 'Transpiler.ts')).href
-  let Transpiler
+  let transpiler: { transpile(source: string): unknown }
   try {
-    ;({ Transpiler } = await import(transpilerPath))
+    const module: unknown = await import(transpilerPath)
+    if (!isRecord(module) || typeof module.Transpiler !== 'function') die('DSL module must export a Transpiler constructor')
+    const instance: unknown = Reflect.construct(module.Transpiler, [])
+    if (!isRecord(instance) || typeof instance.transpile !== 'function') die('DSL Transpiler must implement transpile(source)')
+    const compile = instance.transpile.bind(instance)
+    transpiler = { transpile(source: string): unknown { return compile(source) } }
   } catch (err) {
-    die(`Could not load DSL Transpiler: ${err.message}`)
+    die(`Could not load DSL Transpiler: ${errorMessage(err)}`)
   }
 
   // Gather all .art files recursively
-  const artFiles = []
-  function walk(d) {
+  const artFiles: string[] = []
+  function walk(d: string) {
     for (const entry of fs.readdirSync(d, { withFileTypes: true })) {
       const full = path.join(d, entry.name)
       if (entry.isDirectory()) {
@@ -331,13 +365,12 @@ async function cmdBuild(dir) {
     return
   }
 
-  const transpiler = new Transpiler()
   let anyError = false
 
   for (const file of artFiles) {
     const src    = fs.readFileSync(file, 'utf8')
     const rel    = path.relative(target, file)
-    const result = transpiler.transpile(src)
+    const result = buildResult(transpiler.transpile(src))
 
     if (result.warnings.length > 0) {
       for (const w of result.warnings) {
@@ -366,7 +399,7 @@ async function cmdBuild(dir) {
 
 // ── Subcommand: pack ──────────────────────────────────────────────────────────
 
-function cmdPack(dir) {
+function cmdPack(dir?: string) {
   const target = path.resolve(process.cwd(), dir ?? '.')
 
   if (!fs.existsSync(target)) die(`directory not found: ${target}`)
@@ -374,18 +407,18 @@ function cmdPack(dir) {
   const manifestPath = path.join(target, 'artlab.json')
   if (!fs.existsSync(manifestPath)) die(`artlab.json not found in: ${target}`)
 
-  let manifest
+  let manifest: CliManifest
   try {
-    manifest = JSON.parse(fs.readFileSync(manifestPath, 'utf8'))
+    manifest = readManifest(fs.readFileSync(manifestPath, 'utf8'))
   } catch (err) {
-    die(`Failed to read artlab.json: ${err.message}`)
+    die(`Failed to read artlab.json: ${errorMessage(err)}`)
   }
 
   if (!manifest.name || !manifest.version) die('artlab.json must have "name" and "version" fields')
 
   // Collect all files recursively (relative paths within the zip)
-  const entries = []
-  function walk(d, base) {
+  const entries: ZipEntry[] = []
+  function walk(d: string, base: string) {
     for (const entry of fs.readdirSync(d, { withFileTypes: true })) {
       const full    = path.join(d, entry.name)
       const relPath = base ? `${base}/${entry.name}` : entry.name
@@ -413,7 +446,7 @@ function cmdPack(dir) {
 
 // ── Subcommand: upgrade ───────────────────────────────────────────────────────
 
-async function cmdUpgrade(zipArg) {
+async function cmdUpgrade(zipArg?: string) {
   if (!zipArg) die('upgrade requires a <zip> path')
 
   const zipPath = path.resolve(process.cwd(), zipArg)
@@ -428,11 +461,11 @@ async function cmdUpgrade(zipArg) {
   const manifestEntry = entries.find(e => e.name === 'artlab.json')
   if (!manifestEntry) die('artlab.json not found in zip')
 
-  let manifest
+  let manifest: CliManifest
   try {
-    manifest = JSON.parse(manifestEntry.data.toString('utf8'))
+    manifest = readManifest(manifestEntry.data.toString('utf8'))
   } catch (err) {
-    die(`Failed to parse artlab.json: ${err.message}`)
+    die(`Failed to parse artlab.json: ${errorMessage(err)}`)
   }
 
   const deps = manifest.dependencies ?? {}
@@ -444,7 +477,7 @@ async function cmdUpgrade(zipArg) {
   console.log(`Upgrading ${Object.keys(deps).length} URL dependencies…`)
 
   // Re-fetch each dependency URL
-  const fetched = {}
+  const fetched: Record<string, { url: string; buf: Buffer }> = {}
   for (const [libName, url] of Object.entries(deps)) {
     if (!url.startsWith('http://') && !url.startsWith('https://')) {
       console.log(`  skip  ${libName}  (not a URL)`)
@@ -457,7 +490,7 @@ async function cmdUpgrade(zipArg) {
       fetched[libName] = { url, buf }
       console.log(`  ok    ${libName}  ${url}`)
     } catch (err) {
-      console.error(`  fail  ${libName}  ${url}  — ${err.message}`)
+      console.error(`  fail  ${libName}  ${url}  — ${errorMessage(err)}`)
     }
   }
 

@@ -17,6 +17,7 @@
     "src/stdlib/scene.ts", "src/stdlib/media.ts",
     "src/stdlib/video.ts",
     "src/stdlib/ui.ts",
+    "bin/artlab.ts",
     "src/examples/catalog.ts", "src/ide/panels/PerformanceMonitor.ts", "src/ide/panels/AssetBrowser.ts",
     "src/ide/ArtlabLinter.ts",
     "src/stdlib/audio.ts",
