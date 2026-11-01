@@ -1,9 +1,13 @@
 import { IPhysicsWorld } from './IPhysicsWorld.ts'
+import type { ParticleEmitterDesc, Vector } from './IPhysicsWorld.ts'
+export interface SimulatedParticle { position: Vector; velocity: Vector; age: number; lifetime: number }
+interface EmitterState { desc: ParticleEmitterDesc; particles: SimulatedParticle[]; accumulator: number; time: number }
 
 /**
  * IPhysicsWorld implementation for CPU-simulated particle systems.
  */
-export class ParticleWorld extends IPhysicsWorld {
+export class ParticleWorld extends IPhysicsWorld<ParticleEmitterDesc> {
+  private _emitters = new Map<string, EmitterState>()
   constructor() {
     super()
     this._emitters = new Map()   // id → EmitterState
@@ -14,7 +18,7 @@ export class ParticleWorld extends IPhysicsWorld {
    * @param {string} id
    * @param {ParticleEmitterDesc} desc - must have type === 'particle'
    */
-  addBody(id, desc) {
+  addBody(id: string, desc: ParticleEmitterDesc) {
     if (desc.type !== 'particle') {
       throw new Error(`ParticleWorld.addBody: expected type 'particle', got '${desc.type}'`)
     }
@@ -26,17 +30,17 @@ export class ParticleWorld extends IPhysicsWorld {
     })
   }
 
-  removeBody(id) {
+  removeBody(id: string) {
     this._emitters.delete(id)
   }
 
-  step(elapsed, dt) {
+  step(elapsed: number, dt: number) {
     for (const [id, emitter] of this._emitters) {
       this._stepEmitter(emitter, elapsed, dt)
     }
   }
 
-  _stepEmitter(emitter, elapsed, dt) {
+  private _stepEmitter(emitter: EmitterState, elapsed: number, dt: number) {
     const { desc } = emitter
     const rate = desc.rate ?? 10
     const lifetime = desc.lifetime ?? 2.0
@@ -66,7 +70,7 @@ export class ParticleWorld extends IPhysicsWorld {
     })
   }
 
-  _randomVelocity(desc, speed) {
+  private _randomVelocity(desc: ParticleEmitterDesc, speed: number): Vector {
     const spread = (desc.spread ?? 30) * Math.PI / 180
     const theta = Math.random() * Math.PI * 2
     const phi = Math.random() * spread
@@ -78,7 +82,7 @@ export class ParticleWorld extends IPhysicsWorld {
   }
 
   /** Get all live particles for a given emitter (for rendering). */
-  getParticles(id) {
+  getParticles(id: string) {
     return this._emitters.get(id)?.particles ?? []
   }
 
@@ -87,7 +91,7 @@ export class ParticleWorld extends IPhysicsWorld {
    * @param {string} id
    * @returns {{ position: {x,y,z}, rotation: {x,y,z,w} }}
    */
-  getTransform(id) {
+  getTransform(id: string) {
     return { position: { x: 0, y: 0, z: 0 }, rotation: { x: 0, y: 0, z: 0, w: 1 } }
   }
 

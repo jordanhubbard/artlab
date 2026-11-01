@@ -1,4 +1,5 @@
 import { IPhysicsWorld } from './IPhysicsWorld.ts'
+import type { OrbitalBodyDesc, Vector } from './IPhysicsWorld.ts'
 import { AU_SCALE, TIME_YEAR_SECS } from '../utils/constants.ts'
 import { keplerPosition, degToRad } from '../utils/MathUtils.ts'
 
@@ -6,7 +7,9 @@ import { keplerPosition, degToRad } from '../utils/MathUtils.ts'
  * IPhysicsWorld implementation for Keplerian orbital mechanics.
  * Self-contained: does not depend on the legacy OrbitalMechanics class.
  */
-export class OrbitalWorld extends IPhysicsWorld {
+export class OrbitalWorld extends IPhysicsWorld<OrbitalBodyDesc> {
+  private _bodies = new Map<string, { desc: OrbitalBodyDesc; position: Vector }>()
+  private readonly _TWO_PI = Math.PI * 2
   constructor() {
     super()
     this._bodies = new Map()   // id → { desc, position: {x,y,z} }
@@ -18,7 +21,7 @@ export class OrbitalWorld extends IPhysicsWorld {
    * @param {string} id
    * @param {OrbitalBodyDesc} desc - must have type === 'orbital'
    */
-  addBody(id, desc) {
+  addBody(id: string, desc: OrbitalBodyDesc) {
     if (desc.type !== 'orbital') {
       throw new Error(`OrbitalWorld.addBody: expected type 'orbital', got '${desc.type}'`)
     }
@@ -28,7 +31,7 @@ export class OrbitalWorld extends IPhysicsWorld {
     })
   }
 
-  removeBody(id) {
+  removeBody(id: string) {
     this._bodies.delete(id)
   }
 
@@ -37,7 +40,7 @@ export class OrbitalWorld extends IPhysicsWorld {
    * @param {number} elapsed - total elapsed time in seconds
    * @param {number} dt - unused for orbital mechanics (position is deterministic from elapsed)
    */
-  step(elapsed, dt) {
+  step(elapsed: number, dt: number) {
     for (const [id, body] of this._bodies) {
       const { desc } = body
       // Mean motion: radians per second
@@ -61,7 +64,7 @@ export class OrbitalWorld extends IPhysicsWorld {
    * @param {string} id
    * @returns {{ position: {x,y,z}, rotation: {x,y,z,w} } | null}
    */
-  getTransform(id) {
+  getTransform(id: string) {
     const body = this._bodies.get(id)
     if (!body) return null
     return { position: body.position, rotation: { x: 0, y: 0, z: 0, w: 1 } }

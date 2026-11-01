@@ -1,4 +1,13 @@
 import { IPhysicsWorld } from './IPhysicsWorld.ts'
+import type { FluidBodyDesc, Vector, CollisionCallback } from './IPhysicsWorld.ts'
+export interface FluidParticle extends Vector {
+  vx: number; vy: number; vz: number; density: number; pressure: number
+  fx: number; fy: number; fz: number; mass: number
+}
+interface FluidEmitter { particles: FluidParticle[]; desc: FluidBodyDesc; externalForce: Vector }
+export interface FluidOptions {
+  smoothingRadius?: number; restDensity?: number; gasConstant?: number; viscosity?: number; gravity?: Vector
+}
 
 // Default SPH constants
 const SMOOTHING_RADIUS = 2.0
@@ -18,7 +27,7 @@ const MAX_DT = 0.016
  * W_poly6 kernel — used for density estimation.
  *   W(r,h) = (315 / 64π h^9) * (h²−r²)³  for r ≤ h
  */
-function kernelPoly6(r2, h) {
+function kernelPoly6(r2: number, h: number) {
   const h2 = h * h
   if (r2 > h2) return 0
   const diff = h2 - r2
@@ -30,7 +39,7 @@ function kernelPoly6(r2, h) {
  *   ∇W(r,h) = −(45 / π h^6) * (h−r)² * r̂   for r > 0 and r ≤ h
  * Returns the scalar factor; caller multiplies by the unit direction vector.
  */
-function kernelSpikyGrad(r, h) {
+function kernelSpikyGrad(r: number, h: number) {
   if (r <= 0 || r > h) return 0
   const diff = h - r
   return -(45 / (Math.PI * Math.pow(h, 6))) * diff * diff
@@ -40,7 +49,7 @@ function kernelSpikyGrad(r, h) {
  * Laplacian of W_viscosity kernel — used for viscosity forces.
  *   ∇²W(r,h) = (45 / π h^6) * (h−r)   for r ≤ h
  */
-function kernelViscosityLaplacian(r, h) {
+function kernelViscosityLaplacian(r: number, h: number) {
   if (r > h) return 0
   return (45 / (Math.PI * Math.pow(h, 6))) * (h - r)
 }
@@ -56,8 +65,14 @@ function kernelViscosityLaplacian(r, h) {
  * Each body (emitter) is a self-contained fluid blob; inter-body SPH
  * interactions are intentionally omitted for simplicity.
  */
-export class FluidWorld extends IPhysicsWorld {
-  constructor(options = {}) {
+export class FluidWorld extends IPhysicsWorld<FluidBodyDesc> {
+  private readonly _smoothingRadius: number
+  private readonly _restDensity: number
+  private readonly _gasConstant: number
+  private readonly _viscosity: number
+  private readonly _gravity: Vector
+  private _emitters = new Map<string, FluidEmitter>()
+  constructor(options: FluidOptions = {}) {
     super()
     this._smoothingRadius = options.smoothingRadius ?? SMOOTHING_RADIUS
     this._restDensity = options.restDensity ?? REST_DENSITY
@@ -83,7 +98,7 @@ export class FluidWorld extends IPhysicsWorld {
    * @param {{ x,y,z }} [desc.velocity]   - initial velocity for all particles
    * @param {{ min:{x,y,z}, max:{x,y,z} }} [desc.bounds] - AABB boundary
    */
-  addBody(id, desc) {
+  addBody(id: string, desc: FluidBodyDesc) {
     const position = desc.position ?? { x: 0, y: 0, z: 0 }
     const count = desc.count ?? 100
     const spawnRadius = desc.radius ?? 0.5
@@ -124,7 +139,7 @@ export class FluidWorld extends IPhysicsWorld {
     })
   }
 
-  removeBody(id) {
+  removeBody(id: string) {
     this._emitters.delete(id)
   }
 
@@ -133,7 +148,7 @@ export class FluidWorld extends IPhysicsWorld {
    * @param {number} elapsed - total elapsed time (unused by SPH, available for hooks)
    * @param {number} dt - delta time in seconds (clamped to MAX_DT for stability)
    */
-  step(elapsed, dt) {
+  step(elapsed: number, dt: number) {
     const safeDt = Math.min(dt, MAX_DT)
     for (const emitter of this._emitters.values()) {
       this._stepEmitter(emitter, safeDt)
@@ -145,7 +160,7 @@ export class FluidWorld extends IPhysicsWorld {
    * @param {string} id
    * @returns {{ position: {x,y,z}, rotation: {x,y,z,w} } | null}
    */
-  getTransform(id) {
+  getTransform(id: string) {
     const em = this._emitters.get(id)
     if (!em || em.particles.length === 0) return null
     const pos = em.particles.reduce(
@@ -165,7 +180,7 @@ export class FluidWorld extends IPhysicsWorld {
    * @param {string} id
    * @returns {Array}
    */
-  getParticles(id) {
+  getParticles(id: string) {
     return this._emitters.get(id)?.particles ?? []
   }
 
@@ -175,7 +190,7 @@ export class FluidWorld extends IPhysicsWorld {
    * @param {string} id
    * @param {{ x: number, y: number, z: number }} force
    */
-  applyForce(id, force) {
+  applyForce(id: string, force: Vector) {
     const em = this._emitters.get(id)
     if (!em) return
     em.externalForce.x += force.x
@@ -184,7 +199,7 @@ export class FluidWorld extends IPhysicsWorld {
   }
 
   /** Not used for fluid simulation. */
-  onCollision(cb) {}
+  onCollision(cb: CollisionCallback) {}
 
   dispose() {
     this._emitters.clear()
@@ -194,7 +209,7 @@ export class FluidWorld extends IPhysicsWorld {
   // Internal SPH pipeline
   // -------------------------------------------------------------------------
 
-  _stepEmitter(emitter, dt) {
+  private _stepEmitter(emitter: FluidEmitter, dt: number) {
     const { particles, desc, externalForce } = emitter
     const n = particles.length
     if (n === 0) return

@@ -1,6 +1,10 @@
 import type { Sketch, SketchContext } from '../src/runtime/contracts'
 import { body, applyForce, integrate, resolveCollision, springForce } from '../src/physics/Physics.ts'
 import { Vector3 } from 'three'
+import { ParticleWorld } from '../src/physics/ParticleWorld.ts'
+import { OrbitalWorld } from '../src/physics/OrbitalWorld.ts'
+import { FluidWorld } from '../src/physics/FluidWorld.ts'
+import { PhysicsComposer } from '../src/physics/PhysicsComposer.ts'
 
 type State = { speed: number }
 const sketch: Sketch<State> = {
@@ -44,3 +48,15 @@ body({ mass: 'heavy' })
 integrate({ position: new Vector3(), velocity: new Vector3(), mass: 1 }, 0.1)
 // @ts-expect-error Forces must carry the Vector3 operations used by the solver.
 applyForce(simulated, { x: 0, y: -1, z: 0 })
+
+const emitters = new ParticleWorld()
+emitters.addBody('sparks', { type: 'particle', rate: 30, lifetime: 2 })
+const orbits = new OrbitalWorld()
+orbits.addBody('planet', { type: 'orbital', semiMajorAxis: 1, eccentricity: 0, inclination: 0, period: 1 })
+new PhysicsComposer().add(emitters).add(orbits).add(new FluidWorld({ viscosity: 0.2 }))
+// @ts-expect-error Orbital worlds require orbital descriptors.
+orbits.addBody('wrong', { type: 'particle' })
+// @ts-expect-error Particle rates must be numeric.
+emitters.addBody('wrong', { type: 'particle', rate: 'fast' })
+// @ts-expect-error Fluid gravity requires a complete vector.
+new FluidWorld({ gravity: { y: -9.8 } })
