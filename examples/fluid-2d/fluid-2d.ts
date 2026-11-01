@@ -1,5 +1,14 @@
 // fluid-2d — Navier-Stokes stable fluid solver on a 2D grid with heatmap DataTexture.
 import * as Three from 'three'
+import type { ArtlabContext } from '../../src/runtime/contracts'
+type Grid = Float32Array
+type FluidContext = ArtlabContext & {
+  _u: Grid; _v: Grid; _u0: Grid; _v0: Grid; _d: Grid; _d0: Grid
+  _texData: Uint8Array<ArrayBuffer>; _texture: Three.DataTexture
+  _quad: Three.Mesh<Three.PlaneGeometry, Three.MeshBasicMaterial>
+  _mouseDown: boolean; _mouseX: number; _mouseY: number; _pmouseX: number; _pmouseY: number
+  _onMouseMove(event: MouseEvent): void; _onMouseDown(): void; _onMouseUp(): void
+}
 
 const N       = 96       // grid resolution (N×N interior cells)
 const SIZE    = N + 2    // with boundary
@@ -8,13 +17,13 @@ const VISC    = 0.0      // viscosity
 const DT      = 0.1      // simulation timestep
 const ITER    = 4        // Gauss-Seidel iterations
 
-function IX(i, j) { return i + j * SIZE }
+function IX(i: number, j: number) { return i + j * SIZE }
 
-function addSource(x, s, dt) {
+function addSource(x: Grid, s: Grid, dt: number) {
   for (let i = 0; i < x.length; i++) x[i] += s[i] * dt
 }
 
-function setBnd(b, x) {
+function setBnd(b: number, x: Grid) {
   for (let i = 1; i <= N; i++) {
     x[IX(0,     i)] = b === 1 ? -x[IX(1, i)] : x[IX(1, i)]
     x[IX(N + 1, i)] = b === 1 ? -x[IX(N, i)] : x[IX(N, i)]
@@ -27,7 +36,7 @@ function setBnd(b, x) {
   x[IX(N + 1, N + 1)] = 0.5 * (x[IX(N, N + 1)] + x[IX(N + 1, N)])
 }
 
-function diffuse(b, x, x0, diff, dt) {
+function diffuse(b: number, x: Grid, x0: Grid, diff: number, dt: number) {
   const a = dt * diff * N * N
   for (let k = 0; k < ITER; k++) {
     for (let j = 1; j <= N; j++) {
@@ -42,7 +51,7 @@ function diffuse(b, x, x0, diff, dt) {
   }
 }
 
-function advect(b, d, d0, u, v, dt) {
+function advect(b: number, d: Grid, d0: Grid, u: Grid, v: Grid, dt: number) {
   const dt0 = dt * N
   for (let j = 1; j <= N; j++) {
     for (let i = 1; i <= N; i++) {
@@ -68,7 +77,7 @@ function advect(b, d, d0, u, v, dt) {
   setBnd(b, d)
 }
 
-function project(u, v, p, div) {
+function project(u: Grid, v: Grid, p: Grid, div: Grid) {
   for (let j = 1; j <= N; j++) {
     for (let i = 1; i <= N; i++) {
       div[IX(i, j)] = -0.5 * (
@@ -103,7 +112,7 @@ function project(u, v, p, div) {
   setBnd(2, v)
 }
 
-function velStep(u, v, u0, v0, visc, dt) {
+function velStep(u: Grid, v: Grid, u0: Grid, v0: Grid, visc: number, dt: number) {
   addSource(u, u0, dt)
   addSource(v, v0, dt)
   // swap u, u0
@@ -119,7 +128,7 @@ function velStep(u, v, u0, v0, visc, dt) {
   project(u, v, u0, v0)
 }
 
-function densStep(x, x0, u, v, diff, dt) {
+function densStep(x: Grid, x0: Grid, u: Grid, v: Grid, diff: number, dt: number) {
   addSource(x, x0, dt)
   const tmp = x0.slice(); x0.set(x); x.set(tmp)
   diffuse(0, x, x0, diff, dt)
@@ -128,7 +137,7 @@ function densStep(x, x0, u, v, diff, dt) {
 }
 
 // Heatmap: density → color (black→blue→cyan→green→yellow→red→white)
-function heatColor(val) {
+function heatColor(val: number): [number, number, number] {
   const t = Math.min(1, Math.max(0, val))
   let r = 0, g = 0, b = 0
   if (t < 0.167) {
@@ -152,7 +161,7 @@ function heatColor(val) {
   return [Math.floor(r * 255), Math.floor(g * 255), Math.floor(b * 255)]
 }
 
-export function setup(ctx) {
+export function setup(ctx: FluidContext) {
   ctx.setHelp('Click and drag to inject velocity and dye into the fluid')
   ctx.camera.position.set(0, 0, 7)
   ctx.setBloom(0.4)
@@ -213,7 +222,7 @@ export function setup(ctx) {
   }
 }
 
-export function update(ctx, dt) {
+export function update(ctx: FluidContext, dt: number) {
   ctx._u0.fill(0)
   ctx._v0.fill(0)
   ctx._d0.fill(0)
@@ -265,7 +274,7 @@ export function update(ctx, dt) {
   ctx._texture.needsUpdate = true
 }
 
-export function teardown(ctx) {
+export function teardown(ctx: FluidContext) {
   ctx.remove(ctx._quad)
   ctx._quad.geometry.dispose()
   ctx._quad.material.dispose()

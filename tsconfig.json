@@ -22,6 +22,8 @@
     "examples/terrain-flyover/terrain-flyover.ts",
     "examples/domino-chain/domino-chain.ts", "examples/marble-run/marble-run.ts",
     "examples/camera-journey/camera-journey.ts",
+    "examples/canvas-2d/canvas-2d.ts", "examples/shader-gallery/shader-gallery.ts", "examples/fluid-2d/fluid-2d.ts",
+    "examples/neon-city/neon-city.ts",
     "examples/strange-attractor/strange-attractor.ts", "examples/reaction-diffusion/reaction-diffusion.ts",
     "src/stdlib/physics/particles.ts", "examples/force-field-playground/force-field-playground.ts",
     "examples/clock-3d/clock-3d.ts", "examples/clock-kinetic/clock-kinetic.ts",

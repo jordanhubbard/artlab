@@ -1,10 +1,15 @@
 // Canvas 2D — a generative painting (concentric rings + Lissajous) rendered live onto a 3D plane.
 
 import * as Three from 'three'
+import type { ArtlabContext } from '../../src/runtime/contracts'
+type CanvasContext = ArtlabContext & {
+  _pt: Three.PointLight; _canvas2d: HTMLCanvasElement; _ctx2d: CanvasRenderingContext2D
+  _texture: Three.CanvasTexture; _plane: Three.Mesh<Three.PlaneGeometry, Three.MeshBasicMaterial>
+}
 
 const SIZE = 512
 
-function drawFrame(ctx2d, elapsed) {
+function drawFrame(ctx2d: CanvasRenderingContext2D, elapsed: number) {
   ctx2d.fillStyle = 'rgba(0,0,0,0.18)'
   ctx2d.fillRect(0, 0, SIZE, SIZE)
 
@@ -34,7 +39,7 @@ function drawFrame(ctx2d, elapsed) {
   ctx2d.stroke()
 }
 
-export function setup(ctx) {
+export function setup(ctx: CanvasContext) {
   ctx.camera.position.set(0, 0, 12)
   ctx.camera.lookAt(0, 0, 0)
 
@@ -47,7 +52,9 @@ export function setup(ctx) {
   ctx._canvas2d = document.createElement('canvas')
   ctx._canvas2d.width  = SIZE
   ctx._canvas2d.height = SIZE
-  ctx._ctx2d = ctx._canvas2d.getContext('2d')
+  const context = ctx._canvas2d.getContext('2d')
+  if (!context) throw new Error('Canvas 2D requires a 2D canvas context')
+  ctx._ctx2d = context
   ctx._ctx2d.fillStyle = '#000'
   ctx._ctx2d.fillRect(0, 0, SIZE, SIZE)
 
@@ -59,13 +66,13 @@ export function setup(ctx) {
   ctx.add(ctx._plane)
 }
 
-export function update(ctx, dt) {
+export function update(ctx: CanvasContext, dt: number) {
   drawFrame(ctx._ctx2d, ctx.elapsed)
   ctx._texture.needsUpdate = true
   ctx._plane.rotation.y += 0.2 * dt
 }
 
-export function teardown(ctx) {
+export function teardown(ctx: CanvasContext) {
   ctx.remove(ctx._plane)
   ctx.remove(ctx._pt)
   ctx._plane.geometry.dispose()

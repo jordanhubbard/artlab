@@ -2,6 +2,7 @@
 import * as THREE from 'three'
 import { ResourceScope } from '../../src/stdlib/scene/ResourceScope.ts'
 import { pixelate, glitch } from '../../src/stdlib/video.ts'
+import type { ArtlabContext } from '../../src/runtime/contracts'
 
 const ROOM_W = 16
 const ROOM_H = 7
@@ -14,9 +15,10 @@ const FRAME_T = 0.18
 const FRAME_D = 0.12
 
 // Module-level refs so teardown can reach them
-let galleryGroup, ambientLight
-let pixMat, glitchMat, wavesMat, fractalMat, noiseMat
-let scope
+let galleryGroup: THREE.Group | null = null, ambientLight: THREE.AmbientLight | null = null
+let pixMat: THREE.ShaderMaterial | null = null, glitchMat: THREE.ShaderMaterial | null = null
+let wavesMat: THREE.ShaderMaterial | null = null, fractalMat: THREE.ShaderMaterial | null = null, noiseMat: THREE.ShaderMaterial | null = null
+let scope: ResourceScope
 
 // ---------------------------------------------------------------------------
 // Canvas helpers (used as texture source for pixelate + glitch paintings)
@@ -178,7 +180,7 @@ function makeNoiseMat() {
 // Room and painting builders
 // ---------------------------------------------------------------------------
 
-function addWall(parent, w, h, d, x, y, z) {
+function addWall(parent: THREE.Object3D, w: number, h: number, d: number, x: number, y: number, z: number) {
   const geo = new THREE.BoxGeometry(w, h, d)
   const mat = new THREE.MeshStandardMaterial({ color: 0x7a7a7a, roughness: 0.9 })
   const mesh = new THREE.Mesh(geo, mat)
@@ -188,7 +190,7 @@ function addWall(parent, w, h, d, x, y, z) {
 
 // Mounts a painting plane + gold/dark-wood frame + a warm point light on the wall.
 // rotY controls which direction the painting face (0 = back wall, ±π/2 = side walls).
-function addPainting(parent, x, y, z, rotY, mat, frameColor = 0xc9a84c) {
+function addPainting(parent: THREE.Object3D, x: number, y: number, z: number, rotY: number, mat: THREE.Material, frameColor = 0xc9a84c) {
   const group = new THREE.Group()
   group.position.set(x, y, z)
   group.rotation.y = rotY
@@ -224,7 +226,7 @@ function addPainting(parent, x, y, z, rotY, mat, frameColor = 0xc9a84c) {
 // Lifecycle
 // ---------------------------------------------------------------------------
 
-export function setup(ctx) {
+export function setup(ctx: ArtlabContext) {
   scope = new ResourceScope()
 
   ctx.camera.position.set(0, 2.5, 7)
@@ -278,7 +280,7 @@ export function setup(ctx) {
   addPainting(galleryGroup, RX, 3, -1, -Math.PI / 2, noiseMat)
 }
 
-export function update(ctx, dt) {   // eslint-disable-line no-unused-vars
+export function update(ctx: ArtlabContext, dt: number) {   // eslint-disable-line no-unused-vars
   const t = ctx.elapsed
   // Pixelate block size pulses gently
   if (pixMat) pixMat.uniforms.blockSize.value = 10 + 14 * Math.abs(Math.sin(t * 0.4))
@@ -288,7 +290,7 @@ export function update(ctx, dt) {   // eslint-disable-line no-unused-vars
   if (noiseMat)  noiseMat.uniforms.time.value  = t
 }
 
-export function teardown(ctx) {
+export function teardown(ctx: ArtlabContext) {
   const done = scope.dispose()
   ambientLight = null
   galleryGroup = null

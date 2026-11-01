@@ -1,17 +1,18 @@
 // neon-city.js — synthwave cyberpunk cityscape with procedural buildings and bloom
 
 import * as THREE from 'three'
+import type { ArtlabContext } from '../../src/runtime/contracts'
 
 const PINK   = 0xff0066
 const CYAN   = 0x00ffff
 const PURPLE = 0x6600cc
 
-let _objects = []
-let _prevFog = null
-let _prevBg  = null
+let _objects: THREE.Object3D[] = []
+let _prevFog: THREE.Scene['fog'] = null
+let _prevBg: THREE.Scene['background'] = null
 
 // Deterministic pseudo-random [0,1) from an integer seed
-function hash(n) {
+function hash(n: number) {
   const x = Math.sin(n) * 43758.5453
   return x - Math.floor(x)
 }
@@ -19,7 +20,7 @@ function hash(n) {
 // Canvas texture with a randomised grid of lit windows on a dark face.
 // Falls back gracefully to an undrawn CanvasTexture when the 2D context is
 // unavailable (e.g. in test environments without a canvas implementation).
-function makeWindowTex(color) {
+function makeWindowTex(color: number) {
   const canvas = document.createElement('canvas')
   canvas.width = 128; canvas.height = 256
   const g = canvas.getContext('2d')
@@ -41,13 +42,13 @@ function makeWindowTex(color) {
   return new THREE.CanvasTexture(canvas)
 }
 
-function tracked(ctx, obj) {
+function tracked<T extends THREE.Object3D>(ctx: ArtlabContext, obj: T): T {
   ctx.add(obj)
   _objects.push(obj)
   return obj
 }
 
-export async function setup(ctx) {
+export async function setup(ctx: ArtlabContext) {
   _objects = []
   _prevFog = ctx.scene.fog
   _prevBg  = ctx.scene.background
@@ -82,8 +83,10 @@ export async function setup(ctx) {
 
   // Grid lines on the ground surface
   const grid = new THREE.GridHelper(500, 50, CYAN, 0x220033)
-  grid.material.opacity = 0.35
-  grid.material.transparent = true
+  for (const material of [grid.material].flat()) {
+    material.opacity = 0.35
+    material.transparent = true
+  }
   tracked(ctx, grid)
 
   // Pre-built window textures: 2 random variants per accent colour
@@ -147,7 +150,7 @@ export async function setup(ctx) {
   ))
 }
 
-export function update(ctx, dt) {  // eslint-disable-line no-unused-vars
+export function update(ctx: ArtlabContext, dt: number) {  // eslint-disable-line no-unused-vars
   // Camera cruises along Z with a gentle sway on X
   const z    = 180 - (ctx.elapsed * 8 % 400)
   const sway = Math.sin(ctx.elapsed * 0.25) * 3
@@ -155,7 +158,7 @@ export function update(ctx, dt) {  // eslint-disable-line no-unused-vars
   ctx.camera.lookAt(sway * 0.3, 3.8, z - 25)
 }
 
-export function teardown(ctx) {
+export function teardown(ctx: ArtlabContext) {
   for (const obj of _objects) ctx.remove(obj)
   _objects = []
   ctx.scene.fog = _prevFog
