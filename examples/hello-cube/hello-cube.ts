@@ -1,9 +1,10 @@
 // Hello Cube — geometry, material, lighting, and animation in one concise package.
 import * as Three from 'three';
+import type { ArtlabContext } from '../../src/runtime/contracts';
 
-let mesh;
+let mesh: Three.Mesh<Three.BoxGeometry, Three.MeshStandardMaterial>;
 
-export function setup(ctx) {
+export function setup(ctx: ArtlabContext) {
   ctx.camera.position.set(4, 3, 6);
 
   ctx.renderer.shadowMap.enabled = true;
@@ -49,12 +50,12 @@ export function setup(ctx) {
   ctx.add(ground);
 }
 
-export function update(ctx, dt) {
+export function update(ctx: ArtlabContext, dt: number) {
   mesh.rotation.x += 0.3 * dt;
   mesh.rotation.y += 0.5 * dt;
   mesh.position.y = Math.sin(ctx.elapsed * 0.7) * 0.3;
 }
 
-export function teardown(ctx) {
+export function teardown(ctx: ArtlabContext) {
   ctx.remove(mesh);
 }

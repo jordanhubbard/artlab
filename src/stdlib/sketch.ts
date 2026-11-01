@@ -2,13 +2,19 @@
 import * as Three from 'three'
 import { InstanceField } from './scene/InstanceField.ts'
 import { ShaderSurface } from './scene/ShaderSurface.ts'
+import type { ArtlabContext as Context } from '../runtime/contracts'
+
+export interface SliderControl {
+  min: number; max: number; step: number; value: number
+  change(value: number): void
+}
 
 /** @typedef {import('../runtime/contracts').ArtlabContext} Context */
 
 /** Deterministic Mulberry32 stream; never changes global Math.random.
  * @param {number} seed
  */
-export function seededRandom(seed) {
+export function seededRandom(seed: number) {
   return () => {
     let t = seed += 0x6D2B79F5
     t = Math.imul(t ^ t >>> 15, t | 1)
@@ -20,10 +26,10 @@ export function seededRandom(seed) {
 /** Bound catch-up after background tabs. The callback always sees the same dt.
  * @param {(dt: number) => void} step @param {number} [hz] @param {number} [maxSteps]
  */
-export function fixedStep(step, hz = 60, maxSteps = 5) {
+export function fixedStep(step: (dt: number) => void, hz = 60, maxSteps = 5) {
   const dt = 1 / hz
   let accumulator = 0
-  return (/** @type {number} */ delta) => {
+  return (delta: number) => {
     accumulator = Math.min(accumulator + Math.max(0, delta), dt * maxSteps)
     while (accumulator + 1e-10 >= dt) {
       step(dt)
@@ -35,7 +41,7 @@ export function fixedStep(step, hz = 60, maxSteps = 5) {
 /** Reusable presentation rig; lifecycle remains owned by the host.
  * @param {Context} ctx @param {[number, number, number]} eye @param {number} [bloom]
  */
-export function stage(ctx, eye, bloom = 0.35) {
+export function stage(ctx: Context, eye: [number, number, number], bloom = 0.35) {
   ctx.camera.position.set(...eye)
   ctx.camera.lookAt(0, 0, 0)
   ctx.controls.target.set(0, 0, 0)
@@ -51,7 +57,7 @@ export function stage(ctx, eye, bloom = 0.35) {
 /** Procedural sky without an image asset; use with an orbiting scene camera.
  * @param {Context} ctx @param {number} [horizon] @param {number} [zenith]
  */
-export function skyDome(ctx, horizon = 0x864e38, zenith = 0x08182e) {
+export function skyDome(ctx: Context, horizon: Three.ColorRepresentation = 0x864e38, zenith: Three.ColorRepresentation = 0x08182e) {
   return ctx.add(new Three.Mesh(new Three.SphereGeometry(180, 32, 16), new Three.ShaderMaterial({
     uniforms: { horizon: { value: new Three.Color(horizon) }, zenith: { value: new Three.Color(zenith) } },
     vertexShader: 'varying vec3 skyPosition; void main(){skyPosition=position;gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.0);}',
@@ -68,7 +74,7 @@ export function skyDome(ctx, horizon = 0x864e38, zenith = 0x08182e) {
  * @param {Context} ctx @param {Three.BufferGeometry} geometry
  * @param {Three.Material} material @param {number} count
  */
-export function instances(ctx, geometry, material, count) {
+export function instances(ctx: Context, geometry: Three.BufferGeometry, material: Three.Material, count: number) {
   return ctx.add(new InstanceField(count, geometry, material).object)
 }
 
@@ -77,7 +83,7 @@ export function instances(ctx, geometry, material, count) {
  * @param {Record<string, Three.IUniform>} uniforms
  * @param {number} [width] @param {number} [height]
  */
-export function shaderPanel(ctx, fragmentShader, uniforms, width = 12, height = 8) {
+export function shaderPanel(ctx: Context, fragmentShader: string, uniforms: Record<string, Three.IUniform>, width = 12, height = 8) {
   return ctx.add(new ShaderSurface(ctx.renderer, fragmentShader, uniforms, { width, height, fullscreen: false }).object)
 }
 
@@ -85,11 +91,11 @@ export function shaderPanel(ctx, fragmentShader, uniforms, width = 12, height = 
  * @param {Context} ctx @param {(point: Three.Vector2, event: PointerEvent) => void} handler
  * @param {string} [type]
  */
-export function pointer(ctx, handler, type = 'pointerdown') {
+export function pointer(ctx: Context, handler: (point: Three.Vector2, event: PointerEvent) => void, type: keyof HTMLElementEventMap = 'pointerdown') {
   const canvas = ctx.renderer.domElement
   const position = new Three.Vector2()
   ctx.scope.listen(canvas, type, event => {
-    const e = /** @type {PointerEvent} */ (event)
+    const e = event as PointerEvent
     const rect = canvas.getBoundingClientRect()
     if (!rect.width || !rect.height) return
     position.set((e.clientX - rect.left) / rect.width * 2 - 1, 1 - (e.clientY - rect.top) / rect.height * 2)
@@ -101,7 +107,7 @@ export function pointer(ctx, handler, type = 'pointerdown') {
  * @param {Context} ctx @param {string} title
  * @param {Record<string, { min: number, max: number, step: number, value: number, change(value: number): void }>} sliders
  */
-export function controlPanel(ctx, title, sliders) {
+export function controlPanel(ctx: Context, title: string, sliders: Record<string, SliderControl>) {
   const panel = document.createElement('section')
   panel.setAttribute('aria-label', title)
   panel.style.cssText = 'position:absolute;bottom:18px;left:18px;z-index:3;padding:14px 18px;background:#061020e8;color:#b9d5e9;border:1px solid #4c7b9855;border-radius:8px;font:12px monospace;max-width:calc(100% - 72px)'
@@ -136,16 +142,17 @@ export function controlPanel(ctx, title, sliders) {
 /** Rebuilt per simulation tick. Queries return only cells touching the radius.
  * @template {{ position: Three.Vector3 }} T
  */
-export class SpatialHash {
+export class SpatialHash<T extends { position: Three.Vector3 }> {
   /** @type {Map<string, T[]>} */
-  cells = new Map()
+  cells = new Map<string, T[]>()
+  readonly cellSize: number
   /** @param {number} cellSize */
-  constructor(cellSize) {
+  constructor(cellSize: number) {
     if (!(cellSize > 0)) throw new RangeError('cellSize must be positive')
     this.cellSize = cellSize
   }
   /** @param {T[]} items */
-  rebuild(items) {
+  rebuild(items: T[]) {
     this.cells.clear()
     for (const item of items) {
       const { x, y, z } = item.position
@@ -156,7 +163,7 @@ export class SpatialHash {
     }
   }
   /** @param {Three.Vector3} point @param {number} radius @param {(item: T) => void} visit */
-  query(point, radius, visit) {
+  query(point: Three.Vector3, radius: number, visit: (item: T) => void) {
     const s = this.cellSize
     for (let x = Math.floor((point.x - radius) / s); x <= Math.floor((point.x + radius) / s); x++)
       for (let y = Math.floor((point.y - radius) / s); y <= Math.floor((point.y + radius) / s); y++)

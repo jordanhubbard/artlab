@@ -1,33 +1,45 @@
 import { ResourceScope } from './ResourceScope.ts'
+import type { Object3D } from 'three'
+import type { ArtlabContext } from '../../runtime/contracts'
+
+export interface SceneComponent {
+  readonly object?: Object3D
+  update?(dt: number, elapsed: number): void
+  dispose(): unknown
+}
 
 /** Compose independently owned, updatable components into an Artlab scene. */
 export class Scene {
-  constructor(ctx) {
+  readonly ctx: ArtlabContext
+  readonly scope: ResourceScope
+  readonly components: SceneComponent[]
+  constructor(ctx: ArtlabContext) {
     this.ctx = ctx
     this.scope = new ResourceScope()
     this.components = []
   }
 
-  add(object) { return this.scope.add(this.ctx, object) }
+  add<T extends Object3D>(object: T): T { return this.scope.add(this.ctx, object) }
 
-  use(component) {
+  use<T extends SceneComponent>(component: T): T {
     this.scope.own(component)
     if (component.object) {
-      this.ctx.add(component.object)
-      this.scope.defer(() => this.ctx.remove(component.object))
+      const object = component.object
+      this.ctx.add(object)
+      this.scope.defer(() => this.ctx.remove(object))
     }
     this.components.push(component)
     return component
   }
 
-  camera(position, target = [0, 0, 0]) {
+  camera(position: [number, number, number], target: [number, number, number] = [0, 0, 0]) {
     this.ctx.camera.position.set(...position)
     this.ctx.camera.lookAt(...target)
     this.ctx.controls?.target?.set(...target)
     this.ctx.controls?.update?.()
   }
 
-  update(dt, elapsed) {
+  update(dt: number, elapsed: number) {
     for (const component of this.components) component.update?.(dt, elapsed)
   }
 
@@ -38,10 +50,10 @@ export class Scene {
 }
 
 /** Adapt a scene class to setup/update/teardown, with one instance per context. */
-export function defineScene(SceneClass) {
-  const scenes = new WeakMap()
+export function defineScene<S extends Scene & { setup?(): void | Promise<void> }>(SceneClass: new (ctx: ArtlabContext) => S) {
+  const scenes = new WeakMap<ArtlabContext, S>()
   return {
-    setup(ctx) {
+    setup(ctx: ArtlabContext) {
       const scene = new SceneClass(ctx)
       scenes.set(ctx, scene)
       try {
@@ -57,8 +69,8 @@ export function defineScene(SceneClass) {
         throw error
       }
     },
-    update(ctx, dt) { scenes.get(ctx)?.update(dt, ctx.elapsed) },
-    teardown(ctx) {
+    update(ctx: ArtlabContext, dt: number) { scenes.get(ctx)?.update(dt, ctx.elapsed) },
+    teardown(ctx: ArtlabContext) {
       const scene = scenes.get(ctx)
       scenes.delete(ctx)
       return scene?.dispose()

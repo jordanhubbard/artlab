@@ -2,7 +2,13 @@ import * as Three from 'three'
 
 /** An ordered fixed-capacity trail; mirrored storage avoids shifting each frame. */
 export class Trail {
-  constructor(capacity = 64, options = {}) {
+  readonly capacity: number
+  count = 0
+  head = 0
+  readonly positions: Float32Array
+  readonly object: Three.Line<Three.BufferGeometry, Three.LineBasicMaterial>
+  private disposed = false
+  constructor(capacity = 64, options: Three.LineBasicMaterialParameters = {}) {
     if (!Number.isInteger(capacity) || capacity < 2) throw new RangeError('Trail capacity must be at least 2')
     this.capacity = capacity
     this.count = 0
@@ -15,7 +21,7 @@ export class Trail {
     this.object.frustumCulled = false
   }
 
-  push(position) {
+  push(position: Pick<Three.Vector3, 'x' | 'y' | 'z'>) {
     const { x, y, z } = position
     for (let copy = 0; copy < 2; copy++) {
       const offset = (this.head + copy * this.capacity) * 3

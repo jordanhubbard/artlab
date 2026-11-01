@@ -1,6 +1,14 @@
 /** Start audio/media from a gesture, with retry and disposal during async startup. */
 export class GestureButton {
-  constructor(parent, { label, start, pending = 'Starting…', onError = console.error }) {
+  private disposed = false
+  readonly button: HTMLButtonElement
+  private readonly _click: () => Promise<void>
+  constructor(parent: Node, { label, start, pending = 'Starting…', onError = console.error }: {
+    label: string
+    start(): unknown | Promise<unknown>
+    pending?: string
+    onError?(error: unknown): void
+  }) {
     this.disposed = false
     this.button = document.createElement('button')
     this.button.type = 'button'
@@ -17,7 +25,7 @@ export class GestureButton {
         if (this.disposed) return
         this.button.disabled = false
         this.button.textContent = `${label} — retry`
-        this.button.title = error.message
+        this.button.title = error instanceof Error ? error.message : String(error)
         onError(error)
       }
     }

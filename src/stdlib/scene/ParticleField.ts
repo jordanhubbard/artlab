@@ -2,7 +2,12 @@ import * as Three from 'three'
 
 /** A reusable point cloud with fixed, directly editable position/color buffers. */
 export class ParticleField {
-  constructor(count, options = {}) {
+  readonly count: number
+  readonly positions: Float32Array
+  readonly colors: Float32Array
+  readonly object: Three.Points<Three.BufferGeometry, Three.PointsMaterial>
+  private disposed = false
+  constructor(count: number, options: Three.PointsMaterialParameters = {}) {
     if (!Number.isInteger(count) || count < 1) throw new RangeError('Particle count must be a positive integer')
     this.count = count
     this.positions = new Float32Array(count * 3)

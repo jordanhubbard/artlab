@@ -10,5 +10,6 @@
     "skipLibCheck": true,
     "types": ["node", "vitest/globals"]
   },
-  "include": ["src/runtime/contracts.d.ts", "src/runtime/SceneContext.ts", "src/stdlib/scene/ResourceScope.ts", "tests/contracts.ts", "src/stdlib/math.ts", "src/stdlib/geometry.ts", "src/stdlib/lights.ts", "src/stdlib/scene/InstanceField.ts", "src/stdlib/scene/ShaderSurface.ts"]
+  "include": ["src/runtime/contracts.d.ts", "src/runtime/SceneContext.ts", "tests/contracts.ts", "src/stdlib/math.ts", "src/stdlib/geometry.ts", "src/stdlib/lights.ts", "src/stdlib/sketch.ts", "src/stdlib/scene/**/*.ts", "examples/hello-cube/hello-cube.ts", "examples/tutorial-01-geometry/tutorial-01-geometry.ts"],
+  "exclude": ["**/*.test.ts"]
 }

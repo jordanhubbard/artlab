@@ -1,5 +1,13 @@
 // Tutorial 01 — Geometry & Materials: five primitives, slowly rotating.
 import * as Three from 'three';
+import type { ArtlabContext } from '../../src/runtime/contracts';
+
+type ShapeMesh = Three.Mesh<Three.BufferGeometry, Three.MeshStandardMaterial>;
+type GeometryContext = ArtlabContext & {
+  _meshes: ShapeMesh[];
+  _labels: { el: HTMLDivElement; mesh: ShapeMesh }[];
+  _renderer: Three.WebGLRenderer;
+};
 
 const SHAPES = [
   { label: 'sphere',   geo: () => new Three.SphereGeometry(0.6, 32, 16),        color: 0x4466ff, pos: -4 },
@@ -9,7 +17,7 @@ const SHAPES = [
   { label: 'cone',     geo: () => new Three.ConeGeometry(0.5, 1.1, 32),          color: 0xcc44ff, pos:  4 },
 ];
 
-function makeLabelEl(text) {
+function makeLabelEl(text: string) {
   const el = document.createElement('div');
   el.style.cssText = [
     'position:absolute', 'z-index:98', 'pointer-events:none',
@@ -20,7 +28,7 @@ function makeLabelEl(text) {
   return el;
 }
 
-export function setup(ctx) {
+export function setup(ctx: GeometryContext) {
   const { Three: T, scene, camera, renderer } = ctx;
 
   camera.position.set(0, 2, 9);
@@ -54,14 +62,14 @@ export function setup(ctx) {
     ctx._meshes.push(m);
 
     const lel = makeLabelEl(def.label);
-    container.appendChild(lel);
+    container?.appendChild(lel);
     ctx._labels.push({ el: lel, mesh: m });
   }
 
   ctx._renderer = renderer;
 }
 
-export function update(ctx, dt) {
+export function update(ctx: GeometryContext, dt: number) {
   const t = ctx.elapsed;
 
   for (let i = 0; i < ctx._meshes.length; i++) {
@@ -81,6 +89,6 @@ export function update(ctx, dt) {
   }
 }
 
-export function teardown(ctx) {
+export function teardown(ctx: GeometryContext) {
   for (const { el } of ctx._labels) el.remove();
 }
