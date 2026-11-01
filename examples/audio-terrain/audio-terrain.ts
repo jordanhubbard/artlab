@@ -3,6 +3,7 @@ import * as THREE from 'three'
 import { MicrophoneInput } from '../../src/stdlib/media.ts'
 import { ResourceScope, GestureButton } from '../../src/stdlib/scene.ts'
 import { createParticleWorld, emitter, forceField } from '../../src/stdlib/physics/particles.ts'
+import type { ArtlabContext } from '../../src/runtime/contracts'
 
 // ── Constants ─────────────────────────────────────────────────────────────────
 
@@ -17,15 +18,16 @@ const _PEAK = new THREE.Color(0x00eeff)
 
 // ── Module state ──────────────────────────────────────────────────────────────
 
-let _terrain, _terrainGeo, _posAttr, _colAttr
-let _pworld, _spark
-let _ambLight, _hemiLight
-let _startBtn
-let _microphone, _scope
+let _terrain: THREE.Mesh<THREE.PlaneGeometry, THREE.MeshBasicMaterial>
+let _terrainGeo: THREE.PlaneGeometry, _posAttr: THREE.BufferAttribute, _colAttr: THREE.BufferAttribute
+let _pworld: ReturnType<typeof createParticleWorld>, _spark: ReturnType<typeof emitter>
+let _ambLight: THREE.AmbientLight, _hemiLight: THREE.HemisphereLight
+let _startBtn: GestureButton
+let _microphone: MicrophoneInput, _scope: ResourceScope
 
 // ── Lifecycle ─────────────────────────────────────────────────────────────────
 
-export async function setup(ctx) {
+export async function setup(ctx: ArtlabContext) {
   _scope = new ResourceScope()
   _microphone = _scope.own(new MicrophoneInput())
   ctx.camera.position.set(28, 14, 0)
@@ -41,7 +43,9 @@ export async function setup(ctx) {
   _terrainGeo = new THREE.PlaneGeometry(TERRAIN_W, TERRAIN_W, SEGS, SEGS)
   _terrainGeo.rotateX(-Math.PI / 2)
 
-  _posAttr = _terrainGeo.attributes.position
+  const position = _terrainGeo.attributes.position
+  if (!(position instanceof THREE.BufferAttribute)) throw new Error('Terrain requires a contiguous position buffer')
+  _posAttr = position
   _posAttr.setUsage(THREE.DynamicDrawUsage)
 
   const colorBuf = new Float32Array(NUM_VERTS * 3)
@@ -65,14 +69,16 @@ export async function setup(ctx) {
   ctx.setBloom(0.9)
 
   const microphone = _microphone
-  _startBtn = _scope.own(new GestureButton(ctx.renderer.domElement.parentElement, {
+  const container = ctx.renderer.domElement.parentElement
+  if (!container) throw new Error('Audio Terrain requires a canvas container')
+  _startBtn = _scope.own(new GestureButton(container, {
     label: 'Enable Microphone', start: () => microphone.start(),
   }))
   _scope.own(_spark)
 
 }
 
-export function update(ctx, dt) {
+export function update(ctx: ArtlabContext, dt: number) {
   const t = ctx.elapsed
 
   // Get audio bands, or use gentle procedural fallback when mic is off

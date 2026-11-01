@@ -1,22 +1,33 @@
 // synth-keyboard — piano keys spawn colored particle fountains per note with reverb trails.
 import * as Three from 'three'
 import * as Tone from 'tone'
+import type { ArtlabContext } from '../../src/runtime/contracts'
+type KeyMesh = Three.Mesh<Three.BoxGeometry, Three.MeshStandardMaterial>
+type KeyboardContext = ArtlabContext & {
+  _lights: Three.Light[]; _toneStarted: boolean
+  _synth: Tone.PolySynth<Tone.Synth>; _reverb: Tone.Reverb
+  _keyMeshes: { mesh: KeyMesh; note: string; isBlack: boolean; baseY: number }[]
+  _particleSystem: Three.Points<Three.BufferGeometry, Three.PointsMaterial>
+  _particles: { idx: number; vx: number; vy: number; vz: number; life: number; maxLife: number }[]
+  _nextParticle: number; _activeKeys: Set<string>
+  _onKeyDown(event: KeyboardEvent): Promise<void>; _onKeyUp(event: KeyboardEvent): void
+}
 
 const WHITE_KEYS = ['C4','D4','E4','F4','G4','A4','B4','C5']
 const BLACK_KEYS = [null,'C#4','D#4',null,'F#4','G#4','A#4',null]
-const KEY_MAP_WHITE = { a:'C4', s:'D4', d:'E4', f:'F4', g:'G4', h:'A4', j:'B4', k:'C5' }
-const KEY_MAP_BLACK = { w:'C#4', e:'D#4', t:'F#4', y:'G#4', u:'A#4' }
+const KEY_MAP_WHITE: Record<string, string | undefined> = { a:'C4', s:'D4', d:'E4', f:'F4', g:'G4', h:'A4', j:'B4', k:'C5' }
+const KEY_MAP_BLACK: Record<string, string | undefined> = { w:'C#4', e:'D#4', t:'F#4', y:'G#4', u:'A#4' }
 
-const NOTE_HUES = { C:0, 'C#':30, D:50, 'D#':80, E:110, F:140, 'F#':170, G:195, 'G#':220, A:250, 'A#':280, B:310 }
+const NOTE_HUES: Record<string, number | undefined> = { C:0, 'C#':30, D:50, 'D#':80, E:110, F:140, 'F#':170, G:195, 'G#':220, A:250, 'A#':280, B:310 }
 const MAX_PARTICLES = 2000
 const PARTICLES_PER_NOTE = 40
 
-function noteHue(note) {
+function noteHue(note: string) {
   const name = note.replace(/\d+/, '')
   return (NOTE_HUES[name] || 0) / 360
 }
 
-export async function setup(ctx) {
+export async function setup(ctx: KeyboardContext) {
   ctx.setHelp('White keys: A S D F G H J K   •   Black keys: W E T Y U')
   ctx.camera.position.set(0, 5, 10)
   ctx.camera.lookAt(0, 1, 0)
@@ -54,13 +65,14 @@ export async function setup(ctx) {
   }
 
   for (let i = 0; i < BLACK_KEYS.length; i++) {
-    if (!BLACK_KEYS[i]) continue
+    const note = BLACK_KEYS[i]
+    if (!note) continue
     const geo = new Three.BoxGeometry(0.5, 0.35, 1.2)
     const mat = new Three.MeshStandardMaterial({ color: 0x222222, roughness: 0.4 })
     const mesh = new Three.Mesh(geo, mat)
     mesh.position.set(startX + i * 0.9 + 0.45, 0.2, -0.4)
     ctx.add(mesh)
-    ctx._keyMeshes.push({ mesh, note: BLACK_KEYS[i], isBlack: true, baseY: 0.2 })
+    ctx._keyMeshes.push({ mesh, note, isBlack: true, baseY: 0.2 })
   }
 
   // Particle system
@@ -68,12 +80,9 @@ export async function setup(ctx) {
   const positions = new Float32Array(MAX_PARTICLES * 3)
   const colors = new Float32Array(MAX_PARTICLES * 3)
   const sizes = new Float32Array(MAX_PARTICLES)
-  pGeo.setAttribute('position', new Three.BufferAttribute(positions, 3))
-  pGeo.setAttribute('color', new Three.BufferAttribute(colors, 3))
-  pGeo.setAttribute('size', new Three.BufferAttribute(sizes, 1))
-  pGeo.attributes.position.setUsage(Three.DynamicDrawUsage)
-  pGeo.attributes.color.setUsage(Three.DynamicDrawUsage)
-  pGeo.attributes.size.setUsage(Three.DynamicDrawUsage)
+  pGeo.setAttribute('position', new Three.BufferAttribute(positions, 3).setUsage(Three.DynamicDrawUsage))
+  pGeo.setAttribute('color', new Three.BufferAttribute(colors, 3).setUsage(Three.DynamicDrawUsage))
+  pGeo.setAttribute('size', new Three.BufferAttribute(sizes, 1).setUsage(Three.DynamicDrawUsage))
 
   const pMat = new Three.PointsMaterial({
     size: 0.15, vertexColors: true, transparent: true, opacity: 0.8,
@@ -118,7 +127,7 @@ export async function setup(ctx) {
   window.addEventListener('keyup', ctx._onKeyUp)
 }
 
-function spawnFountain(ctx, note) {
+function spawnFountain(ctx: KeyboardContext, note: string) {
   const keyObj = ctx._keyMeshes.find(k => k.note === note)
   if (!keyObj) return
   const kx = keyObj.mesh.position.x
@@ -149,7 +158,7 @@ function spawnFountain(ctx, note) {
   }
 }
 
-export function update(ctx, dt) {
+export function update(ctx: KeyboardContext, dt: number) {
   const dt_ = Math.min(dt, 0.05)
   const pos = ctx._particleSystem.geometry.attributes.position
   const sizes = ctx._particleSystem.geometry.attributes.size
@@ -176,7 +185,7 @@ export function update(ctx, dt) {
   sizes.needsUpdate = true
 }
 
-export function teardown(ctx) {
+export function teardown(ctx: KeyboardContext) {
   window.removeEventListener('keydown', ctx._onKeyDown)
   window.removeEventListener('keyup', ctx._onKeyUp)
   for (const k of ctx._keyMeshes) ctx.remove(k.mesh)

@@ -18,6 +18,8 @@
     "src/stdlib/video.ts",
     "src/stdlib/ui.ts",
     "src/stdlib/audio.ts",
+    "examples/music-synth/music-synth.ts", "examples/synth-keyboard/synth-keyboard.ts",
+    "examples/audio-terrain/audio-terrain.ts",
     "examples/cloth-sim/cloth-sim.ts", "examples/n-body-gravity/n-body-gravity.ts",
     "examples/mobius-strip/mobius-strip.ts", "examples/recursive-spirals/recursive-spirals.ts", "examples/penrose-tiles/penrose-tiles.ts",
     "examples/terrain-flyover/terrain-flyover.ts",

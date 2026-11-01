@@ -7,6 +7,7 @@ import * as Three from 'three'
 import {
   scale, chord, progression, sequencer, reverb, delay,
 } from '../../src/stdlib/audio.ts'
+import type { ArtlabContext } from '../../src/runtime/contracts'
 
 // ── Music setup ──────────────────────────────────────────────────────────────
 
@@ -20,16 +21,19 @@ const MELODY = scale(ROOT, MODE, 2, 3)   // 2-octave melodic scale for arp
 
 // ── 3D visual state ──────────────────────────────────────────────────────────
 
-let _rings, _particles, _chordLabel, _beatFlash
-let _onKey, _isStarted = false
-let _seq, _chordSeq, _bassSeq, _rev, _dly
+let _rings: Three.Mesh<Three.TorusGeometry, Three.MeshStandardMaterial>[]
+let _particles: Three.Points<Three.BufferGeometry, Three.PointsMaterial>
+let _chordLabel: HTMLDivElement, _beatFlash: Three.Mesh<Three.SphereGeometry, Three.MeshStandardMaterial>
+let _onKey: (event: KeyboardEvent) => void, _isStarted = false
+let _seq: ReturnType<typeof sequencer>, _chordSeq: Tone.Sequence<number>, _bassSeq: Tone.Sequence<number>
+let _rev: Tone.Reverb, _dly: Tone.FeedbackDelay
 let _chordIdx = 0, _beatT = 0
 let _melodyIdx = 0
-let _startBtn
+let _startBtn: HTMLButtonElement
 
 // ── Synth voices ─────────────────────────────────────────────────────────────
 
-let _arpSynth, _chordSynth, _bassSynth, _noise
+let _arpSynth: Tone.Synth, _chordSynth: Tone.PolySynth<Tone.Synth>, _bassSynth: Tone.Synth, _noise: Tone.NoiseSynth
 
 function _buildSynths() {
   _rev = reverb({ decay: 4, wet: 0.55 })
@@ -98,7 +102,7 @@ function _buildSequencers() {
   }, [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15], '4n')
 
   Tone.Transport.bpm.value = 96
-  _seq.start(0)
+  _seq.start()
   _chordSeq.start(0)
   _bassSeq.start(0)
   Tone.Transport.start()
@@ -108,7 +112,7 @@ function _buildSequencers() {
 
 const CHORD_COLORS = [0x4466ff, 0xff6644, 0x44dd88, 0xffcc22]
 
-function _build3D(ctx) {
+function _build3D(ctx: ArtlabContext) {
   // Ring array — one per chord in progression
   _rings = []
   for (let ci = 0; ci < PROG.length; ci++) {
@@ -150,6 +154,7 @@ function _build3D(ctx) {
 
   // Chord label
   const container = ctx.renderer.domElement.parentElement
+  if (!container) throw new Error('Music Synth requires a canvas container')
   _chordLabel = document.createElement('div')
   Object.assign(_chordLabel.style, {
     position: 'absolute', bottom: '52px', left: '50%', transform: 'translateX(-50%)',
@@ -180,7 +185,7 @@ async function _startAudio() {
   }
 }
 
-export function setup(ctx) {
+export function setup(ctx: ArtlabContext) {
   ctx.setHelp('Click Start Music to begin  •  Space: pause / resume')
   ctx.camera.position.set(0, 3, 16)
   ctx.camera.lookAt(0, 0, 0)
@@ -195,6 +200,7 @@ export function setup(ctx) {
 
   // Start button — audio requires user gesture
   const _container = ctx.renderer.domElement.parentElement
+  if (!_container) throw new Error('Music Synth requires a canvas container')
   _startBtn = document.createElement('button')
   Object.assign(_startBtn.style, {
     position: 'absolute', bottom: '24px', left: '50%', transform: 'translateX(-50%)',
@@ -221,7 +227,7 @@ export function setup(ctx) {
   window.addEventListener('keydown', _onKey)
 }
 
-export function update(ctx, dt) {
+export function update(ctx: ArtlabContext, dt: number) {
   const t = ctx.elapsed
   const isPlaying = _isStarted && Tone.Transport.state === 'started'
 
@@ -270,7 +276,7 @@ export function update(ctx, dt) {
   }
 }
 
-export async function teardown(ctx) {
+export async function teardown(ctx: ArtlabContext) {
   window.removeEventListener('keydown', _onKey)
   _startBtn?.remove()
   _chordLabel?.remove()
