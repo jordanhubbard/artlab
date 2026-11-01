@@ -16,6 +16,14 @@
  */
 
 import * as Three from 'three'
+export interface VideoSize { width?: number; height?: number }
+export interface WebcamOptions extends VideoSize { facingMode?: 'user' | 'environment' }
+export interface PlaybackOptions { autoplay?: boolean; loop?: boolean; muted?: boolean }
+export interface CaptureOptions { fps?: number; mimeType?: string }
+export interface GlitchOptions { intensity?: number; speed?: number }
+export interface VideoPlaneOptions extends VideoSize { material?: Three.Material }
+export interface VideoSource { texture: Three.VideoTexture; video: HTMLVideoElement }
+export interface MediaInput extends VideoSource { start(): void; stop(): void; isReady(): boolean }
 
 // ---------------------------------------------------------------------------
 // Shared GLSL preamble — UV-based texture lookup used by all shader materials
@@ -42,7 +50,7 @@ const _VERT = /* glsl */`
  * @param {'user'|'environment'} [options.facingMode='user']
  * @returns {{ texture: Three.VideoTexture, video: HTMLVideoElement, start(): void, stop(): void, isReady(): boolean }}
  */
-export function webcam(options = {}) {
+export function webcam(options: WebcamOptions = {}): MediaInput {
   const { width = 1280, height = 720, facingMode = 'user' } = options
   return _mediaStream(
     () => navigator.mediaDevices.getUserMedia({
@@ -60,7 +68,7 @@ export function webcam(options = {}) {
  * @param {number} [options.height=1080]
  * @returns {{ texture: Three.VideoTexture, video: HTMLVideoElement, start(): void, stop(): void, isReady(): boolean }}
  */
-export function screen(options = {}) {
+export function screen(options: VideoSize = {}): MediaInput {
   const { width = 1920, height = 1080 } = options
   return _mediaStream(
     () => navigator.mediaDevices.getDisplayMedia({
@@ -84,7 +92,7 @@ export function screen(options = {}) {
  * @param {boolean} [options.muted=true]
  * @returns {{ texture: Three.VideoTexture, video: HTMLVideoElement, play(): void, pause(): void, loop(bool): void, currentTime: number, duration: number }}
  */
-export function videoTexture(src, options = {}) {
+export function videoTexture(src: string, options: PlaybackOptions = {}) {
   const { autoplay = true, loop = true, muted = true } = options
 
   const video = document.createElement('video')
@@ -112,7 +120,7 @@ export function videoTexture(src, options = {}) {
      * Enable or disable looping.
      * @param {boolean} enabled
      */
-    loop(enabled) { video.loop = enabled },
+    loop(enabled: boolean) { video.loop = enabled },
     /** Current playback position in seconds. */
     get currentTime() { return video.currentTime },
     set currentTime(t) { video.currentTime = t },
@@ -134,11 +142,11 @@ export function videoTexture(src, options = {}) {
  * @param {string} [options.mimeType='video/webm']
  * @returns {{ start(): void, stop(): void, download(filename?: string): void }}
  */
-export function captureCanvas(canvas, options = {}) {
+export function captureCanvas(canvas: HTMLCanvasElement, options: CaptureOptions = {}) {
   const { fps = 30, mimeType = 'video/webm' } = options
 
-  let _recorder  = null
-  let _chunks    = []
+  let _recorder: MediaRecorder | null = null
+  let _chunks: Blob[] = []
 
   return {
     /** Begin recording. */
@@ -187,7 +195,7 @@ export function captureCanvas(canvas, options = {}) {
  * @param {number}        threshold   Similarity threshold in [0, 1] (default 0.3)
  * @returns {Three.ShaderMaterial}
  */
-export function chromaKey(texture, keyColor = new Three.Color(0, 1, 0), threshold = 0.3) {
+export function chromaKey(texture: Three.Texture, keyColor = new Three.Color(0, 1, 0), threshold = 0.3) {
   return new Three.ShaderMaterial({
     uniforms: {
       map:       { value: texture },
@@ -220,7 +228,7 @@ export function chromaKey(texture, keyColor = new Three.Color(0, 1, 0), threshol
  * @param {number}        blockSize  Pixel block size in texels (default 8)
  * @returns {Three.ShaderMaterial}
  */
-export function pixelate(texture, blockSize = 8) {
+export function pixelate(texture: Three.Texture, blockSize = 8) {
   return new Three.ShaderMaterial({
     uniforms: {
       map:       { value: texture },
@@ -258,7 +266,7 @@ export function pixelate(texture, blockSize = 8) {
  * @param {number} [options.speed=1.0]       Scanline animation speed multiplier
  * @returns {Three.ShaderMaterial}
  */
-export function glitch(texture, options = {}) {
+export function glitch(texture: Three.Texture, options: GlitchOptions = {}) {
   const { intensity = 0.01, speed = 1.0 } = options
 
   return new Three.ShaderMaterial({
@@ -317,9 +325,9 @@ export function glitch(texture, options = {}) {
  * @param {Three.Material} [options.material]  Override material (defaults to MeshBasicMaterial)
  * @returns {Three.Mesh}
  */
-export function videoPlane(textureOrResult, options = {}) {
-  const texture = textureOrResult?.texture ?? textureOrResult
-  const video   = textureOrResult?.video   ?? texture?.image
+export function videoPlane(textureOrResult: Three.VideoTexture | VideoSource, options: VideoPlaneOptions = {}) {
+  const texture = 'texture' in textureOrResult ? textureOrResult.texture : textureOrResult
+  const video: HTMLVideoElement = 'video' in textureOrResult ? textureOrResult.video : texture.image
 
   let { width = 2, height, material } = options
 
@@ -346,7 +354,7 @@ export function videoPlane(textureOrResult, options = {}) {
  * @param {() => Promise<MediaStream>} acquireFn
  * @returns {{ texture: Three.VideoTexture, video: HTMLVideoElement, start(): void, stop(): void, isReady(): boolean }}
  */
-function _mediaStream(acquireFn) {
+function _mediaStream(acquireFn: () => Promise<MediaStream>): MediaInput {
   const video = document.createElement('video')
   video.playsInline = true
   video.muted       = true
@@ -355,7 +363,7 @@ function _mediaStream(acquireFn) {
   const texture = new Three.VideoTexture(video)
   texture.colorSpace = Three.SRGBColorSpace
 
-  let _stream = null
+  let _stream: MediaStream | null = null
   let _ready  = false
 
   // Kick off acquisition immediately — non-blocking.

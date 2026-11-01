@@ -2,19 +2,24 @@
 
 import * as THREE from 'three'
 import { webcam, chromaKey, videoPlane } from '../../src/stdlib/video.ts'
+import type { MediaInput } from '../../src/stdlib/video.ts'
+import type { ArtlabContext } from '../../src/runtime/contracts'
+type Shape = THREE.Mesh<THREE.BufferGeometry, THREE.MeshStandardMaterial> & {
+  userData: { spinX: number; spinY: number; spinZ: number }
+}
 
 const SHAPE_COUNT = 18
 const PALETTE     = [0xff3366, 0x33ccff, 0xffcc00, 0xff6600, 0x66ff99, 0xcc33ff, 0xff99cc, 0x00ccff]
 const PLANE_W     = 4.5
 const PLANE_H     = PLANE_W * (720 / 1280)
 
-let _cam    = null
-let _plane  = null
-let _shapes = []
-let _lights = []
-let _note   = null
+let _cam: MediaInput | null = null
+let _plane: ReturnType<typeof videoPlane> | null = null
+let _shapes: Shape[] = []
+let _lights: THREE.Light[] = []
+let _note: HTMLDivElement | null = null
 
-export async function setup(ctx) {
+export async function setup(ctx: ArtlabContext) {
   ctx.camera.position.set(0, 0, 8)
   ctx.setBloom(0.5)
 
@@ -41,7 +46,9 @@ export async function setup(ctx) {
       roughness: 0.3,
       metalness: 0.6,
     })
-    const mesh = new THREE.Mesh(geos[i % geos.length], mat)
+    const mesh = Object.assign(new THREE.Mesh(geos[i % geos.length], mat), {
+      userData: { spinX: ((i % 3) - 1) * 0.25, spinY: ((i % 5) - 2) * 0.3, spinZ: ((i % 4) - 1.5) * 0.15 },
+    })
 
     const angle  = (i / SHAPE_COUNT) * Math.PI * 2 + 0.3
     const radius = 3 + (i % 4) * 1.5
@@ -60,6 +67,7 @@ export async function setup(ctx) {
   }
 
   const container = ctx.renderer.domElement.parentElement
+  if (!container) throw new Error('Chroma Mirror requires a canvas container')
   container.style.position = 'relative'
 
   if (!navigator.mediaDevices?.getUserMedia) {
@@ -76,7 +84,7 @@ export async function setup(ctx) {
   ctx.add(_plane)
 }
 
-export function update(_ctx, dt) {
+export function update(_ctx: ArtlabContext, dt: number) {
   for (const mesh of _shapes) {
     mesh.rotation.x += mesh.userData.spinX * dt
     mesh.rotation.y += mesh.userData.spinY * dt
@@ -84,7 +92,7 @@ export function update(_ctx, dt) {
   }
 }
 
-export function teardown(ctx) {
+export function teardown(ctx: ArtlabContext) {
   _cam?.stop()
   _cam = null
 
@@ -106,8 +114,8 @@ export function teardown(ctx) {
   ctx.renderer.domElement.parentElement?.querySelector('#cm-allow-btn')?.remove()
 }
 
-function _awaitGesture(container) {
-  return new Promise(resolve => {
+function _awaitGesture(container: HTMLElement) {
+  return new Promise<void>(resolve => {
     const btn = document.createElement('button')
     btn.id = 'cm-allow-btn'
     Object.assign(btn.style, {
@@ -132,7 +140,7 @@ function _awaitGesture(container) {
   })
 }
 
-function _buildNote(container) {
+function _buildNote(container: HTMLElement) {
   const el = document.createElement('div')
   Object.assign(el.style, {
     position:      'absolute',

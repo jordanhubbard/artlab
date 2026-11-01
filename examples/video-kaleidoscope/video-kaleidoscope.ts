@@ -4,6 +4,8 @@
 
 import * as Three from 'three'
 import { webcam } from '../../src/stdlib/video.ts'
+import type { MediaInput } from '../../src/stdlib/video.ts'
+import type { ArtlabContext } from '../../src/runtime/contracts'
 
 // ── Constants ────────────────────────────────────────────────────────────────
 
@@ -65,13 +67,16 @@ const FRAG = /* glsl */`
 
 // ── Module state ─────────────────────────────────────────────────────────────
 
-let _cam, _mesh, _mat
+let _cam: MediaInput | null = null
+let _mesh: Three.Mesh<Three.PlaneGeometry, Three.ShaderMaterial> | null = null
+let _mat: Three.ShaderMaterial | null = null
 let _segIdx  = 0
-let _hud, _onKey
+let _hud: HTMLDivElement | null = null
+let _onKey: ((event: KeyboardEvent) => void) | null = null
 
 // ── Lifecycle ─────────────────────────────────────────────────────────────────
 
-export async function setup(ctx) {
+export async function setup(ctx: ArtlabContext) {
   ctx.setHelp('K: change symmetry (number of slices)   •   R: reset rotation')
   ctx.camera.position.set(0, 0, CAM_DIST)
   ctx.camera.fov    = 60
@@ -79,6 +84,7 @@ export async function setup(ctx) {
   ctx.camera.updateProjectionMatrix()
 
   const container = ctx.renderer.domElement.parentElement
+  if (!container) throw new Error('Video Kaleidoscope requires a canvas container')
   container.style.position = 'relative'
 
   // Require a user gesture before requesting camera access
@@ -105,6 +111,7 @@ export async function setup(ctx) {
   _updateHud()
 
   _onKey = e => {
+    if (!_mat) return
     const k = e.key.toLowerCase()
     if (k === 'k') {
       _segIdx = (_segIdx + 1) % SEGMENTS.length
@@ -123,15 +130,15 @@ export async function setup(ctx) {
 
 let _rotOffset = 0
 
-export function update(ctx /*, dt */) {
+export function update(ctx: ArtlabContext /*, dt */) {
   if (_mat) {
     _mat.uniforms.time.value = ctx.elapsed - _rotOffset
   }
 }
 
-export function teardown(ctx) {
+export function teardown(ctx: ArtlabContext) {
   _cam?.stop()
-  window.removeEventListener('keydown', _onKey)
+  if (_onKey) window.removeEventListener('keydown', _onKey)
   _hud?.remove()
   _cam = null
   _mesh = null
@@ -147,8 +154,8 @@ export function teardown(ctx) {
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
-function _awaitGesture(container) {
-  return new Promise(resolve => {
+function _awaitGesture(container: HTMLElement) {
+  return new Promise<void>(resolve => {
     const btn = document.createElement('button')
     btn.id = 'vk-allow-btn'
     Object.assign(btn.style, {
@@ -173,7 +180,7 @@ function _awaitGesture(container) {
   })
 }
 
-function _buildHud(container) {
+function _buildHud(container: HTMLElement) {
   const el = document.createElement('div')
   Object.assign(el.style, {
     position:      'absolute',
